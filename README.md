@@ -1,4 +1,4 @@
-# Nano Wardrobe - Virtual Try-On POC
+# Wardrub - Virtual Try-On POC
 
 A mobile-first Progressive Web App for digitizing your wardrobe and virtually trying on clothes using AI.
 
