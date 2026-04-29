@@ -1,0 +1,205 @@
+@import "tailwindcss";
+
+:root {
+  /* Warm cream and charcoal palette */
+  --color-cream: #F5F0E8;
+  --color-charcoal: #1A1A1A;
+  --color-warm-gray: #8B8680;
+  --color-terracotta: #C4704B;
+  --color-sage: #7A8B6E;
+  --color-blush: #D4A5A5;
+  
+  /* Glass effect */
+  --glass-bg: rgba(245, 240, 232, 0.7);
+  --glass-border: rgba(138, 134, 128, 0.2);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  height: 100%;
+  /* Fix for iOS Safari PWA viewport */
+  height: -webkit-fill-available;
+}
+
+body {
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+  font-family: 'DM Sans', sans-serif;
+  background: var(--color-cream);
+  color: var(--color-charcoal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Allow body to scroll */
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#root {
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 600;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-warm-gray);
+  border-radius: 2px;
+}
+
+/* Safe area padding for notched phones */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Bottom navigation height compensation */
+/* Nav is ~80px + safe area, so use 100px base + safe area */
+.nav-bottom-spacing {
+  padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+}
+
+/* For scrollable content that needs to clear the nav */
+.scroll-pb-nav {
+  padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Animation keyframes */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes scaleUp {
+  from { 
+    opacity: 0; 
+    transform: scale(0.9); 
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-cream) 0%,
+    rgba(212, 165, 165, 0.3) 50%,
+    var(--color-cream) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-scale-up {
+  animation: scaleUp 0.3s ease-out forwards;
+}
+
+/* Staggered animation delays */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+
+/* Responsive page container - handles max-width and centering */
+.page-container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (min-width: 640px) {
+  .page-container {
+    max-width: 640px;
+  }
+}
+
+@media (min-width: 768px) {
+  .page-container {
+    max-width: 768px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-container {
+    max-width: 896px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .page-container {
+    max-width: 960px;
+  }
+}
+
+/* Responsive padding utility */
+.page-padding {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  .page-padding {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .page-padding {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}

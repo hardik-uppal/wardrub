@@ -1,0 +1,259 @@
+[
+  {
+    "uri": "gs://wardrub-assets-1/garments/bottom/1a923ff9-9d47-4616-883f-51d6bd27cc67_front.png",
+    "name": "garments/bottom/1a923ff9-9d47-4616-883f-51d6bd27cc67_front.png",
+    "labels": [
+      {
+        "description": "Active Pants",
+        "confidence": 77.19467878341675,
+        "topicality": 0.007365331053733826
+      }
+    ],
+    "web_detection": {
+      "web_entities": [
+        {
+          "description": "Tights",
+          "score": 0.28555721044540405
+        }
+      ],
+      "best_guess_labels": [
+        "tights"
+      ],
+      "matching_pages": [],
+      "visually_similar": [
+        "https://cdn.aboutstatic.com/file/images/582fa14c5b7a2873537e7111b787aee6.png",
+        "https://assets.vogue.com/photos/68ed49c7d0df14ff011decd4/3:4/w_748%2Cc_limit/7.jpg",
+        "https://media.glamour.com/photos/6949742cab0ba16f741096f6/3:4/w_748%2Cc_limit/Alo%2520Airbrush%2520High-Waist%252078%2520Bootcut%2520Legging%2520.png"
+      ]
+    },
+    "objects": [
+      {
+        "name": "Pants",
+        "confidence": 93.83814334869385
+      }
+    ],
+    "colors": [
+      {
+        "hex": "#161616",
+        "rgb": [
+          22,
+          22,
+          22
+        ],
+        "pixel_fraction": 23.523809015750885
+      },
+      {
+        "hex": "#f4f4f4",
+        "rgb": [
+          244,
+          244,
+          244
+        ],
+        "pixel_fraction": 71.79166674613953
+      },
+      {
+        "hex": "#2c2c2c",
+        "rgb": [
+          44,
+          44,
+          44
+        ],
+        "pixel_fraction": 2.5833332911133766
+      },
+      {
+        "hex": "#525252",
+        "rgb": [
+          82,
+          82,
+          82
+        ],
+        "pixel_fraction": 0.5238095298409462
+      },
+      {
+        "hex": "#c1c1c1",
+        "rgb": [
+          193,
+          193,
+          193
+        ],
+        "pixel_fraction": 0.7380952592939138
+      }
+    ]
+  },
+  {
+    "uri": "gs://wardrub-assets-1/garments/bottom/3f14e5a7-e1f0-4d20-b923-b87dfcd16765_front.png",
+    "name": "garments/bottom/3f14e5a7-e1f0-4d20-b923-b87dfcd16765_front.png",
+    "labels": [
+      {
+        "description": "A-line",
+        "confidence": 68.07525157928467,
+        "topicality": 0.16349272429943085
+      }
+    ],
+    "web_detection": {
+      "web_entities": [
+        {
+          "description": "Miniskirt",
+          "score": 0.3844379782676697
+        },
+        {
+          "description": "Line",
+          "score": 0.2678999900817871
+        }
+      ],
+      "best_guess_labels": [
+        "miniskirt"
+      ],
+      "matching_pages": [],
+      "visually_similar": [
+        "https://media.vogue.co.uk/photos/69384772ec108eb00d1e9fa2/3:4/w_748%2Cc_limit/1.png",
+        "https://media.vogue.de/photos/69428fdf4436e55d995b2ddd/3:4/w_748%2Cc_limit/%2520Rock-Trends%25202026%2520-%2520CHLOE%25CC%2581_Maxirock%2520aus%2520Bioseidenmusselin%2520mit%2520Stufen.jpg",
+        "https://alinoma.jp/assets/front/img/category/category_7.jpg?1740558881"
+      ]
+    },
+    "objects": [
+      {
+        "name": "Skirt",
+        "confidence": 94.25310492515564
+      }
+    ],
+    "colors": [
+      {
+        "hex": "#138090",
+        "rgb": [
+          19,
+          128,
+          144
+        ],
+        "pixel_fraction": 22.65116274356842
+      },
+      {
+        "hex": "#09606d",
+        "rgb": [
+          9,
+          96,
+          109
+        ],
+        "pixel_fraction": 18.031007051467896
+      },
+      {
+        "hex": "#128b93",
+        "rgb": [
+          18,
+          139,
+          147
+        ],
+        "pixel_fraction": 3.1550388783216476
+      },
+      {
+        "hex": "#04404f",
+        "rgb": [
+          4,
+          64,
+          79
+        ],
+        "pixel_fraction": 4.68217059969902
+      },
+      {
+        "hex": "#043346",
+        "rgb": [
+          4,
+          51,
+          70
+        ],
+        "pixel_fraction": 0.9534883312880993
+      }
+    ]
+  },
+  {
+    "uri": "gs://wardrub-assets-1/garments/bottom/4423d4da-9567-4acc-bf01-27c70e71af9c_front.png",
+    "name": "garments/bottom/4423d4da-9567-4acc-bf01-27c70e71af9c_front.png",
+    "labels": [
+      {
+        "description": "Button",
+        "confidence": 91.7151391506195,
+        "topicality": 0.023730339482426643
+      },
+      {
+        "description": "Pocket",
+        "confidence": 87.68674731254578,
+        "topicality": 0.03680518642067909
+      },
+      {
+        "description": "Waist",
+        "confidence": 85.3737473487854,
+        "topicality": 0.017930462956428528
+      },
+      {
+        "description": "Khaki Pants",
+        "confidence": 66.20455384254456,
+        "topicality": 0.0014219966251403093
+      }
+    ],
+    "web_detection": {
+      "web_entities": [],
+      "best_guess_labels": [
+        "pocket"
+      ],
+      "matching_pages": [],
+      "visually_similar": [
+        "https://vader-prod.s3.amazonaws.com/1763663158-1763586598-screenshot-2025-11-19-at-4-08-49-pm-691f5d25e5606.jpg",
+        "https://assets.vogue.com/photos/68f6b1a2c42b82d7f0994c03/3:4/w_748%2Cc_limit/41.jpg",
+        "https://twothirds.com/cdn/shop/files/middle-malt-ball-9999476.jpg?v=1759937440&width=1200"
+      ]
+    },
+    "objects": [
+      {
+        "name": "Pants",
+        "confidence": 92.3494279384613
+      }
+    ],
+    "colors": [
+      {
+        "hex": "#b29b86",
+        "rgb": [
+          178,
+          155,
+          134
+        ],
+        "pixel_fraction": 13.86309564113617
+      },
+      {
+        "hex": "#89745f",
+        "rgb": [
+          137,
+          116,
+          95
+        ],
+        "pixel_fraction": 7.851190119981766
+      },
+      {
+        "hex": "#c6b29e",
+        "rgb": [
+          198,
+          178,
+          158
+        ],
+        "pixel_fraction": 2.8928572311997414
+      },
+      {
+        "hex": "#6c5642",
+        "rgb": [
+          108,
+          86,
+          66
+        ],
+        "pixel_fraction": 1.0297618806362152
+      },
+      {
+        "hex": "#cabeb4",
+        "rgb": [
+          202,
+          190,
+          180
+        ],
+        "pixel_fraction": 1.6249999403953552
+      }
+    ]
+  }
+]
