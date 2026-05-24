@@ -1,10 +1,24 @@
 """Configuration settings for the Nano Wardrobe backend."""
 
 import os
+import json
 from functools import lru_cache
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Setup service account credentials file from env string if running on Cloud Run
+gcp_key = os.getenv("GCP_SERVICE_ACCOUNT_KEY")
+if gcp_key:
+    temp_path = "/tmp/service-account.json"
+    try:
+        json_data = json.loads(gcp_key)
+        with open(temp_path, "w") as f:
+            json.dump(json_data, f)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = temp_path
+    except Exception as e:
+        print(f"Error writing service account key to {temp_path}: {e}")
+
 
 
 # =============================================================================

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Camera, X, Check, RotateCcw, Plus, Sparkles, Upload, Image } from 'lucide-react'
 import { useWardrobe } from '../context/WardrobeContext'
@@ -103,6 +103,76 @@ export default function Capture() {
   const fileInputRef = useRef(null)
   const uploadInputRef = useRef(null)
 
+  // Webcam capture states/refs
+  const [showWebcam, setShowWebcam] = useState(false)
+  const videoRef = useRef(null)
+  const streamRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
+      }
+    }
+  }, [])
+
+  const startWebcam = async () => {
+    setShowWebcam(true)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: 1280, height: 720 }
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play()
+      }
+    } catch (err) {
+      console.error('Failed to get webcam stream:', err)
+      setShowWebcam(false)
+      // Fallback to standard input click
+      fileInputRef.current?.click()
+    }
+  }
+
+  const stopWebcam = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+    setShowWebcam(false)
+  }
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas')
+      canvas.width = videoRef.current.videoWidth || 1280
+      canvas.height = videoRef.current.videoHeight || 720
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height)
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], 'captured_garment.jpg', { type: 'image/jpeg' })
+            const dataUrl = canvas.toDataURL('image/jpeg')
+            
+            if (captureMode === 'front') {
+              setFrontImage(dataUrl)
+              setFrontFile(file)
+              setCaptureMode('preview')
+            } else if (captureMode === 'back') {
+              setBackImage(dataUrl)
+              setBackFile(file)
+              setCaptureMode('preview')
+            }
+            stopWebcam()
+          }
+        }, 'image/jpeg', 0.95)
+      }
+    }
+  }
+
   const handleCapture = (e) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -191,7 +261,7 @@ export default function Capture() {
   }
 
   const triggerCapture = () => {
-    fileInputRef.current?.click()
+    startWebcam()
   }
   
   const triggerUpload = () => {
@@ -577,6 +647,47 @@ export default function Capture() {
           )}
         </div>
       </div>
+      
+      {showWebcam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[var(--bg-primary)] border border-[var(--glass-border)] rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl p-6 flex flex-col items-center">
+            <div className="flex justify-between items-center w-full mb-5">
+              <h3 className="text-base font-bold text-[var(--text-primary)]">
+                {captureMode === 'front' ? 'Capture Front Photo' : 'Capture Back Photo'}
+              </h3>
+              <button 
+                onClick={stopWebcam} 
+                className="w-8 h-8 rounded-full border border-[var(--glass-border)] flex items-center justify-center hover:bg-[var(--bg-secondary)] text-[var(--text-primary)] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            {/* Webcam Video (smaller window) */}
+            <div className="relative w-56 h-56 rounded-2xl overflow-hidden border-2 border-[var(--accent)] bg-black mb-6 shadow-inner">
+              <video 
+                ref={videoRef} 
+                className="w-full h-full object-cover"
+                playsInline 
+                muted 
+              />
+              {/* Optional silhouette overlay for guidance */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
+                {GuideGraphics[selectedCategory]}
+              </div>
+            </div>
+
+            <button
+              onClick={capturePhoto}
+              className="btn-primary w-full py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2"
+              style={{ background: 'var(--accent)' }}
+            >
+              <Camera className="w-4 h-4" />
+              Capture Photo
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Bottom Navigation */}
       <BottomNav />
