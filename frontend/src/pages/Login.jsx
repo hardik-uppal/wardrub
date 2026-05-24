@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { user, loading, error, signInWithGoogle, clearError } = useAuth()
+  const { user, loading, error, signInWithGoogle, signInWithDevBypass, clearError } = useAuth()
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -24,11 +24,20 @@ export default function Login() {
     }
   }
 
+  const handleDevBypassSignIn = async () => {
+    try {
+      await signInWithDevBypass()
+      navigate('/', { replace: true })
+    } catch (err) {
+      console.error('Bypass sign in failed:', err)
+    }
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-cream)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-primary)' }}>
         <div className="animate-pulse-soft">
-          <Shirt className="w-12 h-12" style={{ color: 'var(--color-terracotta)' }} />
+          <Shirt className="w-12 h-12" style={{ color: 'var(--accent)' }} />
         </div>
       </div>
     )
@@ -37,55 +46,34 @@ export default function Login() {
   return (
     <div 
       className="min-h-screen flex flex-col items-center justify-center px-6"
-      style={{ backgroundColor: 'var(--color-cream)' }}
+      style={{ background: 'var(--bg-primary)' }}
     >
-      {/* Background decoration */}
-      <div 
-        className="absolute inset-0 overflow-hidden pointer-events-none"
-        style={{ opacity: 0.5 }}
-      >
-        <div 
-          className="absolute top-20 left-10 w-32 h-32 rounded-full blur-3xl"
-          style={{ backgroundColor: 'var(--color-blush)' }}
-        />
-        <div 
-          className="absolute bottom-32 right-10 w-40 h-40 rounded-full blur-3xl"
-          style={{ backgroundColor: 'var(--color-sage)', opacity: 0.4 }}
-        />
-      </div>
-
       {/* Content */}
-      <div className="relative z-10 w-full max-w-sm animate-fade-in">
+      <div className="relative z-10 w-full max-w-sm animate-fade-in" style={{ padding: '1rem 0' }}>
         {/* Logo/Brand */}
-        <div className="text-center mb-12">
+        <div className="text-center" style={{ marginBottom: '2.5rem' }}>
           <div 
-            className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-6"
-            style={{ backgroundColor: 'var(--color-charcoal)' }}
+            className="inline-flex items-center justify-center w-20 h-20 rounded-lg"
+            style={{ background: 'var(--accent)', marginBottom: '1.5rem' }}
           >
             <Shirt className="w-10 h-10 text-white" />
           </div>
           <h1 
-            className="text-3xl font-bold mb-2"
-            style={{ color: 'var(--color-charcoal)', fontFamily: "'Syne', sans-serif" }}
+            className="text-3xl font-bold"
+            style={{ color: 'var(--text-primary)', fontFamily: "'Playfair Display', Georgia, serif", marginBottom: '0.5rem' }}
           >
             Wardrub
           </h1>
-          <p style={{ color: 'var(--color-warm-gray)' }}>
+          <p style={{ color: 'var(--text-secondary)' }}>
             Your AI-powered wardrobe assistant
           </p>
         </div>
 
         {/* Sign in card */}
-        <div 
-          className="rounded-3xl p-8 backdrop-blur-sm"
-          style={{ 
-            backgroundColor: 'var(--glass-bg)',
-            border: '1px solid var(--glass-border)'
-          }}
-        >
-          <div className="flex items-center gap-2 mb-6">
-            <Sparkles className="w-5 h-5" style={{ color: 'var(--color-terracotta)' }} />
-            <span className="font-medium" style={{ color: 'var(--color-charcoal)' }}>
+        <div className="glass-card-elevated" style={{ padding: '2rem' }}>
+          <div className="flex items-center" style={{ gap: '0.5rem', marginBottom: '1.5rem' }}>
+            <Sparkles className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
               Get started
             </span>
           </div>
@@ -93,17 +81,18 @@ export default function Login() {
           {/* Error message */}
           {error && (
             <div 
-              className="mb-4 p-3 rounded-xl text-sm"
+              className="text-sm"
               style={{ 
-                backgroundColor: 'rgba(196, 112, 75, 0.1)',
-                color: 'var(--color-terracotta)'
+                background: 'rgba(235, 87, 87, 0.05)',
+                color: 'var(--error)',
+                border: '1px solid rgba(235, 87, 87, 0.15)',
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-md)',
+                marginBottom: '1rem'
               }}
             >
               {error}
-              <button 
-                onClick={clearError}
-                className="ml-2 underline"
-              >
+              <button onClick={clearError} className="ml-2 underline">
                 Dismiss
               </button>
             </div>
@@ -112,14 +101,11 @@ export default function Login() {
           {/* Google Sign In Button */}
           <button
             onClick={handleGoogleSignIn}
-            className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-xl font-medium transition-all duration-200 hover:shadow-lg active:scale-98"
-            style={{ 
-              backgroundColor: 'var(--color-charcoal)',
-              color: 'white'
-            }}
+            className="btn-primary w-full"
+            style={{ marginBottom: '0.75rem' }}
           >
             {/* Google Icon */}
-            <svg width="20" height="20" viewBox="0 0 24 24">
+            <svg width="20" height="20" viewBox="0 0 24 24" className="mr-1">
               <path
                 fill="#4285F4"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -140,16 +126,31 @@ export default function Login() {
             Continue with Google
           </button>
 
+          {import.meta.env.DEV && (
+            <button
+              onClick={handleDevBypassSignIn}
+              className="btn-ghost w-full"
+              style={{
+                borderStyle: 'dashed',
+                borderWidth: '1.5px',
+                borderColor: 'var(--accent)',
+                color: 'var(--accent)',
+              }}
+            >
+              Developer Admin Bypass
+            </button>
+          )}
+
           <p 
-            className="text-center text-sm mt-6"
-            style={{ color: 'var(--color-warm-gray)' }}
+            className="text-sm"
+            style={{ color: 'var(--text-tertiary)', marginTop: '1.5rem', textAlign: 'center' }}
           >
             By signing in, you agree to our Terms of Service
           </p>
         </div>
 
         {/* Features list */}
-        <div className="mt-8 space-y-3">
+        <div style={{ marginTop: '2.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {[
             'Build your virtual wardrobe',
             'Get AI-powered outfit suggestions',
@@ -159,13 +160,13 @@ export default function Login() {
               key={index}
               className="flex items-center gap-3 text-sm animate-fade-in"
               style={{ 
-                color: 'var(--color-warm-gray)',
+                color: 'var(--text-secondary)',
                 animationDelay: `${(index + 1) * 0.1}s`
               }}
             >
               <div 
                 className="w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: 'var(--color-terracotta)' }}
+                style={{ background: 'var(--accent)' }}
               />
               {feature}
             </div>
@@ -175,6 +176,3 @@ export default function Login() {
     </div>
   )
 }
-
-
-

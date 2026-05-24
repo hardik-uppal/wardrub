@@ -6,8 +6,6 @@ from io import BytesIO
 from typing import List
 
 from PIL import Image
-import vertexai
-from vertexai.preview.vision_models import ImageGenerationModel, Image as VertexImage
 
 from app.config import get_settings, GEMINI_MODEL_TYPE
 from app.logging_config import get_logger
@@ -29,6 +27,7 @@ class VertexAIService:
     def _ensure_initialized(self):
         """Ensure Vertex AI is initialized."""
         if not self._initialized:
+            import vertexai
             vertexai.init(
                 project=settings.GOOGLE_CLOUD_PROJECT,
                 location=settings.VERTEX_AI_LOCATION

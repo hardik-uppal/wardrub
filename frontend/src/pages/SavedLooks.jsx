@@ -64,13 +64,14 @@ export default function SavedLooks() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--color-cream)] safe-top safe-bottom">
+    <div className="min-h-screen flex flex-col safe-top safe-bottom" style={{ background: 'var(--bg-primary)' }}>
       {isLoading && <LoadingOverlay message={loadingMessage} />}
       
       {/* Error Toast */}
       {error && (
         <div 
-          className="fixed top-4 left-4 right-4 z-50 bg-[var(--color-terracotta)] text-white px-4 py-3 rounded-2xl shadow-lg animate-fade-in max-w-md mx-auto"
+          className="fixed top-4 left-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-lg animate-fade-in max-w-md mx-auto cursor-pointer"
+          style={{ background: 'var(--error)', color: 'white' }}
           onClick={clearError}
         >
           <p className="text-sm">{error}</p>
@@ -78,42 +79,35 @@ export default function SavedLooks() {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col page-container space-y-6">
-        {/* Header Card */}
-        <header 
-          className="mx-4 mt-4 flex items-center justify-between flex-shrink-0"
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: '24px',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-            padding: '24px',
-          }}
-        >
-          {/* Spacer for centering */}
-          <div className="w-12" />
-          
+      <div className="flex-1 flex flex-col page-container space-y-5">
+        {/* Header */}
+        <header className="mx-4 mt-4 glass-card-static flex items-center justify-between p-5 flex-shrink-0">
+          <div className="w-11" />
           <div className="text-center">
-            <h1 className="text-xl font-bold text-[var(--color-charcoal)]">
+            <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
               Saved Looks
             </h1>
-            <p className="text-sm text-[var(--color-warm-gray)] mt-1">
+            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
               {looks.length} {looks.length === 1 ? 'look' : 'looks'}
             </p>
           </div>
-          
           <button
             onClick={() => avatarUrl ? navigate('/profile') : navigate('/create-avatar')}
-            className="w-12 h-12 rounded-full overflow-hidden border-2 border-[var(--color-terracotta)] transition-transform hover:scale-105 active:scale-95 flex-shrink-0"
+            className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 transition-transform hover:scale-105 active:scale-95"
+            style={{
+              border: '1px solid var(--accent)',
+            }}
           >
             {avatarUrl ? (
               <img 
                 src={avatarUrl} 
                 alt="Your avatar" 
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover" 
+                style={{ objectPosition: 'top center' }}
               />
             ) : (
-              <div className="w-full h-full bg-[var(--color-blush)]/30 flex items-center justify-center">
-                <User className="w-5 h-5 text-[var(--color-terracotta)]" />
+              <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--glass-bg)' }}>
+                <User className="w-5 h-5" style={{ color: 'var(--accent)' }} />
               </div>
             )}
           </button>
@@ -121,45 +115,50 @@ export default function SavedLooks() {
 
         {/* Delete Mode Hint */}
         {deleteMode && (
-          <div className="mx-4 bg-[var(--color-blush)] rounded-2xl px-5 py-4 flex-shrink-0">
-            <p className="text-sm text-[var(--color-terracotta)] text-center font-medium">
+          <div className="mx-4 rounded-2xl px-5 py-4 flex-shrink-0" style={{ background: 'rgba(248, 113, 113, 0.15)', border: '1px solid rgba(248, 113, 113, 0.3)' }}>
+            <p className="text-sm text-center font-medium" style={{ color: 'var(--error)' }}>
               Tap looks to delete • Tap outside to cancel
             </p>
           </div>
         )}
 
-        {/* Looks Grid Card */}
+        {/* Looks Grid */}
         <div 
-          className="mx-4 flex-1 bg-white rounded-3xl shadow-sm p-6 mb-4 overflow-y-auto"
+          className="mx-4 flex-1 glass-card-static p-5 mb-4 overflow-y-auto"
           onClick={() => deleteMode && setDeleteMode(false)}
         >
           {looks.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-16">
-              <div className="w-20 h-20 rounded-full bg-[var(--color-terracotta)]/10 flex items-center justify-center mb-6">
-                <Image className="w-10 h-10 text-[var(--color-terracotta)]" />
+              <div
+                className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6"
+                style={{ background: 'var(--accent-glow)' }}
+              >
+                <Image className="w-10 h-10" style={{ color: 'var(--accent-light)' }} />
               </div>
-              <h3 className="text-lg font-semibold text-[var(--color-charcoal)] mb-2">
+              <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                 No saved looks yet
               </h3>
-              <p className="text-sm text-[var(--color-warm-gray)] max-w-xs mb-6">
+              <p className="text-sm max-w-xs mb-6" style={{ color: 'var(--text-secondary)' }}>
                 Try on clothes in the dressing room to create and save your favorite outfits
               </p>
-              <button
-                onClick={() => navigate('/dressing-room')}
-                className="px-6 py-3 bg-[var(--color-terracotta)] text-white rounded-xl font-medium text-sm flex items-center gap-2 hover:bg-[var(--color-terracotta)]/90 transition-colors"
-              >
+              <button onClick={() => navigate('/dressing-room')} className="btn-primary">
                 <Sparkles className="w-4 h-4" />
                 Try On Clothes
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 nav-bottom-spacing">
-              {looks.map((look) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 nav-bottom-spacing">
+              {looks.map((look, i) => (
                 <button
                   key={look.id}
-                  className={`relative aspect-[3/4] rounded-2xl overflow-hidden bg-[var(--color-cream)] transition-all active:scale-95 hover:shadow-md ${
+                  className={`relative aspect-[3/4] rounded-2xl overflow-hidden transition-all active:scale-95 hover:scale-[1.03] animate-fade-in ${
                     deleteMode ? 'animate-pulse-soft' : ''
                   }`}
+                  style={{
+                    background: 'var(--glass-bg-elevated)',
+                    border: '1px solid var(--glass-border)',
+                    animationDelay: `${i * 0.03}s`,
+                  }}
                   onTouchStart={handlePressStart}
                   onTouchEnd={handlePressEnd}
                   onMouseDown={handlePressStart}
@@ -170,11 +169,11 @@ export default function SavedLooks() {
                   <img
                     src={look.url}
                     alt="Saved look"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover object-top"
                     loading="lazy"
                   />
                   {deleteMode && (
-                    <div className="absolute inset-0 bg-[var(--color-terracotta)]/80 flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(248, 113, 113, 0.8)' }}>
                       <Trash2 className="w-6 h-6 text-white" />
                     </div>
                   )}
@@ -200,4 +199,3 @@ export default function SavedLooks() {
     </div>
   )
 }
-

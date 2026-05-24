@@ -9,6 +9,7 @@ import DailyOutfit from './pages/DailyOutfit'
 import Profile from './pages/Profile'
 import SavedLooks from './pages/SavedLooks'
 import Login from './pages/Login'
+import SideNav from './components/SideNav'
 import { Shirt } from 'lucide-react'
 
 // Loading spinner component
@@ -16,16 +17,17 @@ function LoadingSpinner() {
   return (
     <div 
       className="min-h-screen flex items-center justify-center"
-      style={{ backgroundColor: 'var(--color-cream)' }}
+      style={{ backgroundColor: 'var(--bg-primary)' }}
     >
       <div className="animate-pulse-soft">
-        <Shirt className="w-12 h-12" style={{ color: 'var(--color-terracotta)' }} />
+        <Shirt className="w-12 h-12" style={{ color: 'var(--accent)' }} />
       </div>
     </div>
   )
 }
 
 // Protected layout - wraps all protected routes with WardrobeProvider
+// On md+ screens, renders a sidebar nav and offsets the main content area
 function ProtectedLayout() {
   const { user, loading } = useAuth()
 
@@ -39,7 +41,10 @@ function ProtectedLayout() {
 
   return (
     <WardrobeProvider>
-      <Outlet />
+      <SideNav />
+      <main className="main-layout-content">
+        <Outlet />
+      </main>
     </WardrobeProvider>
   )
 }
@@ -54,7 +59,7 @@ function AppRoutes() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-cream)]">
+    <div className="min-h-screen" style={{ background: 'var(--bg-primary)' }}>
       <Routes>
         {/* Public route */}
         <Route path="/login" element={<Login />} />

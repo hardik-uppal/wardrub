@@ -3,7 +3,6 @@
 from io import BytesIO
 from typing import List, Optional
 from PIL import Image, ImageEnhance
-from rembg import remove
 import base64
 import os
 import tempfile
@@ -45,7 +44,8 @@ class BackgroundRemovalService:
         if input_image.mode != "RGBA":
             input_image = input_image.convert("RGBA")
         
-        # Remove background using rembg
+        # Remove background using rembg (lazy import to avoid model download at startup)
+        from rembg import remove
         output_image = remove(input_image)
         
         # Convert to bytes

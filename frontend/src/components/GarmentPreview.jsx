@@ -30,21 +30,25 @@ export default function GarmentPreview({
   
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
       onClick={onClose}
     >
       <div 
-        className="relative w-full max-w-md bg-[var(--color-cream)] rounded-3xl overflow-hidden shadow-2xl animate-scale-up"
+        className="relative w-full max-w-md md:max-w-lg glass-card-elevated overflow-hidden animate-scale-in"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-[var(--color-warm-gray)]/10">
+        <div className="flex items-center justify-between p-5" style={{ borderBottom: '1px solid var(--glass-border)' }}>
           <div className="flex items-center gap-3">
-            <span className="px-4 py-1.5 bg-[var(--color-charcoal)] text-white text-sm font-medium rounded-full capitalize">
+            <span
+              className="px-4 py-1.5 text-sm font-medium rounded-full capitalize"
+              style={{ background: 'var(--accent-gradient)', color: 'white' }}
+            >
               {garment.category}
             </span>
             {hasBack && (
-              <span className="text-sm text-[var(--color-warm-gray)]">
+              <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
                 {currentView === 'front' ? 'Front' : 'Back'} view
               </span>
             )}
@@ -52,14 +56,15 @@ export default function GarmentPreview({
           
           <button
             onClick={onClose}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-warm-gray)]/10 transition-colors hover:bg-[var(--color-warm-gray)]/20"
+            className="w-10 h-10 flex items-center justify-center rounded-full transition-colors"
+            style={{ background: 'var(--glass-bg)' }}
           >
-            <X className="w-5 h-5 text-[var(--color-charcoal)]" />
+            <X className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
           </button>
         </div>
         
         {/* Image Container */}
-        <div className="relative aspect-square bg-white">
+        <div className="relative aspect-square" style={{ background: 'var(--bg-tertiary)' }}>
           <img
             src={currentUrl}
             alt={`${garment.category} - ${currentView} view`}
@@ -71,16 +76,18 @@ export default function GarmentPreview({
             <>
               <button
                 onClick={toggleView}
-                className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full bg-white/90 shadow-lg transition-all hover:scale-110 active:scale-95"
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full transition-all hover:scale-110 active:scale-95"
+                style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}
               >
-                <ChevronLeft className="w-5 h-5 text-[var(--color-charcoal)]" />
+                <ChevronLeft className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
               </button>
               
               <button
                 onClick={toggleView}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full bg-white/90 shadow-lg transition-all hover:scale-110 active:scale-95"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full transition-all hover:scale-110 active:scale-95"
+                style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}
               >
-                <ChevronRight className="w-5 h-5 text-[var(--color-charcoal)]" />
+                <ChevronRight className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
               </button>
             </>
           )}
@@ -89,7 +96,8 @@ export default function GarmentPreview({
           {hasBack && (
             <button
               onClick={toggleView}
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-[var(--color-charcoal)]/90 text-white text-sm font-medium rounded-full transition-all hover:bg-[var(--color-charcoal)] active:scale-95"
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full transition-all active:scale-95"
+              style={{ background: 'rgba(0,0,0,0.6)', color: 'var(--text-primary)', backdropFilter: 'blur(8px)' }}
             >
               <RotateCcw className="w-4 h-4" />
               Flip to {currentView === 'front' ? 'Back' : 'Front'}
@@ -99,38 +107,37 @@ export default function GarmentPreview({
           {/* View Indicators */}
           {hasBack && (
             <div className="absolute bottom-4 right-4 flex gap-1.5">
-              <div className={`w-2 h-2 rounded-full transition-colors ${
-                currentView === 'front' 
-                  ? 'bg-[var(--color-terracotta)]' 
-                  : 'bg-[var(--color-warm-gray)]/30'
-              }`} />
-              <div className={`w-2 h-2 rounded-full transition-colors ${
-                currentView === 'back' 
-                  ? 'bg-[var(--color-terracotta)]' 
-                  : 'bg-[var(--color-warm-gray)]/30'
-              }`} />
+              <div
+                className="w-2 h-2 rounded-full transition-colors"
+                style={{ background: currentView === 'front' ? 'var(--accent)' : 'var(--glass-bg-hover)' }}
+              />
+              <div
+                className="w-2 h-2 rounded-full transition-colors"
+                style={{ background: currentView === 'back' ? 'var(--accent)' : 'var(--glass-bg-hover)' }}
+              />
             </div>
           )}
         </div>
         
         {/* Actions */}
-        <div className="p-5 border-t border-[var(--color-warm-gray)]/10">
+        <div className="p-5" style={{ borderTop: '1px solid var(--glass-border)' }}>
           {showDeleteConfirm ? (
             <div className="flex flex-col gap-4">
-              <p className="text-base text-center text-[var(--color-charcoal)]">
+              <p className="text-base text-center" style={{ color: 'var(--text-primary)' }}>
                 Delete this garment from your wardrobe?
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 py-3.5 px-4 bg-[var(--color-warm-gray)]/10 text-[var(--color-charcoal)] font-medium rounded-xl transition-all hover:bg-[var(--color-warm-gray)]/20"
+                  className="btn-ghost flex-1 py-3.5"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className="flex-1 py-3.5 px-4 bg-[var(--color-terracotta)] text-white font-medium rounded-xl transition-all hover:bg-[var(--color-terracotta)]/90 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 py-3.5 px-4 font-medium rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ background: 'var(--error)', color: 'white' }}
                 >
                   {isDeleting ? (
                     <>
@@ -149,7 +156,8 @@ export default function GarmentPreview({
           ) : (
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="w-full py-3.5 px-4 border-2 border-[var(--color-terracotta)]/30 text-[var(--color-terracotta)] font-medium rounded-xl transition-all hover:bg-[var(--color-terracotta)]/10 flex items-center justify-center gap-2"
+              className="w-full py-3.5 px-4 font-medium rounded-xl transition-all flex items-center justify-center gap-2"
+              style={{ border: '1px solid rgba(248, 113, 113, 0.3)', color: 'var(--error)', background: 'rgba(248, 113, 113, 0.05)' }}
             >
               <Trash2 className="w-4 h-4" />
               Remove from Wardrobe
@@ -160,5 +168,3 @@ export default function GarmentPreview({
     </div>
   )
 }
-
-

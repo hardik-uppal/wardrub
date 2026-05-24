@@ -1,0 +1,28 @@
+# Python / Bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# Secrets & Local Configurations
+.env
+service-account.json
+
+# Test & Debug Artifacts (large files)
+product_match_grid.html
+product_match_grid.png
+vision_api_results.json
+logs/
+=1.0.0
+=6.0.0
+
+# Editor & Git config
+.git
+.gitignore
+.cursor/
+.vscode/

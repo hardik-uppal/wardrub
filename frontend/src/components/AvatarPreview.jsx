@@ -31,16 +31,16 @@ export default function AvatarPreview({
       onClick={onClose}
     >
       <div 
-        className="relative w-full max-w-sm bg-[var(--color-cream)] rounded-3xl overflow-hidden shadow-2xl animate-scale-up"
+        className="relative w-full max-w-sm bg-[var(--bg-primary)] rounded-3xl overflow-hidden shadow-2xl animate-scale-up"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-[var(--color-warm-gray)]/10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[var(--color-terracotta)]/10 flex items-center justify-center">
-              <User className="w-5 h-5 text-[var(--color-terracotta)]" />
+            <div className="w-10 h-10 rounded-full bg-[var(--accent)]/10 flex items-center justify-center">
+              <User className="w-5 h-5 text-[var(--accent)]" />
             </div>
-            <span className="text-base font-semibold text-[var(--color-charcoal)]">
+            <span className="text-base font-semibold text-[var(--text-primary)]">
               Your Avatar
             </span>
           </div>
@@ -49,12 +49,12 @@ export default function AvatarPreview({
             onClick={onClose}
             className="w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-warm-gray)]/10 transition-colors hover:bg-[var(--color-warm-gray)]/20"
           >
-            <X className="w-5 h-5 text-[var(--color-charcoal)]" />
+            <X className="w-5 h-5 text-[var(--text-primary)]" />
           </button>
         </div>
         
         {/* Avatar Image */}
-        <div className="relative bg-white p-4">
+        <div className="relative bg-[var(--glass-bg)] p-4">
           <div className="aspect-[9/16] max-h-[60vh]">
             <img
               src={avatarUrl}
@@ -68,20 +68,20 @@ export default function AvatarPreview({
         <div className="p-5 border-t border-[var(--color-warm-gray)]/10 space-y-3">
           {showDeleteConfirm ? (
             <div className="flex flex-col gap-4">
-              <p className="text-base text-center text-[var(--color-charcoal)]">
+              <p className="text-base text-center text-[var(--text-primary)]">
                 Delete your avatar? You'll need to create a new one.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 py-3.5 px-4 bg-[var(--color-warm-gray)]/10 text-[var(--color-charcoal)] font-medium rounded-xl transition-all hover:bg-[var(--color-warm-gray)]/20"
+                  className="flex-1 py-3.5 px-4 bg-[var(--color-warm-gray)]/10 text-[var(--text-primary)] font-medium rounded-xl transition-all hover:bg-[var(--color-warm-gray)]/20"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className="flex-1 py-3.5 px-4 bg-[var(--color-terracotta)] text-white font-medium rounded-xl transition-all hover:bg-[var(--color-terracotta)]/90 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 py-3.5 px-4 bg-[var(--accent)] text-white font-medium rounded-xl transition-all hover:bg-[var(--accent)]/90 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isDeleting ? (
                     <>
@@ -111,7 +111,7 @@ export default function AvatarPreview({
               {/* Delete Button */}
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="w-full py-3.5 px-4 border-2 border-[var(--color-terracotta)]/30 text-[var(--color-terracotta)] font-medium rounded-xl transition-all hover:bg-[var(--color-terracotta)]/10 flex items-center justify-center gap-2"
+                className="w-full py-3.5 px-4 border-2 border-[var(--accent)]/30 text-[var(--accent)] font-medium rounded-xl transition-all hover:bg-[var(--accent)]/10 flex items-center justify-center gap-2"
               >
                 <Trash2 className="w-4 h-4" />
                 Delete Avatar

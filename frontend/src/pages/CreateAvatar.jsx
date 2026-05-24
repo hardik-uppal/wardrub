@@ -59,7 +59,7 @@ export default function CreateAvatar() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--color-cream)] safe-top safe-bottom overflow-y-auto">
+    <div className="min-h-screen flex flex-col bg-[var(--bg-primary)] safe-top safe-bottom overflow-y-auto">
       {isLoading && <LoadingOverlay message={loadingMessage} />}
 
       {/* Hidden file inputs */}
@@ -84,12 +84,12 @@ export default function CreateAvatar() {
         <header className="flex items-center justify-between px-4 py-3">
           <button
             onClick={() => navigate('/')}
-            className="w-9 h-9 rounded-full bg-[var(--color-charcoal)]/5 flex items-center justify-center"
+            className="w-9 h-9 rounded-full border border-[var(--glass-border)] flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-colors"
           >
-            <ArrowLeft className="w-4 h-4 text-[var(--color-charcoal)]" />
+            <ArrowLeft className="w-4 h-4 text-[var(--text-primary)]" />
           </button>
           
-          <h1 className="text-base font-semibold text-[var(--color-charcoal)]">
+          <h1 className="text-base font-semibold text-[var(--text-primary)]">
             Create Avatar
           </h1>
           
@@ -99,23 +99,23 @@ export default function CreateAvatar() {
         {/* Error Toast */}
         {error && (
           <div 
-            className="mx-4 mb-3 bg-[var(--color-terracotta)] text-white px-3 py-2 rounded-xl animate-fade-in"
+            className="mx-4 mb-3 bg-[var(--error)] text-white px-3 py-2 rounded-md animate-fade-in"
             onClick={clearError}
           >
             <p className="text-sm">{error}</p>
           </div>
         )}
 
-        <div className="flex-1 px-5 overflow-y-auto">
+        <div className="flex-1 px-5 overflow-y-auto max-w-lg mx-auto w-full">
           {/* Current Avatar Preview */}
           {avatarUrl && (
             <div className="mb-6">
-              <p className="text-sm text-[var(--color-warm-gray)] mb-3 text-center">Current Avatar</p>
-              <div className="w-28 h-40 mx-auto rounded-xl overflow-hidden bg-white shadow-lg">
+              <p className="text-sm text-[var(--text-secondary)] mb-3 text-center">Current Avatar</p>
+              <div className="w-28 h-40 mx-auto rounded-md overflow-hidden bg-[var(--glass-bg)] border border-[var(--glass-border)] shadow-sm">
                 <img
                   src={avatarUrl}
                   alt="Current avatar"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover object-top"
                 />
               </div>
             </div>
@@ -123,13 +123,13 @@ export default function CreateAvatar() {
 
           {/* Instructions */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--color-terracotta)]/10 flex items-center justify-center">
-              <User className="w-8 h-8 text-[var(--color-terracotta)]" />
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--bg-secondary)] border border-[var(--glass-border)] flex items-center justify-center">
+              <User className="w-8 h-8 text-[var(--accent)]" />
             </div>
-            <h2 className="text-xl font-semibold text-[var(--color-charcoal)] mb-2">
+            <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
               {avatarUrl ? 'Update Your Avatar' : 'Create Your Avatar'}
             </h2>
-            <p className="text-sm text-[var(--color-warm-gray)] max-w-[300px] mx-auto">
+            <p className="text-sm text-[var(--text-secondary)] max-w-[300px] mx-auto">
               Upload a full-body photo for best results, or take a selfie for quick setup
             </p>
           </div>
@@ -137,7 +137,7 @@ export default function CreateAvatar() {
           {/* Image Preview or Selection */}
           {previewUrl ? (
             <div className="flex flex-col items-center mb-8">
-              <div className="relative w-52 rounded-2xl overflow-hidden bg-white shadow-lg animate-fade-in">
+              <div className="relative w-52 rounded-md overflow-hidden bg-[var(--glass-bg)] border border-[var(--glass-border)] shadow-sm animate-fade-in">
                 <img
                   src={previewUrl}
                   alt="Your photo"
@@ -145,12 +145,12 @@ export default function CreateAvatar() {
                 />
                 <button
                   onClick={handleRemoveImage}
-                  className="absolute top-3 right-3 w-10 h-10 rounded-full bg-[var(--color-charcoal)]/80 flex items-center justify-center"
+                  className="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/80 hover:bg-black flex items-center justify-center transition-colors"
                 >
                   <X className="w-5 h-5 text-white" />
                 </button>
               </div>
-              <p className="mt-3 text-sm text-[var(--color-warm-gray)]">
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">
                 {mode === 'upload' ? '📷 Full body photo' : '🤳 Selfie (will use default body)'}
               </p>
             </div>
@@ -159,15 +159,15 @@ export default function CreateAvatar() {
               {/* Upload Full Body Option */}
               <button
                 onClick={triggerUpload}
-                className="w-40 h-48 rounded-2xl border-2 border-dashed border-[var(--color-terracotta)]/30 flex flex-col items-center justify-center gap-3 transition-all hover:border-[var(--color-terracotta)] hover:bg-[var(--color-terracotta)]/5"
+                className="w-40 h-48 rounded-md border border-dashed border-[var(--accent)] flex flex-col items-center justify-center gap-3 transition-all hover:bg-[var(--bg-secondary)]"
               >
-                <div className="w-14 h-14 rounded-full bg-[var(--color-terracotta)]/10 flex items-center justify-center">
-                  <Upload className="w-7 h-7 text-[var(--color-terracotta)]" />
+                <div className="w-14 h-14 rounded-full bg-[var(--accent-glow)] flex items-center justify-center">
+                  <Upload className="w-7 h-7 text-[var(--accent)]" />
                 </div>
-                <span className="text-base text-[var(--color-charcoal)] font-medium">
+                <span className="text-base text-[var(--text-primary)] font-medium">
                   Upload Photo
                 </span>
-                <span className="text-xs text-[var(--color-warm-gray)] text-center px-3">
+                <span className="text-xs text-[var(--text-secondary)] text-center px-3">
                   Full body visible
                 </span>
               </button>
@@ -175,15 +175,15 @@ export default function CreateAvatar() {
               {/* Take Selfie Option */}
               <button
                 onClick={triggerSelfie}
-                className="w-40 h-48 rounded-2xl border-2 border-dashed border-[var(--color-warm-gray)]/30 flex flex-col items-center justify-center gap-3 transition-all hover:border-[var(--color-charcoal)] hover:bg-[var(--color-charcoal)]/5"
+                className="w-40 h-48 rounded-md border border-dashed border-[var(--glass-border)] flex flex-col items-center justify-center gap-3 transition-all hover:border-[var(--accent)] hover:bg-[var(--bg-secondary)]"
               >
-                <div className="w-14 h-14 rounded-full bg-[var(--color-warm-gray)]/10 flex items-center justify-center">
-                  <Camera className="w-7 h-7 text-[var(--color-warm-gray)]" />
+                <div className="w-14 h-14 rounded-full bg-[var(--accent-glow)] flex items-center justify-center">
+                  <Camera className="w-7 h-7 text-[var(--text-secondary)]" />
                 </div>
-                <span className="text-base text-[var(--color-charcoal)] font-medium">
+                <span className="text-base text-[var(--text-primary)] font-medium">
                   Take Selfie
                 </span>
-                <span className="text-xs text-[var(--color-warm-gray)] text-center px-3">
+                <span className="text-xs text-[var(--text-secondary)] text-center px-3">
                   Quick setup
                 </span>
               </button>
@@ -191,11 +191,11 @@ export default function CreateAvatar() {
           )}
 
           {/* Tips */}
-          <div className="bg-[var(--color-sage)]/10 rounded-xl p-4 mb-6">
-            <h3 className="text-sm font-semibold text-[var(--color-charcoal)] mb-2">
+          <div className="bg-[var(--bg-secondary)] border border-[var(--glass-border)] rounded-md p-4 mb-6">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">
               {mode === 'selfie' ? 'Selfie tips' : 'Photo tips'}
             </h3>
-            <ul className="space-y-1.5 text-xs text-[var(--color-warm-gray)]">
+            <ul className="space-y-1.5 text-xs text-[var(--text-secondary)]">
               {mode === 'selfie' ? (
                 <>
                   <li>• Face the camera with good lighting</li>
@@ -218,14 +218,14 @@ export default function CreateAvatar() {
           <button
             onClick={handleCreate}
             disabled={!image || isLoading}
-            className="w-full flex items-center justify-center gap-2 py-4 bg-[var(--color-terracotta)] text-white rounded-xl font-medium transition-all active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Sparkles className="w-5 h-5" />
             {mode === 'selfie' ? 'Create with Selfie' : 'Create Avatar'}
           </button>
           
           {image && (
-            <p className="text-center text-xs text-[var(--color-warm-gray)] mt-3">
+            <p className="text-center text-xs text-[var(--text-secondary)] mt-3">
               {mode === 'selfie' ? 'Will apply your face to default avatar' : 'Processing your photo'}
             </p>
           )}

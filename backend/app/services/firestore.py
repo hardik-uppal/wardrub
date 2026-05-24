@@ -65,9 +65,8 @@ class FirestoreService:
                 self._client.collection("_test").limit(1).get()
                 logger.info(f"Firestore client initialized (database: {database_id})")
             except Exception as e:
-                logger.warning(f"Firestore unavailable, using in-memory storage: {e}")
-                self._use_memory = True
-                self._client = None
+                logger.error(f"Firestore connection failed: {e}")
+                raise RuntimeError(f"Firestore initialization failed: {e}")
         return self._client
     
     # =========================================================================
@@ -743,12 +742,12 @@ class FirestoreService:
             
             query = self.client.collection(self.DAILY_LOOKS_COLLECTION).where(
                 "user_id", "==", user_id
-            ).order_by(
-                "date", direction="DESCENDING"
-            ).limit(limit)
+            )
             
             docs = query.stream()
-            return [DailyLooks(**doc.to_dict()) for doc in docs]
+            looks = [DailyLooks(**doc.to_dict()) for doc in docs]
+            looks.sort(key=lambda x: x.date, reverse=True)
+            return looks[:limit]
             
         except Exception as e:
             logger.error(f"Failed to list daily looks for {user_id}: {e}")

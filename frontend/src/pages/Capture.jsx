@@ -223,20 +223,21 @@ export default function Capture() {
   const renderModeSelect = () => (
     <div className="flex-1 flex flex-col items-center justify-center px-6">
       <div className="text-center mb-10">
-        <h2 className="text-xl font-semibold text-white mb-3">How would you like to add clothes?</h2>
-        <p className="text-sm text-white/60">Choose the best option for your situation</p>
+        <h2 className="text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>How would you like to add clothes?</h2>
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Choose the best option for your situation</p>
       </div>
       
-      <div className="flex gap-5">
+      <div className="flex flex-col sm:flex-row gap-5">
         {/* Upload from Gallery */}
         <button
           onClick={startUploadMode}
-          className="w-40 h-52 rounded-2xl bg-gradient-to-br from-[var(--color-terracotta)] to-[var(--color-terracotta)]/80 flex flex-col items-center justify-center gap-4 shadow-lg"
+          className="w-40 h-52 rounded-2xl flex flex-col items-center justify-center gap-4 shadow-lg transition-transform hover:scale-[1.03] active:scale-95"
+          style={{ background: 'var(--accent)', color: 'white' }}
         >
-          <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.1)' }}>
             <Upload className="w-8 h-8 text-white" />
           </div>
-          <span className="text-base text-white font-medium">Upload Photo</span>
+          <span className="text-base font-medium">Upload Photo</span>
           <span className="text-xs text-white/70 text-center px-4">
             AI detects clothes in image
           </span>
@@ -245,13 +246,14 @@ export default function Capture() {
         {/* Take Photo */}
         <button
           onClick={startCaptureMode}
-          className="w-40 h-52 rounded-2xl bg-gradient-to-br from-white/20 to-white/10 border border-white/20 flex flex-col items-center justify-center gap-4"
+          className="w-40 h-52 rounded-2xl flex flex-col items-center justify-center gap-4 transition-transform hover:scale-[1.03] active:scale-95"
+          style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
         >
-          <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
-            <Camera className="w-8 h-8 text-white" />
+          <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'var(--bg-secondary)' }}>
+            <Camera className="w-8 h-8" style={{ color: 'var(--accent)' }} />
           </div>
-          <span className="text-base text-white font-medium">Take Photo</span>
-          <span className="text-xs text-white/70 text-center px-4">
+          <span className="text-base font-medium">Take Photo</span>
+          <span className="text-xs text-center px-4" style={{ color: 'var(--text-secondary)' }}>
             Select category & capture
           </span>
         </button>
@@ -280,12 +282,12 @@ export default function Capture() {
           </div>
           
           {/* Info */}
-          <div className="mt-4 bg-[var(--color-sage)]/20 rounded-xl p-4">
+          <div className="mt-4 rounded-xl p-4" style={{ background: 'rgba(17,17,17,0.05)' }}>
             <div className="flex items-start gap-3">
-              <Sparkles className="w-5 h-5 text-[var(--color-sage)] mt-0.5" />
+              <Sparkles className="w-5 h-5 mt-0.5" style={{ color: 'var(--accent)' }} />
               <div>
-                <p className="text-sm text-white font-medium">AI Detection</p>
-                <p className="text-xs text-white/60 mt-1">
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>AI Detection</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                   Gemini will analyze this image, detect all clothing items, and create ghost mannequin versions for each.
                 </p>
               </div>
@@ -296,13 +298,14 @@ export default function Capture() {
         <div className="flex-1 flex items-center justify-center">
           <button
             onClick={triggerUpload}
-            className="w-52 h-60 rounded-2xl border-2 border-dashed border-white/30 flex flex-col items-center justify-center gap-4 hover:border-white/50 transition-colors"
+            className="w-52 h-60 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-4 transition-colors hover:bg-gray-50"
+            style={{ borderColor: 'var(--glass-border)' }}
           >
-            <div className="w-18 h-18 rounded-full bg-white/10 flex items-center justify-center">
-              <Image className="w-10 h-10 text-white/60" />
+            <div className="w-18 h-18 rounded-full flex items-center justify-center" style={{ background: 'var(--bg-secondary)' }}>
+              <Image className="w-10 h-10" style={{ color: 'var(--text-tertiary)' }} />
             </div>
-            <span className="text-base text-white/70 font-medium">Select from Gallery</span>
-            <span className="text-xs text-white/40 text-center px-5">
+            <span className="text-base font-medium" style={{ color: 'var(--text-primary)' }}>Select from Gallery</span>
+            <span className="text-xs text-center px-5" style={{ color: 'var(--text-secondary)' }}>
               Works best with photos of clothes worn or laid flat
             </span>
           </button>
@@ -318,7 +321,7 @@ export default function Capture() {
           {/* Preview images */}
           <div className="flex-1 flex gap-3 p-3">
             {/* Front preview */}
-            <div className="flex-1 relative rounded-xl overflow-hidden bg-[var(--color-cream)]">
+            <div className="flex-1 relative rounded-xl overflow-hidden bg-[var(--bg-primary)]">
               <img
                 src={frontImage}
                 alt="Front view"
@@ -329,15 +332,15 @@ export default function Capture() {
               </div>
               <button
                 onClick={handleRetakeFront}
-                className="absolute bottom-2 right-2 p-1.5 bg-white/90 rounded-full"
+                className="absolute bottom-2 right-2 p-1.5 bg-[var(--glass-bg)]/90 rounded-full"
               >
-                <RotateCcw className="w-3 h-3 text-[var(--color-charcoal)]" />
+                <RotateCcw className="w-3 h-3 text-[var(--text-primary)]" />
               </button>
             </div>
             
             {/* Back preview or add button */}
             {backImage ? (
-              <div className="flex-1 relative rounded-xl overflow-hidden bg-[var(--color-cream)]">
+              <div className="flex-1 relative rounded-xl overflow-hidden bg-[var(--bg-primary)]">
                 <img
                   src={backImage}
                   alt="Back view"
@@ -348,9 +351,9 @@ export default function Capture() {
                 </div>
                 <button
                   onClick={handleRetakeBack}
-                  className="absolute bottom-2 right-2 p-1.5 bg-white/90 rounded-full"
+                  className="absolute bottom-2 right-2 p-1.5 bg-[var(--glass-bg)]/90 rounded-full"
                 >
-                  <RotateCcw className="w-3 h-3 text-[var(--color-charcoal)]" />
+                  <RotateCcw className="w-3 h-3 text-[var(--text-primary)]" />
                 </button>
               </div>
             ) : (
@@ -370,15 +373,15 @@ export default function Capture() {
             <button
               onClick={() => setUseGhostMannequin(!useGhostMannequin)}
               className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-colors ${
-                useGhostMannequin ? 'bg-[var(--color-terracotta)]/20' : 'bg-white/10'
+                useGhostMannequin ? 'bg-[var(--accent)]/20' : 'bg-[var(--glass-bg)]/10'
               }`}
             >
               <div className="flex items-center gap-2">
-                <Sparkles className={`w-4 h-4 ${useGhostMannequin ? 'text-[var(--color-terracotta)]' : 'text-white/50'}`} />
+                <Sparkles className={`w-4 h-4 ${useGhostMannequin ? 'text-[var(--accent)]' : 'text-white/50'}`} />
                 <span className="text-xs text-white">AI Ghost Mannequin</span>
               </div>
-              <div className={`w-8 h-5 rounded-full transition-colors ${useGhostMannequin ? 'bg-[var(--color-terracotta)]' : 'bg-white/30'}`}>
-                <div className={`w-4 h-4 rounded-full bg-white mt-0.5 transition-transform ${useGhostMannequin ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+              <div className={`w-8 h-5 rounded-full transition-colors ${useGhostMannequin ? 'bg-[var(--accent)]' : 'bg-[var(--glass-bg)]/30'}`}>
+                <div className={`w-4 h-4 rounded-full bg-[var(--glass-bg)] mt-0.5 transition-transform ${useGhostMannequin ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
               </div>
             </button>
             {useGhostMannequin && (
@@ -393,7 +396,7 @@ export default function Capture() {
     
     // Camera capture view
     return (
-      <div className="flex-1 relative rounded-2xl overflow-hidden bg-black mx-4 my-2">
+      <div className="flex-1 relative rounded-2xl overflow-hidden bg-black mx-4 my-2 max-h-[70vh]">
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <div className="relative transition-all duration-300">
             {GuideGraphics[selectedCategory]}
@@ -413,7 +416,7 @@ export default function Capture() {
         </div>
         
         {/* Mode indicator */}
-        <div className="absolute top-3 left-3 px-2 py-1 bg-[var(--color-terracotta)] rounded-lg">
+        <div className="absolute top-3 left-3 px-2 py-1 bg-[var(--accent)] rounded-lg">
           <span className="text-[10px] text-white font-medium uppercase">{captureMode}</span>
         </div>
       </div>
@@ -421,7 +424,7 @@ export default function Capture() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--color-charcoal)] safe-top safe-bottom overflow-y-auto">
+    <div className="min-h-screen flex flex-col safe-top safe-bottom overflow-y-auto" style={{ background: 'var(--bg-primary)' }}>
       {isLoading && <LoadingOverlay message={loadingMessage} />}
 
       {/* Hidden file inputs */}
@@ -441,17 +444,18 @@ export default function Capture() {
         className="hidden"
       />
 
-      <div className="flex-1 flex flex-col page-container">
+      <div className="flex-1 flex flex-col max-w-xl mx-auto w-full">
         {/* Header */}
         <header className="flex items-center justify-between px-4 py-3">
           <button
             onClick={inputMode === INPUT_MODES.SELECT ? () => navigate('/') : goBackToSelect}
-            className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white"
+            className="w-9 h-9 rounded-full flex items-center justify-center"
+            style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           
-          <h1 className="text-base font-semibold text-white">
+          <h1 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
             {inputMode === INPUT_MODES.SELECT ? 'Add to Wardrobe' : 
              inputMode === INPUT_MODES.UPLOAD ? 'Upload Clothes' : 'Capture Clothes'}
           </h1>
@@ -462,7 +466,7 @@ export default function Capture() {
         {/* Error Toast */}
         {error && (
           <div 
-            className="mx-4 mb-3 bg-[var(--color-terracotta)] text-white px-3 py-2 rounded-xl animate-fade-in"
+            className="mx-4 mb-3 bg-[var(--accent)] text-white px-3 py-2 rounded-xl animate-fade-in"
             onClick={clearError}
           >
             <p className="text-sm">{error}</p>
@@ -477,7 +481,7 @@ export default function Capture() {
         {/* Category Selection - only for capture mode */}
         {inputMode === INPUT_MODES.CAPTURE && (
           <div className="px-5 py-4">
-            <p className="text-white/60 text-sm mb-3 text-center">
+            <p className="text-sm mb-3 text-center" style={{ color: 'var(--text-secondary)' }}>
               What type of clothing is this?
             </p>
             <div className="flex justify-center gap-3">
@@ -485,11 +489,12 @@ export default function Capture() {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
-                  className={`flex flex-col items-center gap-1 px-4 py-2.5 rounded-xl transition-all ${
-                    selectedCategory === cat.id
-                      ? 'bg-[var(--color-terracotta)] text-white'
-                      : 'bg-white/10 text-white/70 hover:bg-white/20'
-                  }`}
+                  className="flex flex-col items-center gap-1 px-4 py-2.5 rounded-xl transition-all"
+                  style={{
+                    background: selectedCategory === cat.id ? 'var(--accent)' : 'var(--glass-bg)',
+                    color: selectedCategory === cat.id ? 'white' : 'var(--text-secondary)',
+                    border: selectedCategory === cat.id ? '1px solid var(--accent)' : '1px solid var(--glass-border)'
+                  }}
                 >
                   <span className="text-xl">{cat.icon}</span>
                   <span className="text-xs font-medium">{cat.label}</span>
@@ -506,7 +511,7 @@ export default function Capture() {
             <div className="flex gap-2">
               <button
                 onClick={handleResetUpload}
-                className="flex-1 flex items-center justify-center gap-2 py-3 bg-white/10 text-white rounded-xl font-medium text-sm"
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-[var(--glass-bg)]/10 text-white rounded-xl font-medium text-sm"
               >
                 <RotateCcw className="w-4 h-4" />
                 Change
@@ -514,7 +519,7 @@ export default function Capture() {
               <button
                 onClick={handleUploadProcess}
                 disabled={isLoading}
-                className="flex-1 flex items-center justify-center gap-2 py-3 bg-[var(--color-terracotta)] text-white rounded-xl font-medium text-sm disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-[var(--accent)] text-white rounded-xl font-medium text-sm disabled:opacity-50"
               >
                 <Sparkles className="w-4 h-4" />
                 Detect & Add
@@ -529,7 +534,7 @@ export default function Capture() {
                 <div className="flex gap-2">
                   <button
                     onClick={handleRetakeFront}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-white/10 text-white rounded-xl font-medium text-sm"
+                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-[var(--glass-bg)]/10 text-white rounded-xl font-medium text-sm"
                   >
                     <RotateCcw className="w-4 h-4" />
                     Start Over
@@ -537,7 +542,7 @@ export default function Capture() {
                   <button
                     onClick={handleConfirm}
                     disabled={isLoading}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-[var(--color-terracotta)] text-white rounded-xl font-medium text-sm disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-[var(--accent)] text-white rounded-xl font-medium text-sm disabled:opacity-50"
                   >
                     <Check className="w-4 h-4" />
                     Process
@@ -547,13 +552,13 @@ export default function Capture() {
                 <div className="flex gap-2">
                   <button
                     onClick={handleSkipBack}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-white/10 text-white rounded-xl font-medium text-sm"
+                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-[var(--glass-bg)]/10 text-white rounded-xl font-medium text-sm"
                   >
                     Skip Back
                   </button>
                   <button
                     onClick={triggerCapture}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-[var(--color-terracotta)] text-white rounded-xl font-medium text-sm"
+                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-[var(--accent)] text-white rounded-xl font-medium text-sm"
                   >
                     <Camera className="w-4 h-4" />
                     Capture Back
@@ -562,7 +567,7 @@ export default function Capture() {
               ) : (
                 <button
                   onClick={triggerCapture}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-[var(--color-terracotta)] text-white rounded-xl font-medium text-sm transition-all active:scale-98"
+                  className="w-full flex items-center justify-center gap-2 py-3 bg-[var(--accent)] text-white rounded-xl font-medium text-sm transition-all active:scale-98"
                 >
                   <Camera className="w-4 h-4" />
                   Take Front Photo

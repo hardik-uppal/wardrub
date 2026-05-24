@@ -7,8 +7,7 @@ import { AlertCircle, Camera, Check, X } from 'lucide-react'
 export default function QualityFeedback({ 
   quality,
   onAddMore,
-  onDismiss,
-  type = 'garment' // 'garment' or 'avatar'
+  onDismiss
 }) {
   if (!quality) return null
   
@@ -131,7 +130,7 @@ export default function QualityFeedback({
 export function VisibilityBadge({ visibility }) {
   if (!visibility) return null
   
-  const { score, status } = visibility
+  const { status } = visibility
   
   const statusConfig = {
     good: { color: 'bg-green-100 text-green-700', label: 'Good' },

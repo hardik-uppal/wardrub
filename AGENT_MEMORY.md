@@ -36,8 +36,8 @@ Use module-memory before editing backend/app/services and update memory after th
 | Path | Scope | Status |
 |---|---|---|
 | `backend/AGENT_MEMORY.md` | Backend architecture and API overview | planned |
-| `backend/app/AGENT_MEMORY.md` | FastAPI app architecture | planned |
-| `backend/app/routers/AGENT_MEMORY.md` | API route contracts | planned |
+| `backend/app/AGENT_MEMORY.md` | FastAPI app architecture | mapped |
+| `backend/app/routers/AGENT_MEMORY.md` | API route contracts | mapped |
 | `backend/app/services/AGENT_MEMORY.md` | Service layer contracts | planned |
 | `backend/app/models/AGENT_MEMORY.md` | Pydantic/domain model contracts | planned |
 | `backend/app/jobs/AGENT_MEMORY.md` | Background job behavior | planned |

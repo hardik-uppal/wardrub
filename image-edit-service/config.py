@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     USE_LIGHTNING_LORA: bool = True
     LIGHTNING_LORA_REPO: str = "lightx2v/Qwen-Image-Edit-2511-Lightning"
     LIGHTNING_LORA_WEIGHT: str = "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors"
+    LIGHTNING_LORA_ADAPTER_WEIGHT: float = 1.0
+    
+    # Optional Wardrub task LoRA trained for VTON / ghost mannequin quality.
+    # Can be stacked with the Lightning LoRA when Diffusers supports adapter names.
+    USE_WARDRUB_LORA: bool = False
+    WARDRUB_LORA_PATH: str | None = None
+    WARDRUB_LORA_WEIGHT_NAME: str | None = None
+    WARDRUB_LORA_ADAPTER_WEIGHT: float = 0.75
     
     # Generation settings for Qwen-Image-Edit-2511
     # With Lightning LoRA: 4 steps, without: 40 steps

@@ -102,24 +102,24 @@ export default function TryOnScreen({
         {avatarUrl ? (
           <>
             {/* Avatar */}
-            <div className="relative w-32 aspect-[9/16] rounded-2xl overflow-hidden bg-white shadow-xl flex-shrink-0">
+            <div className="relative w-32 md:w-44 aspect-[9/16] rounded-2xl overflow-hidden bg-[var(--glass-bg)] shadow-xl flex-shrink-0">
               <img
                 src={avatarUrl}
                 alt="Your avatar"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover object-top"
               />
             </div>
             
             {/* Selection Summary */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-[var(--color-charcoal)]">
+                <p className="text-sm font-medium text-[var(--text-primary)]">
                   Your Outfit
                 </p>
                 {selectedCount > 0 && (
                   <button
                     onClick={clearSelection}
-                    className="text-xs text-[var(--color-terracotta)] font-medium"
+                    className="text-xs text-[var(--accent)] font-medium"
                   >
                     Clear
                   </button>
@@ -127,7 +127,7 @@ export default function TryOnScreen({
               </div>
               
               {selectedCount === 0 ? (
-                <p className="text-xs text-[var(--color-warm-gray)]">
+                <p className="text-xs text-[var(--text-secondary)]">
                   Select items below to build your look
                 </p>
               ) : (
@@ -135,21 +135,21 @@ export default function TryOnScreen({
                   {selectedGarmentsArray.map(garment => (
                     <div 
                       key={garment.id}
-                      className="flex items-center gap-1.5 bg-white rounded-lg px-2 py-1.5 shadow-sm"
+                      className="flex items-center gap-1.5 bg-[var(--glass-bg)] rounded-lg px-2 py-1.5 shadow-sm"
                     >
                       <img 
                         src={garment.url} 
                         alt={garment.category}
                         className="w-8 h-8 object-contain rounded"
                       />
-                      <span className="text-xs text-[var(--color-charcoal)] capitalize">
+                      <span className="text-xs text-[var(--text-primary)] capitalize">
                         {garment.category}
                       </span>
                       <button
                         onClick={() => handleSelectGarment(garment)}
                         className="w-4 h-4 rounded-full bg-[var(--color-charcoal)]/10 flex items-center justify-center ml-1"
                       >
-                        <X className="w-2.5 h-2.5 text-[var(--color-charcoal)]" />
+                        <X className="w-2.5 h-2.5 text-[var(--text-primary)]" />
                       </button>
                     </div>
                   ))}
@@ -159,7 +159,7 @@ export default function TryOnScreen({
           </>
         ) : (
           <div className="w-full max-w-[260px] aspect-[9/16] rounded-3xl bg-[var(--color-warm-gray)]/10 flex items-center justify-center mx-auto">
-            <p className="text-sm text-[var(--color-warm-gray)] text-center px-4">
+            <p className="text-sm text-[var(--text-secondary)] text-center px-4">
               Create an avatar to start trying on clothes
             </p>
           </div>
@@ -167,7 +167,7 @@ export default function TryOnScreen({
       </div>
 
       {/* Garment Categories - 50% */}
-      <div className="flex-[5] bg-white rounded-t-3xl shadow-lg overflow-hidden flex flex-col">
+      <div className="flex-[5] bg-[var(--glass-bg)] rounded-t-3xl shadow-lg overflow-hidden flex flex-col">
         <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2">
           {CATEGORIES.map(category => {
             const categoryGarments = garmentsByCategory[category.id]
@@ -179,7 +179,7 @@ export default function TryOnScreen({
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm">{category.icon}</span>
-                    <span className="text-xs font-medium text-[var(--color-charcoal)]">
+                    <span className="text-xs font-medium text-[var(--text-primary)]">
                       {category.label}
                     </span>
                   </div>
@@ -210,10 +210,10 @@ export default function TryOnScreen({
                       <button
                         key={garment.id}
                         onClick={() => handleSelectGarment(garment)}
-                        className={`relative flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden transition-all ${
+                        className={`relative flex-shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden transition-all ${
                           selected
                             ? 'ring-2 ring-[var(--color-terracotta)] ring-offset-1 scale-105'
-                            : 'bg-[var(--color-cream)]'
+                            : 'bg-[var(--bg-primary)]'
                         }`}
                       >
                         <img
@@ -222,7 +222,7 @@ export default function TryOnScreen({
                           className="w-full h-full object-contain p-0.5"
                         />
                         {selected && (
-                          <div className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-[var(--color-terracotta)] flex items-center justify-center">
+                          <div className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-[var(--accent)] flex items-center justify-center">
                             <Check className="w-2.5 h-2.5 text-white" />
                           </div>
                         )}
@@ -240,7 +240,7 @@ export default function TryOnScreen({
           <button
             onClick={handleTryOn}
             disabled={selectedCount === 0 || !avatarUrl || isLoading}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-[var(--color-terracotta)] text-white rounded-2xl font-medium text-sm transition-all active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 py-3 bg-[var(--accent)] text-white rounded-2xl font-medium text-sm transition-all active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Sparkles className="w-4 h-4" />
             {selectedCount === 0 

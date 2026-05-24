@@ -42,15 +42,49 @@ def get_pipeline():
         cache_dir=settings.CACHE_DIR,
     )
     
-    # Load Lightning LoRA for faster inference (4 steps instead of 40)
+    # Load LoRA adapters. We keep Lightning (speed) and Wardrub (task quality)
+    # as named adapters when possible so their weights can be tuned independently.
+    loaded_adapters: list[str] = []
+    adapter_weights: list[float] = []
+    
     if settings.USE_LIGHTNING_LORA:
         print(f"⚡ Loading Lightning LoRA for 4-step inference...")
-        pipe.load_lora_weights(
-            settings.LIGHTNING_LORA_REPO,
-            weight_name=settings.LIGHTNING_LORA_WEIGHT,
-            cache_dir=settings.CACHE_DIR,
-        )
+        try:
+            pipe.load_lora_weights(
+                settings.LIGHTNING_LORA_REPO,
+                weight_name=settings.LIGHTNING_LORA_WEIGHT,
+                adapter_name="lightning",
+                cache_dir=settings.CACHE_DIR,
+            )
+            loaded_adapters.append("lightning")
+            adapter_weights.append(settings.LIGHTNING_LORA_ADAPTER_WEIGHT)
+        except TypeError:
+            # Older Diffusers versions may not support adapter_name.
+            pipe.load_lora_weights(
+                settings.LIGHTNING_LORA_REPO,
+                weight_name=settings.LIGHTNING_LORA_WEIGHT,
+                cache_dir=settings.CACHE_DIR,
+            )
         print(f"   LoRA: {settings.LIGHTNING_LORA_WEIGHT}")
+    
+    if settings.USE_WARDRUB_LORA and settings.WARDRUB_LORA_PATH:
+        print(f"👕 Loading Wardrub task LoRA...")
+        print(f"   Path: {settings.WARDRUB_LORA_PATH}")
+        lora_kwargs = {"adapter_name": "wardrub"}
+        if settings.WARDRUB_LORA_WEIGHT_NAME:
+            lora_kwargs["weight_name"] = settings.WARDRUB_LORA_WEIGHT_NAME
+        try:
+            pipe.load_lora_weights(settings.WARDRUB_LORA_PATH, **lora_kwargs)
+            loaded_adapters.append("wardrub")
+            adapter_weights.append(settings.WARDRUB_LORA_ADAPTER_WEIGHT)
+        except TypeError:
+            lora_kwargs.pop("adapter_name", None)
+            pipe.load_lora_weights(settings.WARDRUB_LORA_PATH, **lora_kwargs)
+        print(f"   Adapter weight: {settings.WARDRUB_LORA_ADAPTER_WEIGHT}")
+    
+    if len(loaded_adapters) > 1 and hasattr(pipe, "set_adapters"):
+        print(f"🔀 Combining LoRA adapters: {loaded_adapters} weights={adapter_weights}")
+        pipe.set_adapters(loaded_adapters, adapter_weights=adapter_weights)
     
     # Enable CPU offload for memory efficiency
     if settings.ENABLE_CPU_OFFLOAD:

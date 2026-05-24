@@ -47,29 +47,31 @@ export default function LookPreview({
   
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      style={{ background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(8px)' }}
       onClick={onClose}
     >
       <div 
-        className="relative w-full max-w-md bg-[var(--color-cream)] rounded-3xl overflow-hidden shadow-2xl animate-scale-up"
+        className="relative w-full max-w-md md:max-w-lg glass-card-elevated overflow-hidden animate-scale-in"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-[var(--color-warm-gray)]/10">
-          <span className="text-base font-semibold text-[var(--color-charcoal)]">
+        <div className="flex items-center justify-between p-5" style={{ borderBottom: '1px solid var(--glass-border)' }}>
+          <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
             Saved Look
           </span>
           
           <button
             onClick={onClose}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-warm-gray)]/10 transition-colors hover:bg-[var(--color-warm-gray)]/20"
+            className="w-10 h-10 flex items-center justify-center rounded-full transition-colors"
+            style={{ background: 'var(--glass-bg)' }}
           >
-            <X className="w-5 h-5 text-[var(--color-charcoal)]" />
+            <X className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
           </button>
         </div>
         
         {/* Look Image */}
-        <div className="bg-white max-h-[60vh] overflow-auto p-4">
+        <div className="max-h-[60vh] overflow-auto p-4" style={{ background: 'var(--bg-tertiary)' }}>
           <img
             src={look.url}
             alt="Saved look"
@@ -78,23 +80,24 @@ export default function LookPreview({
         </div>
         
         {/* Actions */}
-        <div className="p-5 border-t border-[var(--color-warm-gray)]/10">
+        <div className="p-5" style={{ borderTop: '1px solid var(--glass-border)' }}>
           {showDeleteConfirm ? (
             <div className="flex flex-col gap-4">
-              <p className="text-base text-center text-[var(--color-charcoal)]">
+              <p className="text-base text-center" style={{ color: 'var(--text-primary)' }}>
                 Delete this look?
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 py-3.5 px-4 bg-[var(--color-warm-gray)]/10 text-[var(--color-charcoal)] font-medium rounded-xl"
+                  className="btn-ghost flex-1 py-3.5"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className="flex-1 py-3.5 px-4 bg-[var(--color-terracotta)] text-white font-medium rounded-xl flex items-center justify-center gap-2"
+                  className="flex-1 py-3.5 px-4 font-medium rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+                  style={{ background: 'var(--error)', color: 'white' }}
                 >
                   {isDeleting ? (
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -112,14 +115,14 @@ export default function LookPreview({
               <div className="flex gap-3">
                 <button
                   onClick={handleDownload}
-                  className="flex-1 py-3.5 px-4 bg-[var(--color-charcoal)] text-white font-medium rounded-xl flex items-center justify-center gap-2"
+                  className="btn-primary flex-1 py-3.5"
                 >
                   <Download className="w-4 h-4" />
                   Save
                 </button>
                 <button
                   onClick={handleShare}
-                  className="flex-1 py-3.5 px-4 bg-[var(--color-sage)] text-white font-medium rounded-xl flex items-center justify-center gap-2"
+                  className="btn-ghost flex-1 py-3.5"
                 >
                   <Share2 className="w-4 h-4" />
                   Share
@@ -127,7 +130,8 @@ export default function LookPreview({
               </div>
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="w-full py-3.5 px-4 border-2 border-[var(--color-terracotta)]/30 text-[var(--color-terracotta)] font-medium rounded-xl flex items-center justify-center gap-2"
+                className="w-full py-3.5 px-4 font-medium rounded-xl flex items-center justify-center gap-2"
+                style={{ border: '1px solid rgba(248, 113, 113, 0.3)', color: 'var(--error)', background: 'rgba(248, 113, 113, 0.05)' }}
               >
                 <Trash2 className="w-4 h-4" />
                 Delete Look
@@ -139,5 +143,3 @@ export default function LookPreview({
     </div>
   )
 }
-
-

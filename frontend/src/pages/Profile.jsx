@@ -86,7 +86,7 @@ const popularCities = [
 
 export default function Profile() {
   const navigate = useNavigate()
-  const { avatarUrl } = useWardrobe()
+  const { avatarUrl, checkLegacyData, migrateLegacyData } = useWardrobe()
   const { getIdToken, signOut } = useAuth()
   
   const [profile, setProfile] = useState(null)
@@ -98,6 +98,9 @@ export default function Profile() {
   const [showLocationPicker, setShowLocationPicker] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState([])
+  const [hasLegacyData, setHasLegacyData] = useState(false)
+  const [isMigrating, setIsMigrating] = useState(false)
+  const [migrationSuccess, setMigrationSuccess] = useState(false)
 
   // Helper to make authenticated fetch requests
   const authFetch = useCallback(async (url, options = {}) => {
@@ -111,11 +114,7 @@ export default function Profile() {
     return fetch(url, { ...options, headers })
   }, [getIdToken])
 
-  useEffect(() => {
-    fetchProfile()
-  }, [])
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const response = await authFetch(`${API_URL}/api/profile`)
       const data = await response.json()
@@ -133,7 +132,7 @@ export default function Profile() {
               const colorData = await colorRes.json()
               setColorRecs(colorData.recommendations)
             }
-          } catch (e) {
+          } catch {
             console.log('Color recommendations not available')
           }
         }
@@ -145,7 +144,7 @@ export default function Profile() {
               const fitData = await fitRes.json()
               setFitRecs(fitData.recommendations)
             }
-          } catch (e) {
+          } catch {
             console.log('Fit recommendations not available')
           }
         }
@@ -153,6 +152,36 @@ export default function Profile() {
     } catch (err) {
       console.error('Failed to fetch profile:', err)
       setError('Failed to load profile')
+    }
+  }, [authFetch])
+
+  useEffect(() => {
+    fetchProfile()
+    
+    // Check for legacy data
+    if (checkLegacyData) {
+      checkLegacyData().then(hasLegacy => {
+        setHasLegacyData(hasLegacy)
+      }).catch(err => {
+        console.error('Failed to check legacy data:', err)
+      })
+    }
+  }, [fetchProfile, checkLegacyData])
+
+  const handleMigrateData = async () => {
+    if (!migrateLegacyData) return
+    setIsMigrating(true)
+    setError(null)
+    try {
+      await migrateLegacyData()
+      setMigrationSuccess(true)
+      setHasLegacyData(false)
+      await fetchProfile()
+    } catch (err) {
+      console.error('Migration failed:', err)
+      setError(err.message || 'Failed to migrate old data')
+    } finally {
+      setIsMigrating(false)
     }
   }
 
@@ -248,13 +277,15 @@ export default function Profile() {
   const analysisQuality = profile?.analysis_quality
 
   return (
-    <div className="min-h-screen bg-[var(--color-cream)] safe-top safe-bottom">
+    <div className="min-h-screen safe-top safe-bottom" style={{ background: 'var(--bg-primary)' }}>
       {isAnalyzing && <LoadingOverlay message="Analyzing your photos..." />}
+      {isMigrating && <LoadingOverlay message="Migrating your previous data..." />}
       
       {/* Error Toast */}
       {error && (
         <div 
-          className="fixed top-4 left-4 right-4 z-50 bg-red-500 text-white px-4 py-3 rounded-xl shadow-lg max-w-md mx-auto"
+          className="fixed top-4 left-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg max-w-md mx-auto cursor-pointer"
+          style={{ background: 'var(--error)', color: 'white' }}
           onClick={() => setError(null)}
         >
           <p className="text-sm">{error}</p>
@@ -263,256 +294,337 @@ export default function Profile() {
       
       {/* Header */}
       <div className="page-container">
-        <header className="mx-4 mt-4 flex items-center justify-between bg-white rounded-3xl shadow-sm p-6">
+        <header className="mx-4 mt-4 glass-card-static flex items-center justify-between p-5">
           <button 
             onClick={() => navigate('/')}
-            className="w-10 h-10 rounded-full bg-[var(--color-cream)] flex items-center justify-center"
+            className="w-10 h-10 rounded-full flex items-center justify-center"
+            style={{ background: 'var(--glass-bg)' }}
           >
-            <ChevronLeft className="w-5 h-5 text-[var(--color-charcoal)]" />
+            <ChevronLeft className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
           </button>
           
-          <h1 className="text-lg font-bold text-[var(--color-charcoal)]">My Profile</h1>
+          <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>My Profile</h1>
           
           <button
             onClick={async () => {
               await signOut()
               navigate('/login')
             }}
-            className="w-10 h-10 rounded-full bg-[var(--color-terracotta)]/10 flex items-center justify-center hover:bg-[var(--color-terracotta)]/20 transition-colors"
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
+            style={{ background: 'rgba(248, 113, 113, 0.1)' }}
             title="Sign out"
           >
-            <LogOut className="w-4 h-4 text-[var(--color-terracotta)]" />
+            <LogOut className="w-4 h-4" style={{ color: 'var(--error)' }} />
           </button>
         </header>
       </div>
 
-      <div className="nav-bottom-spacing space-y-5 page-container mt-5">
-        {/* Profile Card - Avatar + Info */}
-        <div className="mx-4 bg-white rounded-3xl p-6 shadow-sm text-center">
-          {/* Avatar - Centered with Edit Overlay */}
-          <div className="flex justify-center mb-4">
-            <button 
-              onClick={() => navigate('/create-avatar')}
-              className="relative group"
+      {/* Legacy Data Migration Banner */}
+      {hasLegacyData && (
+        <div className="page-container mt-4 px-4">
+          <div className="glass-card-elevated p-5 flex flex-col md:flex-row items-center justify-between gap-4 border border-amber-500/20" style={{ background: 'rgba(245, 158, 11, 0.05)', borderRadius: '16px' }}>
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-6 h-6 text-amber-400 shrink-0 animate-pulse" />
+              <div className="text-left">
+                <h3 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Previous Session Data Found</h3>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                  We found wardrobe items and analysis from a previous session. Would you like to import them to your account?
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleMigrateData}
+              disabled={isMigrating}
+              className="btn-primary py-2.5 px-5 whitespace-nowrap shrink-0"
+              style={{ background: 'var(--accent)' }}
             >
-              <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[var(--color-terracotta)] transition-all group-hover:border-[var(--color-terracotta)]/70">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              Import Data
+            </button>
+          </div>
+        </div>
+      )}
+
+      {migrationSuccess && (
+        <div className="page-container mt-4 px-4">
+          <div className="glass-card-elevated p-4 flex items-center gap-3 border border-green-500/20" style={{ background: 'rgba(16, 185, 129, 0.05)', borderRadius: '16px' }}>
+            <Sparkles className="w-5 h-5 text-green-400 shrink-0" />
+            <div className="text-left flex-1">
+              <p className="text-xs font-semibold" style={{ color: '#34d399' }}>
+                Successfully imported previous wardrobe items and profile settings!
+              </p>
+            </div>
+            <button className="text-xs" style={{ color: 'var(--text-secondary)' }} onClick={() => setMigrationSuccess(false)}>Dismiss</button>
+          </div>
+        </div>
+      )}
+
+      <div className="nav-bottom-spacing page-container mt-5 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+          
+          {/* Left Column - Avatar + Info + Location Picker */}
+          <div className="md:col-span-5 lg:col-span-4 flex flex-col gap-5">
+            <div className="mx-4 md:mx-0 glass-card-elevated p-6 text-center">
+              {/* Avatar */}
+              <div className="flex justify-center mb-4">
+                <button 
+                  onClick={() => navigate('/create-avatar')}
+                  className="relative group"
+                >
+                  <div
+                    className="w-24 h-24 rounded-full overflow-hidden transition-all"
+                    style={{
+                      border: '1px solid var(--accent)',
+                    }}
+                  >
+                    {avatarUrl ? (
+                      <img 
+                        src={avatarUrl} 
+                        alt="Avatar" 
+                        className="w-full h-full object-cover" 
+                        style={{ objectPosition: 'top center' }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--glass-bg)' }}>
+                        <User className="w-10 h-10" style={{ color: 'var(--accent)' }} />
+                      </div>
+                    )}
+                  </div>
+                  {/* Edit overlay */}
+                  <div className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,0.6)' }}>
+                    <Camera className="w-6 h-6" style={{ color: 'var(--text-primary)' }} />
+                  </div>
+                  {/* Camera badge */}
+                  <div
+                    className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center"
+                    style={{ background: 'var(--accent)', boxShadow: '0 0 8px var(--accent-glow)' }}
+                  >
+                    <Camera className="w-3.5 h-3.5 text-white" />
+                  </div>
+                </button>
+              </div>
+              <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>Tap to update avatar</p>
+              
+              {/* Profile Info */}
+              {skinTone ? (
+                <div className="mb-5">
+                  <h2 className="text-lg font-bold capitalize" style={{ color: 'var(--text-primary)' }}>
+                    {skinTone.season} Season
+                  </h2>
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    {skinTone.undertone} • {skinTone.depth}
+                    {bodyType && ` • ${bodyType.replace('_', ' ')}`}
+                  </p>
+                </div>
               ) : (
-                <div className="w-full h-full bg-[var(--color-blush)]/30 flex items-center justify-center">
-                  <User className="w-8 h-8 text-[var(--color-terracotta)]" />
+                <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>
+                  Analyze your style to get personalized recommendations
+                </p>
+              )}
+
+              {/* Location Display */}
+              {location.city && (
+                <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>
+                  📍 {location.city}
+                </p>
+              )}
+              
+              {/* Action Buttons — stacked to avoid truncation */}
+              <div className="flex flex-col gap-3">
+                <label className="cursor-pointer">
+                  <div className="btn-primary w-full">
+                    <Sparkles className="w-4 h-4" />
+                    <span>{selectedFiles.length > 0 ? `${selectedFiles.length} selected` : 'Analyze Style'}</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+                
+                <button
+                  onClick={() => setShowLocationPicker(!showLocationPicker)}
+                  disabled={isUpdatingLocation}
+                  className="btn-ghost w-full"
+                >
+                  <MapPin className="w-4 h-4" />
+                  <span>{isUpdatingLocation ? 'Updating...' : 'Update Location'}</span>
+                </button>
+              </div>
+              
+              {/* Analyze Button - Only when files selected */}
+              {selectedFiles.length > 0 && (
+                <button
+                  onClick={handleAnalyzeProfile}
+                  disabled={isAnalyzing}
+                  className="w-full mt-3 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(74, 222, 128, 0.2)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.3)' }}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Analyze My Style</span>
+                </button>
+              )}
+
+              {/* Location Picker */}
+              {showLocationPicker && (
+                <div className="mt-4 p-4 rounded-xl space-y-3 text-left" style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)' }}>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {popularCities.map((city) => (
+                      <button
+                        key={city.city}
+                        onClick={() => handleLocationSelect(city)}
+                        className="px-4 py-2 text-sm rounded-xl transition-colors"
+                        style={{
+                          background: location.city === city.city ? 'var(--accent)' : 'var(--glass-bg-hover)',
+                          color: location.city === city.city ? 'white' : 'var(--text-secondary)',
+                          border: '1px solid var(--glass-border)',
+                        }}
+                      >
+                        {city.city}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={handleUseCurrentLocation}
+                    className="w-full py-2.5 text-sm font-medium rounded-xl"
+                    style={{ color: 'var(--accent)', border: '1px solid var(--accent)', background: 'transparent' }}
+                  >
+                    Use My Current Location
+                  </button>
+                </div>
+              )}
+              
+              {/* Quality feedback */}
+              {analysisQuality?.needs_more_images && (
+                <div className="mt-4 p-3 rounded-xl flex items-center justify-center gap-2" style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.2)' }}>
+                  <AlertCircle className="w-4 h-4" style={{ color: '#fbbf24' }} />
+                  <p className="text-xs" style={{ color: '#fbbf24' }}>
+                    {analysisQuality.recommendation || 'Add more photos for better results'}
+                  </p>
                 </div>
               )}
             </div>
-              {/* Edit overlay - appears on hover/tap */}
-              <div className="absolute inset-0 rounded-full bg-[var(--color-charcoal)]/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Camera className="w-6 h-6 text-white" />
-              </div>
-              {/* Small camera badge */}
-              <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[var(--color-terracotta)] flex items-center justify-center shadow-md border-2 border-white">
-                <Camera className="w-3.5 h-3.5 text-white" />
-              </div>
-            </button>
           </div>
-          <p className="text-xs text-[var(--color-warm-gray)] mb-3">Tap to update avatar</p>
-          
-          {/* Profile Info */}
-          {skinTone ? (
-            <div className="mb-5">
-              <p className="text-lg font-bold text-[var(--color-charcoal)] capitalize">
-                {skinTone.season} Season
-              </p>
-              <p className="text-sm text-[var(--color-warm-gray)]">
-                {skinTone.undertone} • {skinTone.depth}
-                {bodyType && ` • ${bodyType.replace('_', ' ')}`}
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm text-[var(--color-warm-gray)] mb-5">
-              Analyze your style to get personalized recommendations
-            </p>
-          )}
 
-          {/* Location Display */}
-          {location.city && (
-            <p className="text-sm text-[var(--color-warm-gray)] mb-5">
-              {location.city}
-            </p>
-          )}
-          
-          {/* Two Side-by-Side Action Buttons */}
-          <div className="grid grid-cols-2 gap-3">
-            <label className="cursor-pointer">
-              <div className="py-3 px-4 bg-[var(--color-sage)] text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2">
-                <Sparkles className="w-4 h-4" />
-                <span>{selectedFiles.length > 0 ? `${selectedFiles.length} selected` : 'Analyze Style'}</span>
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </label>
+          {/* Right Column - Styling Recommendations */}
+          <div className="md:col-span-7 lg:col-span-8 flex flex-col gap-5">
             
-            <button
-              onClick={() => setShowLocationPicker(!showLocationPicker)}
-              disabled={isUpdatingLocation}
-              className="py-3 px-4 bg-[var(--color-charcoal)] text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2"
-            >
-              <MapPin className="w-4 h-4" />
-              <span>{isUpdatingLocation ? 'Updating...' : 'Update Location'}</span>
-            </button>
-          </div>
-          
-          {/* Analyze Button - Only when files selected */}
-          {selectedFiles.length > 0 && (
-            <button
-              onClick={handleAnalyzeProfile}
-              disabled={isAnalyzing}
-              className="w-full mt-3 py-3 bg-green-500 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Analyze My Style</span>
-            </button>
-          )}
-
-          {/* Location Picker */}
-          {showLocationPicker && (
-            <div className="mt-4 p-4 bg-[var(--color-cream)] rounded-xl space-y-3 text-left">
-              <div className="flex flex-wrap gap-2 justify-center">
-                {popularCities.map((city) => (
-                  <button
-                    key={city.city}
-                    onClick={() => handleLocationSelect(city)}
-                    className={`px-4 py-2 text-sm rounded-xl transition-colors ${
-                      location.city === city.city
-                        ? 'bg-[var(--color-terracotta)] text-white'
-                        : 'bg-white text-[var(--color-charcoal)]'
-                    }`}
-                  >
-                    {city.city}
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={handleUseCurrentLocation}
-                className="w-full py-2.5 text-sm text-[var(--color-terracotta)] font-medium border border-[var(--color-terracotta)]/30 rounded-xl"
-              >
-                Use My Current Location
-              </button>
-            </div>
-          )}
-          
-          {/* Quality feedback */}
-          {analysisQuality?.needs_more_images && (
-            <div className="mt-4 p-3 bg-amber-50 rounded-xl flex items-center justify-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-600" />
-              <p className="text-xs text-amber-800">
-                {analysisQuality.recommendation || 'Add more photos for better results'}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Best Colors - Only show if analyzed */}
-        {colorRecs?.best && colorRecs.best.length > 0 && (
-          <div className="mx-4 bg-white rounded-3xl p-6 shadow-sm text-center">
-            <h2 className="font-bold text-[var(--color-charcoal)] text-base mb-4">Best Colors</h2>
-            <div className="flex gap-3 justify-center flex-wrap">
-              {colorRecs.best.slice(0, 6).map((color, i) => (
-                <div key={i} className="flex flex-col items-center gap-1.5">
-                  <div
-                    className="w-11 h-11 rounded-full shadow-sm border border-gray-100"
-                    style={{ backgroundColor: getColorHex(color) }}
-                  />
-                  <span className="text-xs text-[var(--color-warm-gray)] capitalize">{color}</span>
+            {/* CTA State if profile is not analyzed */}
+            {!colorRecs && !bodyType && (
+              <div className="mx-4 md:mx-0 glass-card-elevated p-8 text-center flex flex-col items-center justify-center min-h-[300px]">
+                <div
+                  className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5"
+                  style={{ background: 'var(--accent-glow)' }}
+                >
+                  <Sparkles className="w-10 h-10" style={{ color: 'var(--accent-light)' }} />
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+                <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Style Analysis</h3>
+                <p className="text-sm max-w-sm" style={{ color: 'var(--text-secondary)' }}>
+                  Upload photos of yourself to analyze your season colors, undertones, and body silhouette for personalized fit advice.
+                </p>
+              </div>
+            )}
 
-        {/* Colors to Avoid - Only show if analyzed */}
-        {colorRecs?.avoid && colorRecs.avoid.length > 0 && (
-          <div className="mx-4 bg-white rounded-3xl p-6 shadow-sm text-center">
-            <h2 className="font-bold text-[var(--color-charcoal)] text-base mb-4">Colors to Avoid</h2>
-            <div className="flex gap-3 justify-center flex-wrap">
-              {colorRecs.avoid.slice(0, 6).map((color, i) => (
-                <div key={i} className="flex flex-col items-center gap-1.5">
-                  <div
-                    className="w-11 h-11 rounded-full shadow-sm border border-gray-100 relative overflow-hidden"
-                    style={{ backgroundColor: getColorHex(color) }}
-                  >
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-full h-0.5 bg-red-500/70 rotate-45" />
+            {/* Best Colors */}
+            {colorRecs?.best && colorRecs.best.length > 0 && (
+              <div className="mx-4 md:mx-0 glass-card-elevated p-6">
+                <h2 className="font-bold text-base mb-5 text-center" style={{ color: 'var(--text-primary)' }}>Best Colors</h2>
+                <div className="flex gap-4 justify-center flex-wrap">
+                  {colorRecs.best.slice(0, 6).map((color, i) => (
+                    <div key={i} className="flex flex-col items-center gap-2">
+                      <div
+                        className="color-swatch"
+                        style={{ backgroundColor: getColorHex(color) }}
+                      />
+                      <span className="text-xs capitalize" style={{ color: 'var(--text-secondary)' }}>{color}</span>
                     </div>
-                  </div>
-                  <span className="text-xs text-[var(--color-warm-gray)] capitalize">{color}</span>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              </div>
+            )}
 
-        {/* Body Type & Fit - Only show if analyzed */}
-        {bodyType && (
-          <div className="mx-4 bg-white rounded-3xl p-6 shadow-sm text-center">
-            <h2 className="font-bold text-[var(--color-charcoal)] text-base mb-2 capitalize">
-              {bodyType.replace('_', ' ')} Body Type
-            </h2>
-            
-            {/* Body Silhouette - Minimal Line Art */}
-            <div className="text-[var(--color-warm-gray)] mb-3 flex justify-center">
-              <BodyTypeSilhouette type={bodyType} />
-            </div>
-            
-            <p className="text-sm text-[var(--color-warm-gray)] mb-5">
-              {bodyTypeDescriptions[bodyType]}
-            </p>
-            
-            {fitRecs && (
-              <div className="grid grid-cols-2 gap-4">
-                {/* Tops */}
-                {fitRecs.tops && fitRecs.tops.length > 0 && (
-                  <div className="p-4 bg-[var(--color-cream)] rounded-2xl">
-                    <div className="text-[var(--color-terracotta)] mb-2 flex justify-center">
-                      <TopSketch />
+            {/* Colors to Avoid */}
+            {colorRecs?.avoid && colorRecs.avoid.length > 0 && (
+              <div className="mx-4 md:mx-0 glass-card-elevated p-6">
+                <h2 className="font-bold text-base mb-5 text-center" style={{ color: 'var(--text-primary)' }}>Colors to Avoid</h2>
+                <div className="flex gap-4 justify-center flex-wrap">
+                  {colorRecs.avoid.slice(0, 6).map((color, i) => (
+                    <div key={i} className="flex flex-col items-center gap-2">
+                      <div
+                        className="color-swatch relative overflow-hidden"
+                        style={{ backgroundColor: getColorHex(color) }}
+                      >
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-full h-0.5 rotate-45" style={{ background: 'rgba(248, 113, 113, 0.7)' }} />
+                        </div>
+                      </div>
+                      <span className="text-xs capitalize" style={{ color: 'var(--text-secondary)' }}>{color}</span>
                     </div>
-                    <p className="text-sm font-semibold text-[var(--color-charcoal)] mb-2">Tops</p>
-                    <div className="space-y-1.5">
-                      {fitRecs.tops.slice(0, 3).map((item, i) => (
-                        <p key={i} className="text-xs text-[var(--color-warm-gray)]">{item}</p>
-                      ))}
-                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Body Type & Fit */}
+            {bodyType && (
+              <div className="mx-4 md:mx-0 glass-card-elevated p-6 text-center">
+                <h2 className="font-bold text-base mb-2 capitalize" style={{ color: 'var(--text-primary)' }}>
+                  {bodyType.replace('_', ' ')} Body Type
+                </h2>
+                
+                <div className="mb-3 flex justify-center" style={{ color: 'var(--text-tertiary)' }}>
+                  <BodyTypeSilhouette type={bodyType} />
+                </div>
+                
+                <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>
+                  {bodyTypeDescriptions[bodyType]}
+                </p>
+                
+                {fitRecs && (
+                  <div className="grid grid-cols-2 gap-4 md:gap-5">
+                    {/* Tops */}
+                    {fitRecs.tops && fitRecs.tops.length > 0 && (
+                      <div className="p-4 rounded-2xl" style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)' }}>
+                        <div className="mb-2 flex justify-center" style={{ color: 'var(--accent)' }}>
+                          <TopSketch />
+                        </div>
+                        <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Tops</h4>
+                        <div className="space-y-1.5">
+                          {fitRecs.tops.slice(0, 3).map((item, i) => (
+                            <p key={i} className="text-xs" style={{ color: 'var(--text-secondary)' }}>{item}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Bottoms */}
+                    {fitRecs.bottoms && fitRecs.bottoms.length > 0 && (
+                      <div className="p-4 rounded-2xl" style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)' }}>
+                        <div className="mb-2 flex justify-center" style={{ color: 'var(--accent)' }}>
+                          <BottomSketch />
+                        </div>
+                        <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Bottoms</h4>
+                        <div className="space-y-1.5">
+                          {fitRecs.bottoms.slice(0, 3).map((item, i) => (
+                            <p key={i} className="text-xs" style={{ color: 'var(--text-secondary)' }}>{item}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 
-                {/* Bottoms */}
-                {fitRecs.bottoms && fitRecs.bottoms.length > 0 && (
-                  <div className="p-4 bg-[var(--color-cream)] rounded-2xl">
-                    <div className="text-[var(--color-terracotta)] mb-2 flex justify-center">
-                      <BottomSketch />
-                    </div>
-                    <p className="text-sm font-semibold text-[var(--color-charcoal)] mb-2">Bottoms</p>
-                    <div className="space-y-1.5">
-                      {fitRecs.bottoms.slice(0, 3).map((item, i) => (
-                        <p key={i} className="text-xs text-[var(--color-warm-gray)]">{item}</p>
-                      ))}
-                    </div>
-                  </div>
+                {fitRecs?.notes && (
+                  <p className="mt-4 text-sm italic" style={{ color: 'var(--accent-light)' }}>
+                    {fitRecs.notes}
+                  </p>
                 )}
               </div>
             )}
-            
-            {fitRecs?.notes && (
-              <p className="mt-4 text-sm text-[var(--color-terracotta)] italic">
-                {fitRecs.notes}
-              </p>
-            )}
           </div>
-        )}
+        </div>
       </div>
       
       <BottomNav />

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from './AuthContext'
 
@@ -60,6 +61,24 @@ export function WardrobeProvider({ children }) {
     return response
   }, [getIdToken])
 
+  const fetchAvatar = useCallback(async (force = false) => {
+    // Skip if cache is valid and not forced
+    if (!force && isCacheValid('avatar') && avatarUrl) {
+      return
+    }
+    
+    try {
+      const response = await authFetch(`${API_URL}/api/avatar`)
+      const data = await response.json()
+      if (data.avatar_url) {
+        setAvatarUrl(data.avatar_url)
+        cacheTimestamps.current.avatar = Date.now()
+      }
+    } catch (err) {
+      console.error('Failed to fetch avatar:', err)
+    }
+  }, [authFetch, avatarUrl])
+
   // Fetch avatar when user changes
   useEffect(() => {
     if (user) {
@@ -78,25 +97,7 @@ export function WardrobeProvider({ children }) {
         profile: 0
       }
     }
-  }, [user])
-
-  const fetchAvatar = useCallback(async (force = false) => {
-    // Skip if cache is valid and not forced
-    if (!force && isCacheValid('avatar') && avatarUrl) {
-      return
-    }
-    
-    try {
-      const response = await authFetch(`${API_URL}/api/avatar`)
-      const data = await response.json()
-      if (data.avatar_url) {
-        setAvatarUrl(data.avatar_url)
-        cacheTimestamps.current.avatar = Date.now()
-      }
-    } catch (err) {
-      console.error('Failed to fetch avatar:', err)
-    }
-  }, [authFetch, avatarUrl])
+  }, [user, fetchAvatar])
 
   const fetchGarments = useCallback(async (category = null, force = false) => {
     // Skip if cache is valid and not forced (only for "all" category)

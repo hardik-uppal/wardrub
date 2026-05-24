@@ -8,7 +8,7 @@ import time
 import uuid
 
 from app.config import get_settings
-from app.routers import garment, avatar, tryon, profile, outfit
+from app.routers import garment, avatar, tryon, profile, outfit, extension
 from app.logging_config import setup_logging, get_logger
 from app.middleware.auth import AuthMiddleware
 from app.services.auth import initialize_firebase
@@ -110,6 +110,7 @@ app.include_router(avatar.router, prefix="/api", tags=["Avatar"])
 app.include_router(tryon.router, prefix="/api", tags=["Try-On"])
 app.include_router(profile.router, prefix="/api", tags=["Profile"])
 app.include_router(outfit.router, prefix="/api", tags=["Outfit"])
+app.include_router(extension.router, prefix="/api", tags=["Extension"])
 
 
 @app.get("/")

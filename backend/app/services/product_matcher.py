@@ -11,8 +11,6 @@ from typing import Optional, List, Dict, Any
 from io import BytesIO
 from dataclasses import dataclass
 
-from google.cloud import vision
-from google.oauth2 import service_account
 
 from app.config import get_settings
 from app.logging_config import get_logger
@@ -64,15 +62,17 @@ class ProductMatcherService:
     
     def _get_credentials(self):
         """Get GCP credentials."""
+        from google.oauth2 import service_account
         creds_path = settings.GOOGLE_APPLICATION_CREDENTIALS
         if creds_path and os.path.exists(creds_path):
             return service_account.Credentials.from_service_account_file(creds_path)
         return None
     
     @property
-    def vision_client(self) -> vision.ImageAnnotatorClient:
+    def vision_client(self):
         """Lazy initialization of Vision API client."""
         if self._vision_client is None:
+            from google.cloud import vision
             credentials = self._get_credentials()
             if credentials:
                 self._vision_client = vision.ImageAnnotatorClient(credentials=credentials)

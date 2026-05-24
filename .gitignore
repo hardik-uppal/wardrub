@@ -50,3 +50,8 @@ tmp/
 
 # Local generated media/artifacts
 *.local
+image-edit-service/data/
+image-edit-service/runs/
+image-edit-service/checkpoints/
+image-edit-service/models/
+image-edit-service/training/**/outputs/

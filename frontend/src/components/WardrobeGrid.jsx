@@ -11,9 +11,9 @@ export default function WardrobeGrid({
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="w-16 h-16 rounded-full bg-[var(--color-warm-gray)]/10 flex items-center justify-center mb-4 animate-float">
-          <Shirt className="w-8 h-8 text-[var(--color-warm-gray)]" />
+          <Shirt className="w-8 h-8 text-[var(--text-secondary)]" />
         </div>
-        <p className="text-sm text-[var(--color-warm-gray)]">
+        <p className="text-sm text-[var(--text-secondary)]">
           No items in this category
         </p>
       </div>
@@ -21,7 +21,7 @@ export default function WardrobeGrid({
   }
 
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
       {garments.map((garment, index) => (
         <GarmentCard
           key={garment.id}
@@ -57,7 +57,7 @@ function GarmentCard({
     <button
       onClick={handleClick}
       className={`
-        relative aspect-square rounded-2xl overflow-hidden bg-white shadow-sm 
+        relative aspect-square rounded-2xl overflow-hidden bg-[var(--glass-bg)] shadow-sm 
         animate-fade-in transition-all
         ${deleteMode ? 'animate-pulse-soft' : ''}
         ${isSelected ? 'ring-2 ring-[var(--color-terracotta)] ring-offset-2' : ''}
@@ -80,7 +80,7 @@ function GarmentCard({
       
       {/* Delete overlay */}
       {deleteMode && (
-        <div className="absolute inset-0 bg-[var(--color-terracotta)]/80 flex items-center justify-center">
+        <div className="absolute inset-0 bg-[var(--accent)]/80 flex items-center justify-center">
           <Trash2 className="w-8 h-8 text-white" />
         </div>
       )}
