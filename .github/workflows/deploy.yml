@@ -10,7 +10,7 @@ env:
   REGION: us-central1
   SERVICE_NAME: wardrub-api
   AR_REPO: wardrub
-  ALLOWED_ORIGINS: "https://wardrub.hardk.space,https://hardk.space,https://hardik-uppal.github.io,http://localhost:5173,*"
+  ALLOWED_ORIGINS: "https://wardrub.hardk.space,https://hardk.space,https://hardik-uppal.github.io,http://localhost:5173"
 
 jobs:
   deploy-backend:
