@@ -262,7 +262,8 @@ CRITICAL: Create a SINGLE floating garment showing its 3D shape.
 
 @app.post("/edit", response_model=ImageResponse)
 async def edit_image(
-    image: UploadFile = File(..., description="Image to edit"),
+    image: UploadFile = File(..., description="Primary image to edit"),
+    reference_images: list[UploadFile] | None = File(default=None, description="Optional additional reference images for multi-image edit"),
     prompt: str = Form(..., description="Edit instruction"),
     steps: int = Form(default=None, ge=4, le=100),
     seed: int = Form(default=None),
@@ -283,12 +284,16 @@ async def edit_image(
         from pipeline import generate_image
         
         input_image = load_upload_image(image)
-        
+        refs: list[Image.Image] = []
+        if reference_images:
+            refs = [load_upload_image(ref_upload) for ref_upload in reference_images]
+
         output_image, seed_used = generate_image(
             image=input_image,
             prompt=prompt,
             num_steps=steps,
             seed=seed,
+            reference_images=refs,
         )
         
         image_b64 = image_to_base64(output_image)

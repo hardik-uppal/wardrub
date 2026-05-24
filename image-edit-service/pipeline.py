@@ -8,7 +8,7 @@ Supports two preprocessing modes:
 
 import torch
 from PIL import Image
-from typing import Optional
+from typing import Optional, Sequence
 import gc
 
 from config import get_settings
@@ -196,23 +196,28 @@ def generate_image(
     prompt: str,
     num_steps: Optional[int] = None,
     seed: Optional[int] = None,
+    reference_images: Optional[Sequence[Image.Image]] = None,
 ) -> tuple[Image.Image, int]:
     """
     Generate edited image using Qwen-Image-Edit-2511.
     
     Args:
-        image: Input PIL Image
+        image: Primary input PIL Image
         prompt: Edit instruction
-        num_steps: Number of inference steps (default: 40)
+        num_steps: Number of inference steps
         seed: Random seed for reproducibility
+        reference_images: Optional additional reference images (multi-image edit)
         
     Returns:
         Tuple of (output_image, seed_used)
     """
     pipe = get_pipeline()
     
-    # Prepare image - convert to RGB and resize
+    # Prepare image(s)
     image = _prepare_image(image)
+    prepared_refs: list[Image.Image] = []
+    if reference_images:
+        prepared_refs = [_prepare_image(ref) for ref in reference_images]
     
     # Setup generator for reproducibility
     if seed is None:
@@ -225,14 +230,18 @@ def generate_image(
     
     true_cfg = _resolve_true_cfg_scale()
 
+    input_images = [image, *prepared_refs] if prepared_refs else image
+
     print(f"🎨 Generating with prompt: {prompt[:80]}...")
-    print(f"   Steps: {steps}, Seed: {seed}, Size: {image.size}, true_cfg: {true_cfg}")
+    print(
+        f"   Steps: {steps}, Seed: {seed}, Size: {image.size}, refs: {len(prepared_refs)}, true_cfg: {true_cfg}"
+    )
 
     # Generate with Qwen-Image-Edit-2511 parameters
     with torch.inference_mode():
         torch.cuda.empty_cache()
         output = pipe(
-            image=image,
+            image=input_images,
             prompt=prompt,
             num_inference_steps=steps,
             generator=generator,
