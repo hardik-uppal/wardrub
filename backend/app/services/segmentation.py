@@ -70,16 +70,16 @@ class SegmentationService:
             
             method = "rembg"
             
-            # Step 2: Optionally refine with Replicate SAM
-            if settings.REPLICATE_API_TOKEN:
+            # Step 2: Optionally refine with Fal.ai Segmentation
+            if settings.FAL_KEY:
                 try:
-                    refined_mask = await self._segment_with_replicate(foreground_bytes)
+                    refined_mask = await self._segment_with_fal(foreground_bytes)
                     if refined_mask is not None:
                         mask_array = refined_mask
-                        method = "rembg+replicate_sam"
-                        logger.info("SAM refinement successful")
+                        method = "rembg+fal_sam"
+                        logger.info("Fal.ai refinement successful")
                 except Exception as e:
-                    logger.warning(f"SAM refinement failed, using rembg only: {e}")
+                    logger.warning(f"Fal.ai refinement failed, using rembg only: {e}")
             
             # Calculate mask statistics
             mask_area = np.sum(mask_array > 127)
@@ -103,93 +103,66 @@ class SegmentationService:
             logger.error(f"Segmentation failed: {e}")
             return None, {"error": str(e)}
     
-    async def _segment_with_replicate(self, image_bytes: bytes) -> Optional[np.ndarray]:
+    async def _segment_with_fal(self, image_bytes: bytes) -> Optional[np.ndarray]:
         """
-        Use Replicate's SAM API (serverless, pay-per-call).
+        Use Fal.ai's SAM/BiRefNet API (serverless, very cheap).
         
         Args:
-            image_bytes: Image bytes (ideally with background already removed)
+            image_bytes: Image bytes
         
         Returns:
             Mask array or None if failed
         """
-        api_token = settings.REPLICATE_API_TOKEN
+        api_token = settings.FAL_KEY
         if not api_token:
             return None
         
-        logger.info("Calling Replicate SAM API...")
+        logger.info("Calling Fal.ai Segmentation API...")
         
         # Convert to base64 data URL
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
         data_url = f"data:image/png;base64,{image_b64}"
         
         async with httpx.AsyncClient(timeout=120.0) as client:
-            # Start prediction using SAM model
-            # Using facebook/sam-vit-huge for automatic mask generation
+            # We use BiRefNet for state-of-the-art background removal on Fal.ai
+            # You can also change this to 'fal-ai/sam2/image' or SAM3 when needed
+            endpoint = "https://fal.run/fal-ai/birefnet"
+            
             response = await client.post(
-                "https://api.replicate.com/v1/predictions",
+                endpoint,
                 headers={
-                    "Authorization": f"Token {api_token}",
+                    "Authorization": f"Key {api_token}",
                     "Content-Type": "application/json"
                 },
                 json={
-                    "version": "ee7c6e01f3d9fef96b9dfe9c4bfcf7e5d8e6c4a2b1d0e9f8a7b6c5d4e3f2a1b0",
-                    "input": {
-                        "image": data_url,
-                        "multimask_output": False
-                    }
+                    "image_url": data_url
                 }
             )
             
-            if response.status_code != 201:
-                logger.error(f"Replicate API error: {response.status_code} - {response.text}")
+            if response.status_code != 200:
+                logger.error(f"Fal.ai API error: {response.status_code} - {response.text}")
                 return None
             
             prediction = response.json()
-            prediction_url = prediction.get("urls", {}).get("get")
+            # Standard Fal.ai image output schema
+            output_url = None
+            if "image" in prediction and "url" in prediction["image"]:
+                output_url = prediction["image"]["url"]
+            elif "url" in prediction:
+                output_url = prediction["url"]
             
-            if not prediction_url:
-                logger.error("No prediction URL returned")
+            if not output_url:
+                logger.error(f"No image URL in Fal.ai response: {prediction}")
                 return None
+                
+            # Download mask/cutout
+            mask_response = await client.get(output_url)
+            if mask_response.status_code == 200:
+                # Get the alpha channel of the returned cutout as the mask
+                mask_image = Image.open(BytesIO(mask_response.content)).convert("RGBA")
+                alpha = mask_image.split()[3]
+                return np.array(alpha)
             
-            # Poll for result (max 60 seconds)
-            for _ in range(60):
-                await asyncio.sleep(1)
-                
-                status_response = await client.get(
-                    prediction_url,
-                    headers={"Authorization": f"Token {api_token}"}
-                )
-                prediction = status_response.json()
-                status = prediction.get("status")
-                
-                if status == "succeeded":
-                    output = prediction.get("output")
-                    if output:
-                        # Output is typically a URL to the mask image
-                        if isinstance(output, str):
-                            mask_url = output
-                        elif isinstance(output, list) and len(output) > 0:
-                            mask_url = output[0]
-                        else:
-                            logger.warning(f"Unexpected output format: {output}")
-                            return None
-                        
-                        # Download mask
-                        mask_response = await client.get(mask_url)
-                        if mask_response.status_code == 200:
-                            mask_image = Image.open(BytesIO(mask_response.content)).convert("L")
-                            return np.array(mask_image)
-                    return None
-                
-                elif status == "failed":
-                    error = prediction.get("error", "Unknown error")
-                    logger.error(f"Replicate prediction failed: {error}")
-                    return None
-                
-                # Still processing, continue polling
-            
-            logger.warning("Replicate SAM timed out")
             return None
     
     async def extract_foreground(

@@ -75,8 +75,8 @@ class Settings:
     # Gemini
     GEMINI_MODEL: str = get_gemini_model()
     
-    # Replicate API (for SAM serverless)
-    REPLICATE_API_TOKEN: str = os.getenv("REPLICATE_API_TOKEN", "")
+    # Fal.ai API (for SAM serverless)
+    FAL_KEY: str = os.getenv("FAL_KEY", "")
     
     # OpenWeatherMap
     OPENWEATHER_API_KEY: str = os.getenv("OPENWEATHER_API_KEY", "")
