@@ -29,15 +29,25 @@ class Settings(BaseSettings):
     WARDRUB_LORA_ADAPTER_WEIGHT: float = 0.75
     
     # Generation settings for Qwen-Image-Edit-2511
-    # With Lightning LoRA: 4 steps, without: 40 steps
+    # With Lightning LoRA: typically 4 steps, without: 20-40 steps.
     NUM_INFERENCE_STEPS: int = 4
     GUIDANCE_SCALE: float = 1.0
+    # Kept for backward compatibility.
     TRUE_CFG_SCALE: float = 4.0
+    # Borrowed from Comfy/Nunchaku-style behavior where lightning often uses cfg~1.
+    TRUE_CFG_SCALE_LIGHTNING: float = 1.0
+
+    # Input preprocessing strategy.
+    # - native: keep source aspect ratio, optionally clamp size and align to multiples.
+    # - portrait_pad: old behavior (fit into OUTPUT_WIDTH x OUTPUT_HEIGHT on white canvas).
+    PREPROCESS_MODE: str = "native"
+    PREPROCESS_MAX_SIDE: int = 1536  # 0 disables clamping
+    PREPROCESS_ALIGN: int = 1
     
     # Memory optimization
     ENABLE_CPU_OFFLOAD: bool = True
     
-    # Output - Portrait orientation for mobile
+    # Output target used by portrait_pad mode.
     OUTPUT_WIDTH: int = 768
     OUTPUT_HEIGHT: int = 1024
     

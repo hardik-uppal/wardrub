@@ -1,7 +1,9 @@
 """Qwen-Image-Edit-2511 pipeline with pre-quantized 4-bit model.
 
 Uses toandev/Qwen-Image-Edit-2511-4bit for efficient inference on 24GB VRAM.
-Outputs portrait-oriented images (768x1024) optimized for mobile viewing.
+Supports two preprocessing modes:
+- native (Comfy-style parity): preserve input aspect ratio and size characteristics
+- portrait_pad (legacy): fit to a fixed portrait canvas
 """
 
 import torch
@@ -27,7 +29,8 @@ def get_pipeline():
     
     print("🚀 Loading Qwen-Image-Edit-2511 pipeline...")
     print(f"   Model: {settings.MODEL_ID}")
-    print(f"   Output: {settings.OUTPUT_WIDTH}x{settings.OUTPUT_HEIGHT} (portrait)")
+    print(f"   Preprocess mode: {settings.PREPROCESS_MODE}")
+    print(f"   Portrait target (legacy mode): {settings.OUTPUT_WIDTH}x{settings.OUTPUT_HEIGHT}")
     
     # Import here to avoid slow startup when just importing module
     from diffusers import QwenImageEditPlusPipeline
@@ -117,58 +120,75 @@ def _print_gpu_stats():
         print(f"   GPU Memory: {allocated:.2f}GB allocated, {reserved:.2f}GB reserved, {total:.2f}GB total")
 
 
+def _align(value: int, factor: int) -> int:
+    if factor <= 1:
+        return value
+    return max(factor, (value // factor) * factor)
+
+
 def resize_to_portrait(image: Image.Image) -> Image.Image:
-    """
-    Resize image to fit within portrait canvas (768x1024).
-    
-    Preserves aspect ratio and centers on transparent canvas.
-    
-    Args:
-        image: Input PIL Image
-        
-    Returns:
-        Image resized to fit within 768x1024 portrait canvas
-    """
+    """Legacy mode: fit image into a fixed portrait canvas."""
     target_width = settings.OUTPUT_WIDTH
     target_height = settings.OUTPUT_HEIGHT
-    
+
     original_width, original_height = image.size
-    
-    # Calculate scaling ratio to fit within target dimensions
+
     ratio = min(target_width / original_width, target_height / original_height)
-    new_width = int(original_width * ratio)
-    new_height = int(original_height * ratio)
-    
-    # Resize with high-quality resampling
+    new_width = max(1, int(original_width * ratio))
+    new_height = max(1, int(original_height * ratio))
+
     resized = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
-    
-    # For RGB images, use white background; for RGBA, use transparent
-    if image.mode == "RGBA":
-        canvas = Image.new("RGBA", (target_width, target_height), (0, 0, 0, 0))
-    else:
-        canvas = Image.new("RGB", (target_width, target_height), (255, 255, 255))
-    
-    # Center the resized image on canvas
+
+    canvas = Image.new("RGB", (target_width, target_height), (255, 255, 255))
+
     x_offset = (target_width - new_width) // 2
     y_offset = (target_height - new_height) // 2
-    
-    if image.mode == "RGBA":
-        canvas.paste(resized, (x_offset, y_offset), resized)
-    else:
-        canvas.paste(resized, (x_offset, y_offset))
-    
+    canvas.paste(resized, (x_offset, y_offset))
+
     return canvas
 
 
+def _prepare_native(image: Image.Image) -> Image.Image:
+    """Comfy-style parity preprocessing: preserve aspect ratio and geometry."""
+    w, h = image.size
+    max_side = max(w, h)
+    max_side_cfg = int(settings.PREPROCESS_MAX_SIDE or 0)
+
+    # Optional downscale guard for memory.
+    if max_side_cfg > 0 and max_side > max_side_cfg:
+        ratio = max_side_cfg / max_side
+        w = max(1, int(w * ratio))
+        h = max(1, int(h * ratio))
+
+    align = max(1, int(settings.PREPROCESS_ALIGN or 1))
+    w_aligned = _align(w, align)
+    h_aligned = _align(h, align)
+    if (w_aligned, h_aligned) != image.size:
+        image = image.resize((w_aligned, h_aligned), Image.Resampling.LANCZOS)
+
+    return image
+
+
 def _prepare_image(image: Image.Image) -> Image.Image:
-    """Convert image to RGB and resize to portrait."""
+    """Convert image to RGB and preprocess according to configured mode."""
     if image.mode == "RGBA":
         bg = Image.new("RGB", image.size, (255, 255, 255))
         bg.paste(image, mask=image.split()[3])
         image = bg
     else:
         image = image.convert("RGB")
-    return resize_to_portrait(image)
+
+    mode = str(settings.PREPROCESS_MODE or "native").strip().lower()
+    if mode == "portrait_pad":
+        return resize_to_portrait(image)
+    return _prepare_native(image)
+
+
+def _resolve_true_cfg_scale() -> float:
+    """Resolve cfg scale with lightning-aware default (borrowed from Comfy workflow behavior)."""
+    if settings.USE_LIGHTNING_LORA:
+        return float(settings.TRUE_CFG_SCALE_LIGHTNING)
+    return float(settings.TRUE_CFG_SCALE)
 
 
 def generate_image(
@@ -203,9 +223,11 @@ def generate_image(
     # Use configured steps or override
     steps = num_steps or settings.NUM_INFERENCE_STEPS
     
+    true_cfg = _resolve_true_cfg_scale()
+
     print(f"🎨 Generating with prompt: {prompt[:80]}...")
-    print(f"   Steps: {steps}, Seed: {seed}, Size: {image.size}")
-    
+    print(f"   Steps: {steps}, Seed: {seed}, Size: {image.size}, true_cfg: {true_cfg}")
+
     # Generate with Qwen-Image-Edit-2511 parameters
     with torch.inference_mode():
         torch.cuda.empty_cache()
@@ -215,8 +237,8 @@ def generate_image(
             num_inference_steps=steps,
             generator=generator,
             guidance_scale=settings.GUIDANCE_SCALE,
-            true_cfg_scale=settings.TRUE_CFG_SCALE,
-            negative_prompt=" ",
+            true_cfg_scale=true_cfg,
+            negative_prompt="",
             num_images_per_prompt=1,
         )
     
@@ -265,10 +287,12 @@ def generate_tryon(
     # Use configured steps or override
     steps = num_steps or settings.NUM_INFERENCE_STEPS
     
+    true_cfg = _resolve_true_cfg_scale()
+
     print(f"👕 Try-on with prompt: {prompt[:80]}...")
-    print(f"   Steps: {steps}, Seed: {seed}")
+    print(f"   Steps: {steps}, Seed: {seed}, true_cfg: {true_cfg}")
     print(f"   Avatar size: {avatar.size}, Garment size: {garment.size}")
-    
+
     # Generate with BOTH images - avatar first, then garment
     with torch.inference_mode():
         torch.cuda.empty_cache()
@@ -278,8 +302,8 @@ def generate_tryon(
             num_inference_steps=steps,
             generator=generator,
             guidance_scale=settings.GUIDANCE_SCALE,
-            true_cfg_scale=settings.TRUE_CFG_SCALE,
-            negative_prompt=" ",
+            true_cfg_scale=true_cfg,
+            negative_prompt="",
             num_images_per_prompt=1,
         )
     
@@ -338,8 +362,9 @@ def generate_ghost_mannequin(
         print(f"🎨 Ghost mannequin (front only) with prompt: {prompt[:60]}...")
         print(f"   Front size: {front.size}")
     
-    print(f"   Steps: {steps}, Seed: {seed}")
-    
+    true_cfg = _resolve_true_cfg_scale()
+    print(f"   Steps: {steps}, Seed: {seed}, true_cfg: {true_cfg}")
+
     # Generate
     with torch.inference_mode():
         torch.cuda.empty_cache()
@@ -349,8 +374,8 @@ def generate_ghost_mannequin(
             num_inference_steps=steps,
             generator=generator,
             guidance_scale=settings.GUIDANCE_SCALE,
-            true_cfg_scale=settings.TRUE_CFG_SCALE,
-            negative_prompt=" ",
+            true_cfg_scale=true_cfg,
+            negative_prompt="",
             num_images_per_prompt=1,
         )
     

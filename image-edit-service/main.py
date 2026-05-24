@@ -77,7 +77,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Qwen-Image-Edit-2511 Service",
-    description="Self-hosted image editing for ghost mannequin and virtual try-on. Outputs 768x1024 portrait images.",
+    description="Self-hosted image editing for ghost mannequin and virtual try-on with configurable preprocessing (native aspect-ratio or portrait canvas).",
     version="2.0.0",
     lifespan=lifespan,
 )

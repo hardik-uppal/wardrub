@@ -31,6 +31,18 @@ for blob in blobs:
 
 print(f"Migrated {migrated_storage} files in Cloud Storage.")
 
+# 1. Migrate user profile
+old_profile_ref = db.collection("user_profiles").document(old_uid)
+old_profile = old_profile_ref.get()
+if old_profile.exists:
+    profile_data = old_profile.to_dict()
+    db.collection("user_profiles").document(new_uid).set(profile_data)
+    old_profile_ref.delete()
+    print(f"Migrated user profile from {old_uid} to {new_uid}")
+else:
+    print(f"No user profile found for {old_uid}")
+
+# 2. Migrate garments
 docs = db.collection("garments").where("user_id", "==", old_uid).stream()
 migrated_firestore = 0
 for doc in docs:
@@ -38,4 +50,20 @@ for doc in docs:
     migrated_firestore += 1
 
 print(f"Migrated {migrated_firestore} garments in Firestore.")
+
+# 3. Migrate daily looks
+looks_docs = db.collection("daily_looks").where("user_id", "==", old_uid).stream()
+migrated_looks = 0
+for doc in looks_docs:
+    look_data = doc.to_dict()
+    look_data["user_id"] = new_uid
+    date = look_data.get("date")
+    if date:
+        new_doc_id = f"{new_uid}_{date}"
+        db.collection("daily_looks").document(new_doc_id).set(look_data)
+        db.collection("daily_looks").document(doc.id).delete()
+        migrated_looks += 1
+
+print(f"Migrated {migrated_looks} daily looks in Firestore.")
 print("Done!")
+

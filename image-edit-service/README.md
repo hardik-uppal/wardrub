@@ -140,12 +140,16 @@ async def create_ghost_mannequin(image_bytes: bytes, category: str) -> bytes:
 | HOST | 0.0.0.0 | Server host |
 | PORT | 8001 | Server port |
 | MODEL_ID | toandev/Qwen-Image-Edit-2511-4bit | Pre-quantized model |
-| NUM_INFERENCE_STEPS | 40 | Default inference steps |
+| NUM_INFERENCE_STEPS | 4 | Default inference steps |
 | GUIDANCE_SCALE | 1.0 | Guidance scale |
-| TRUE_CFG_SCALE | 4.0 | True CFG scale for 2511 |
+| TRUE_CFG_SCALE | 4.0 | True CFG scale for base/non-lightning |
+| TRUE_CFG_SCALE_LIGHTNING | 1.0 | True CFG scale when Lightning LoRA is enabled |
+| PREPROCESS_MODE | native | `native` (keep aspect ratio) or `portrait_pad` (legacy fixed canvas) |
+| PREPROCESS_MAX_SIDE | 1536 | Optional max side clamp for memory safety (0 disables) |
+| PREPROCESS_ALIGN | 1 | Align dimensions to this multiple in native mode (1 = no alignment) |
 | ENABLE_CPU_OFFLOAD | true | Enable CPU offload |
-| OUTPUT_WIDTH | 768 | Output width (portrait) |
-| OUTPUT_HEIGHT | 1024 | Output height (portrait) |
+| OUTPUT_WIDTH | 768 | Output width (portrait mode only) |
+| OUTPUT_HEIGHT | 1024 | Output height (portrait mode only) |
 
 ## Performance
 
