@@ -8,7 +8,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Setup service account credentials file from env string if running on Cloud Run
+import base64
+
+gcp_key_b64 = os.getenv("GCP_SERVICE_ACCOUNT_KEY_B64")
 gcp_key = os.getenv("GCP_SERVICE_ACCOUNT_KEY")
+
+if gcp_key_b64:
+    try:
+        gcp_key = base64.b64decode(gcp_key_b64).decode('utf-8')
+    except Exception as e:
+        print(f"Error decoding base64 service account key: {e}")
+
 if gcp_key:
     temp_path = "/tmp/service-account.json"
     try:

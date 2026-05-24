@@ -33,6 +33,15 @@ jobs:
           docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }} backend/
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
 
+      - name: Prepare Base64 Credentials
+        run: |
+          cat << 'EOF' > /tmp/sa.json
+          ${{ secrets.GCP_CREDENTIALS }}
+          EOF
+          B64_JSON=$(base64 -w 0 /tmp/sa.json)
+          echo "::add-mask::$B64_JSON"
+          echo "GCP_SERVICE_ACCOUNT_KEY_B64=$B64_JSON" >> $GITHUB_ENV
+
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
@@ -48,7 +57,7 @@ jobs:
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
             REPLICATE_API_TOKEN=${{ secrets.REPLICATE_API_TOKEN }}
-            GCP_SERVICE_ACCOUNT_KEY=${{ secrets.GCP_CREDENTIALS }}
+            GCP_SERVICE_ACCOUNT_KEY_B64=${{ env.GCP_SERVICE_ACCOUNT_KEY_B64 }}
 
   deploy-frontend:
     name: Deploy Frontend to GitHub Pages
