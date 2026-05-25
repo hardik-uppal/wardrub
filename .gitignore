@@ -55,3 +55,16 @@ image-edit-service/runs/
 image-edit-service/checkpoints/
 image-edit-service/models/
 image-edit-service/training/**/outputs/
+
+# Local workspace scratch and test scripts
+scratch/
+backend/inspect_*.py
+backend/generate_*.py
+backend/product_match_grid.html
+backend/product_match_grid.png
+backend/vision_api_results.json
+backend/=1.0.0
+backend/=6.0.0
+service.yaml
+
+

@@ -43,7 +43,10 @@ class Settings(BaseSettings):
     PREPROCESS_MODE: str = "native"
     PREPROCESS_MAX_SIDE: int = 1536  # 0 disables clamping
     PREPROCESS_ALIGN: int = 1
-    
+
+    # Ghost mannequin behavior lock (prevents drifting prompts from breaking output style).
+    GHOST_PROMPT_LOCKED: bool = True
+
     # Memory optimization
     ENABLE_CPU_OFFLOAD: bool = True
     

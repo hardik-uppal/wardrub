@@ -52,8 +52,10 @@ def initialize_firebase() -> bool:
     if _firebase_initialized:
         return True
     
+    import os
+    
     try:
-        if settings.GOOGLE_APPLICATION_CREDENTIALS:
+        if settings.GOOGLE_APPLICATION_CREDENTIALS and os.path.exists(settings.GOOGLE_APPLICATION_CREDENTIALS):
             cred = credentials.Certificate(settings.GOOGLE_APPLICATION_CREDENTIALS)
             firebase_admin.initialize_app(cred, {
                 'projectId': settings.GOOGLE_CLOUD_PROJECT

@@ -1,0 +1,67 @@
+# Wardrub local VTON/Ghost LoRA prototype config
+
+project: wardrub-image-edit
+backend_model: toandev/Qwen-Image-Edit-2511-4bit
+speed_adapter: lightx2v/Qwen-Image-Edit-2511-Lightning
+
+output:
+  width: 768
+  height: 1024
+
+dataset:
+  hf_id: forgeml/viton_hd
+  local_dir: data/viton_hd_proto
+  local_debug_samples: 64
+  runpod_samples: 0  # 0 means full split for prepare_viton_hd.py
+  tryon_manifest: data/viton_hd_proto/manifests/tryon_train.jsonl
+  ghost_manifest: data/viton_hd_proto/manifests/ghost_train.jsonl
+
+local_4090_debug:
+  use_lightning_lora: true
+  inference_steps: 4
+  cpu_offload: false
+  eval_limit: 5
+
+lora_initial:
+  name: wardrub-vton-ghost-lora
+  # Local 4090 smoke preset: smaller/cheaper; validates loop and adapter loading.
+  rank_local_smoke: 8
+  target_modules_local_smoke:
+    - to_q
+    - to_k
+    - to_v
+    - to_out.0
+    - add_q_proj
+    - add_k_proj
+    - add_v_proj
+    - to_add_out
+  # DiffSynth-Studio Qwen-Image-Edit-2511 recommended preset for serious runs.
+  rank_diffsynth_recommended: 32
+  target_modules_diffsynth_recommended:
+    - to_q
+    - to_k
+    - to_v
+    - add_q_proj
+    - add_k_proj
+    - add_v_proj
+    - to_out.0
+    - to_add_out
+    - img_mlp.net.2
+    - img_mod.1
+    - txt_mlp.net.2
+    - txt_mod.1
+  alpha: 32
+  dropout: 0.05
+  learning_rate: 0.0001
+  max_train_steps_local_smoke: 50
+  max_train_steps_runpod_first: 1000
+  precision: bf16
+  qwen_edit_2511_required_flags:
+    - zero_cond_t
+    - extra_inputs=edit_image
+    - data_file_keys=image,edit_image
+
+speed_track:
+  short_term: "stack existing Qwen Lightning LoRA with Wardrub task LoRA"
+  mid_term: "train Wardrub-compatible Lightning/LCM LoRA"
+  long_term: "distill Qwen/LoRA teacher into CNN/feed-forward student"

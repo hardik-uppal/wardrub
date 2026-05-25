@@ -1,0 +1,10 @@
+# Prevent Aider from reading or editing environment files and secrets
+.env
+.env.*
+service-account.json
+*service-account*.json
+*.pem
+*.key
+backend/.env
+frontend/.env
+frontend/.env.production

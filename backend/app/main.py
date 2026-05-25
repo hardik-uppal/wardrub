@@ -124,3 +124,25 @@ async def health_check():
     """Health check endpoint for Cloud Run."""
     return {"status": "ok"}
 
+
+@app.get("/api/mock-gcs/{blob_name:path}")
+async def serve_mock_gcs(blob_name: str):
+    """Serve a mock file from StorageService in-memory storage."""
+    from app.services.storage import StorageService
+    from fastapi import Response, HTTPException
+    
+    storage_service = StorageService()
+    file_bytes = storage_service.get_mock_file(blob_name)
+    if not file_bytes:
+        raise HTTPException(status_code=404, detail="File not found in mock GCS")
+    
+    # Determine media type
+    media_type = "image/png"
+    if blob_name.endswith(".jpg") or blob_name.endswith(".jpeg"):
+        media_type = "image/jpeg"
+    elif blob_name.endswith(".json"):
+        media_type = "application/json"
+        
+    return Response(content=file_bytes, media_type=media_type)
+
+

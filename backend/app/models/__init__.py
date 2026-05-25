@@ -20,6 +20,12 @@ from app.models.outfit import (
     WeatherInfo,
     OutfitReasoning,
 )
+from app.models.magazine_feed import (
+    SwapSuggestion,
+    LookCard,
+    MagazineFeed,
+    LookFeedback,
+)
 
 __all__ = [
     # User Profile
@@ -39,5 +45,11 @@ __all__ = [
     "OutfitSuggestion",
     "WeatherInfo",
     "OutfitReasoning",
+    # Magazine Feed
+    "SwapSuggestion",
+    "LookCard",
+    "MagazineFeed",
+    "LookFeedback",
 ]
+
 

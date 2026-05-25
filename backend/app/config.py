@@ -5,7 +5,15 @@ import json
 from functools import lru_cache
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
+
+# Print masked GEMINI_API_KEY for debugging key loading
+_key = os.getenv("GEMINI_API_KEY")
+if _key:
+    print(f"🔑 Loaded GEMINI_API_KEY: {_key[:6]}...{_key[-6:] if len(_key) > 12 else ''}")
+else:
+    print("🔑 Loaded GEMINI_API_KEY: None")
+
 
 # Setup service account credentials file from env string if running on Cloud Run
 import base64
@@ -43,8 +51,9 @@ GEMINI_MODEL_TYPE = os.getenv("GEMINI_MODEL_TYPE", "flash")  # "pro" or "flash"
 # Model mappings
 GEMINI_MODELS = {
     "pro": "gemini-3-pro-image-preview",
-    "flash": "gemini-2.5-flash-image",
+    "flash": "gemini-3.1-flash-image-preview",
 }
+
 
 def get_gemini_model() -> str:
     """Get the configured Gemini model name."""

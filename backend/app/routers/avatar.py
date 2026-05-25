@@ -115,7 +115,8 @@ async def get_avatar(user: Dict[str, Any] = Depends(get_current_user)):
             return {"avatar_url": None, "status": "not_created"}
         return {"avatar_url": avatar_url, "status": "exists"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch avatar: {str(e)}")
+        logger.error(f"Failed to fetch avatar: {e}")
+        return {"avatar_url": None, "status": "not_created"}
 
 
 @router.delete("/avatar")

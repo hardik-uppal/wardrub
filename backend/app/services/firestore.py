@@ -8,6 +8,7 @@ from app.logging_config import get_logger
 from app.models.user_profile import UserProfile, UserProfileUpdate
 from app.models.garment import GarmentMetadata
 from app.models.daily_looks import DailyLooks
+from app.models.magazine_feed import MagazineFeed, LookFeedback
 
 settings = get_settings()
 logger = get_logger("firestore")
@@ -16,6 +17,9 @@ logger = get_logger("firestore")
 _memory_profiles: Dict[str, Dict[str, Any]] = {}
 _memory_garments: Dict[str, Dict[str, Any]] = {}
 _memory_daily_looks: Dict[str, Dict[str, Any]] = {}  # key: "{user_id}_{date}"
+_memory_magazine_feeds: Dict[str, Dict[str, Any]] = {}  # key: "{user_id}_{date}"
+_memory_look_feedback: Dict[str, Dict[str, Any]] = {}  # key: "{feedback_id}"
+_memory_tryon_cache: Dict[str, Dict[str, Any]] = {}  # key: "{cache_key}"
 
 
 class FirestoreService:
@@ -25,6 +29,9 @@ class FirestoreService:
     PROFILES_COLLECTION = "user_profiles"
     GARMENTS_COLLECTION = "garments"
     DAILY_LOOKS_COLLECTION = "daily_looks"
+    MAGAZINE_FEED_COLLECTION = "magazine_feeds"
+    LOOK_FEEDBACK_COLLECTION = "look_feedback"
+    TRYON_CACHE_COLLECTION = "tryon_cache"
     
     # Legacy user ID (for migration purposes)
     LEGACY_USER_ID = "default_user"
@@ -45,7 +52,9 @@ class FirestoreService:
                 # Use 'wardrub' database instead of default
                 database_id = "wardrub"
                 
-                if settings.GOOGLE_APPLICATION_CREDENTIALS:
+                import os
+                
+                if settings.GOOGLE_APPLICATION_CREDENTIALS and os.path.exists(settings.GOOGLE_APPLICATION_CREDENTIALS):
                     credentials = service_account.Credentials.from_service_account_file(
                         settings.GOOGLE_APPLICATION_CREDENTIALS
                     )
@@ -65,8 +74,9 @@ class FirestoreService:
                 self._client.collection("_test").limit(1).get()
                 logger.info(f"Firestore client initialized (database: {database_id})")
             except Exception as e:
-                logger.error(f"Firestore connection failed: {e}")
-                raise RuntimeError(f"Firestore initialization failed: {e}")
+                logger.warning(f"Firestore connection failed: {e}. Falling back to in-memory mock database.")
+                self._client = None
+                self._use_memory = True
         return self._client
     
     # =========================================================================
@@ -787,6 +797,213 @@ class FirestoreService:
         except Exception as e:
             logger.error(f"Failed to delete daily looks for {user_id} on {date}: {e}")
             return False
+
+    # =========================================================================
+    # Magazine Feed Operations
+    # =========================================================================
+    
+    async def save_magazine_feed(self, feed: MagazineFeed) -> bool:
+        """
+        Save daily magazine feed for a user.
+        
+        Args:
+            feed: MagazineFeed object to save
+            
+        Returns:
+            True if successful
+        """
+        try:
+            doc_id = f"{feed.user_id}_{feed.date}"
+            data = feed.model_dump()
+            
+            # Convert datetime to ISO string for Firestore
+            if isinstance(data.get("generated_at"), datetime):
+                data["generated_at"] = data["generated_at"].isoformat()
+            
+            # Handle nested look cards and datetime conversion
+            def serialize_look_card(card: dict):
+                if isinstance(card.get("generated_at"), datetime):
+                    card["generated_at"] = card["generated_at"].isoformat()
+                return card
+
+            data["cover_look"] = serialize_look_card(data["cover_look"])
+            data["underused_edit"] = serialize_look_card(data["underused_edit"])
+            data["daily_fits"] = [serialize_look_card(lc) for lc in data["daily_fits"]]
+            data["one_item_three_ways"] = [serialize_look_card(lc) for lc in data["one_item_three_ways"]]
+            
+            # Use in-memory fallback
+            if self._use_memory or self.client is None:
+                _memory_magazine_feeds[doc_id] = data
+                logger.info(f"Saved magazine feed for {doc_id} (in-memory)")
+                return True
+                
+            doc_ref = self.client.collection(self.MAGAZINE_FEED_COLLECTION).document(doc_id)
+            doc_ref.set(data)
+            logger.info(f"Saved magazine feed for {doc_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to save magazine feed: {e}")
+            doc_id = f"{feed.user_id}_{feed.date}"
+            _memory_magazine_feeds[doc_id] = feed.model_dump()
+            return True
+
+    async def get_magazine_feed(
+        self,
+        user_id: str,
+        date: str
+    ) -> Optional[MagazineFeed]:
+        """
+        Get magazine feed for a specific date.
+        
+        Args:
+            user_id: User identifier
+            date: Date in YYYY-MM-DD format
+            
+        Returns:
+            MagazineFeed if found, None otherwise
+        """
+        try:
+            doc_id = f"{user_id}_{date}"
+            
+            # Use in-memory fallback
+            if self._use_memory or self.client is None:
+                data = _memory_magazine_feeds.get(doc_id)
+                if data:
+                    return MagazineFeed(**data)
+                return None
+                
+            doc_ref = self.client.collection(self.MAGAZINE_FEED_COLLECTION).document(doc_id)
+            doc = doc_ref.get()
+            
+            if doc.exists:
+                return MagazineFeed(**doc.to_dict())
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to get magazine feed for {user_id} on {date}: {e}")
+            doc_id = f"{user_id}_{date}"
+            data = _memory_magazine_feeds.get(doc_id)
+            if data:
+                return MagazineFeed(**data)
+            return None
+
+    async def get_latest_magazine_feed(
+        self,
+        user_id: str
+    ) -> Optional[MagazineFeed]:
+        """
+        Get the most recent magazine feed for a user.
+        
+        Args:
+            user_id: User identifier
+            
+        Returns:
+            Most recent MagazineFeed if found, None otherwise
+        """
+        try:
+            # Use in-memory fallback
+            if self._use_memory or self.client is None:
+                user_feeds = [
+                    (key, data) for key, data in _memory_magazine_feeds.items()
+                    if key.startswith(f"{user_id}_")
+                ]
+                if not user_feeds:
+                    return None
+                
+                # Sort by date descending
+                user_feeds.sort(key=lambda x: x[0], reverse=True)
+                return MagazineFeed(**user_feeds[0][1])
+                
+            # Check recent days directly by document ID (avoid composite index)
+            from datetime import date as dt_date, timedelta
+            today = dt_date.today()
+            
+            for days_ago in range(7):  # Check last 7 days
+                check_date = (today - timedelta(days=days_ago)).isoformat()
+                doc_id = f"{user_id}_{check_date}"
+                
+                doc_ref = self.client.collection(self.MAGAZINE_FEED_COLLECTION).document(doc_id)
+                doc = doc_ref.get()
+                
+                if doc.exists:
+                    return MagazineFeed(**doc.to_dict())
+                    
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to get latest magazine feed for {user_id}: {e}")
+            return None
+
+    async def save_look_feedback(self, feedback: LookFeedback) -> bool:
+        """
+        Save feedback for a look card.
+        
+        Args:
+            feedback: LookFeedback object
+            
+        Returns:
+            True if successful
+        """
+        try:
+            data = feedback.model_dump()
+            
+            if isinstance(data.get("created_at"), datetime):
+                data["created_at"] = data["created_at"].isoformat()
+                
+            # Use in-memory fallback
+            if self._use_memory or self.client is None:
+                _memory_look_feedback[feedback.id] = data
+                logger.info(f"Saved look feedback {feedback.id} (in-memory)")
+                return True
+                
+            doc_ref = self.client.collection(self.LOOK_FEEDBACK_COLLECTION).document(feedback.id)
+            doc_ref.set(data)
+            logger.info(f"Saved look feedback {feedback.id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to save look feedback: {e}")
+            _memory_look_feedback[feedback.id] = feedback.model_dump()
+            return True
+
+    async def list_user_feedback(
+        self,
+        user_id: str,
+        limit: int = 100
+    ) -> List[LookFeedback]:
+        """
+        List all feedback events for a user.
+        
+        Args:
+            user_id: User identifier
+            limit: Maximum feedback events to return
+            
+        Returns:
+            List of LookFeedback objects
+        """
+        try:
+            # Use in-memory fallback
+            if self._use_memory or self.client is None:
+                user_fb = [
+                    LookFeedback(**data) for data in _memory_look_feedback.values()
+                    if data.get("user_id") == user_id
+                ]
+                user_fb.sort(key=lambda x: x.created_at, reverse=True)
+                return user_fb[:limit]
+                
+            query = self.client.collection(self.LOOK_FEEDBACK_COLLECTION).where(
+                "user_id", "==", user_id
+            )
+            
+            docs = query.stream()
+            user_fb = [LookFeedback(**doc.to_dict()) for doc in docs]
+            user_fb.sort(key=lambda x: x.created_at, reverse=True)
+            return user_fb[:limit]
+            
+        except Exception as e:
+            logger.error(f"Failed to list feedback for {user_id}: {e}")
+            return []
     
     # =========================================================================
     # Legacy Data Migration
@@ -894,4 +1111,83 @@ class FirestoreService:
         
         logger.info(f"Firestore migration complete: {summary}")
         return summary
+
+    async def get_cached_tryon(self, cache_key: str) -> Optional[str]:
+        """
+        Retrieve a cached try-on result URL.
+        
+        Args:
+            cache_key: Unique SHA-256 hash of the combination
+            
+        Returns:
+            The GCS URL of the generated try-on image, or None
+        """
+        try:
+            # Use in-memory fallback
+            if self._use_memory or self.client is None:
+                data = _memory_tryon_cache.get(cache_key)
+                return data.get("result_url") if data else None
+                
+            doc_ref = self.client.collection(self.TRYON_CACHE_COLLECTION).document(cache_key)
+            doc = doc_ref.get()
+            if doc.exists:
+                return doc.to_dict().get("result_url")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get cached try-on: {e}")
+            data = _memory_tryon_cache.get(cache_key)
+            return data.get("result_url") if data else None
+
+    async def save_tryon_cache(
+        self,
+        cache_key: str,
+        user_id: str,
+        avatar_url: str,
+        garment_urls: List[str],
+        result_url: str
+    ) -> bool:
+        """
+        Save a try-on result to the cache.
+        
+        Args:
+            cache_key: Unique SHA-256 hash of the combination
+            user_id: The owner user ID
+            avatar_url: Base avatar image URL used
+            garment_urls: Sorted list of garment URLs used
+            result_url: Generated try-on result image URL
+            
+        Returns:
+            True if successfully cached
+        """
+        try:
+            data = {
+                "cache_key": cache_key,
+                "user_id": user_id,
+                "avatar_url": avatar_url,
+                "garment_urls": garment_urls,
+                "result_url": result_url,
+                "created_at": datetime.utcnow().isoformat()
+            }
+            
+            # Use in-memory fallback
+            if self._use_memory or self.client is None:
+                _memory_tryon_cache[cache_key] = data
+                logger.info(f"Cached try-on result {cache_key} (in-memory)")
+                return True
+                
+            doc_ref = self.client.collection(self.TRYON_CACHE_COLLECTION).document(cache_key)
+            doc_ref.set(data)
+            logger.info(f"Cached try-on result {cache_key} in Firestore")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save try-on cache: {e}")
+            _memory_tryon_cache[cache_key] = {
+                "cache_key": cache_key,
+                "user_id": user_id,
+                "avatar_url": avatar_url,
+                "garment_urls": garment_urls,
+                "result_url": result_url,
+                "created_at": datetime.utcnow().isoformat()
+            }
+            return True
 

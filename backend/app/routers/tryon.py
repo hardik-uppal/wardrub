@@ -1,16 +1,19 @@
 """Virtual try-on router - combines avatar with garments using Vertex AI."""
 
+import hashlib
 from typing import List, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from app.services.storage import StorageService
 from app.services.vertex_ai import VertexAIService
+from app.services.firestore import FirestoreService
 from app.services.auth import get_current_user
 
 router = APIRouter()
 storage = StorageService()
 vertex_ai = VertexAIService()
+firestore = FirestoreService()
 
 
 class TryOnRequest(BaseModel):
@@ -30,6 +33,13 @@ class MultiTryOnRequest(BaseModel):
     """Request model for multi-garment try-on endpoint."""
     avatar_url: str
     garments: List[GarmentItem]
+
+
+def calculate_tryon_cache_key(avatar_url: str, garment_urls: List[str]) -> str:
+    """Sort garment URLs and generate a SHA-256 hash for deterministic cache keys."""
+    sorted_urls = sorted(garment_urls)
+    combination_str = f"{avatar_url}|" + "|".join(sorted_urls)
+    return hashlib.sha256(combination_str.encode('utf-8')).hexdigest()
 
 
 @router.post("/try-on")
@@ -56,6 +66,16 @@ async def try_on(
         )
     
     try:
+        # Check cache first
+        cache_key = calculate_tryon_cache_key(request.avatar_url, [request.garment_url])
+        cached_url = await firestore.get_cached_tryon(cache_key)
+        if cached_url:
+            return {
+                "result_url": cached_url,
+                "status": "success",
+                "cached": True
+            }
+
         # Download images from storage
         avatar_bytes = await storage.download_image(request.avatar_url)
         garment_bytes = await storage.download_image(request.garment_url)
@@ -70,9 +90,19 @@ async def try_on(
         # Upload result to storage
         result_url = await storage.upload_tryon_result(result_bytes, user_id=user_id)
         
+        # Save to cache
+        await firestore.save_tryon_cache(
+            cache_key=cache_key,
+            user_id=user_id,
+            avatar_url=request.avatar_url,
+            garment_urls=[request.garment_url],
+            result_url=result_url
+        )
+        
         return {
             "result_url": result_url,
-            "status": "success"
+            "status": "success",
+            "cached": False
         }
     
     except Exception as e:
@@ -104,14 +134,27 @@ async def try_on_multiple(
     
     # Validate categories
     valid_categories = ["top", "bottom", "dress", "outerwear"]
+    garment_urls = []
     for garment in request.garments:
         if garment.category not in valid_categories:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid category '{garment.category}'. Must be: {', '.join(valid_categories)}"
             )
+        garment_urls.append(garment.url)
     
     try:
+        # Check cache first
+        cache_key = calculate_tryon_cache_key(request.avatar_url, garment_urls)
+        cached_url = await firestore.get_cached_tryon(cache_key)
+        if cached_url:
+            return {
+                "result_url": cached_url,
+                "status": "success",
+                "garment_count": len(request.garments),
+                "cached": True
+            }
+
         # Download avatar image
         avatar_bytes = await storage.download_image(request.avatar_url)
         
@@ -133,10 +176,20 @@ async def try_on_multiple(
         # Upload result to storage
         result_url = await storage.upload_tryon_result(result_bytes, user_id=user_id)
         
+        # Save to cache
+        await firestore.save_tryon_cache(
+            cache_key=cache_key,
+            user_id=user_id,
+            avatar_url=request.avatar_url,
+            garment_urls=garment_urls,
+            result_url=result_url
+        )
+        
         return {
             "result_url": result_url,
             "status": "success",
-            "garment_count": len(request.garments)
+            "garment_count": len(request.garments),
+            "cached": False
         }
     
     except Exception as e:
@@ -183,4 +236,5 @@ async def delete_look(
         return {"status": "deleted", "id": look_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete look: {str(e)}")
+
 

@@ -1,6 +1,6 @@
 # PRD: Wardrub Magazine Feed
 
-**Status:** Draft for review  
+**Status:** Approved for implementation  
 **Owner:** Hardik + Bud  
 **Created:** 2026-05-24  
 **Product:** Wardrub  
@@ -496,15 +496,15 @@ Swap: add the navy overshirt if it gets cold.
 
 ---
 
-## 15. Open Decisions for Review
+## 15. Resolved Decisions
 
-1. Should Magazine Feed become the **home screen**, or live as a separate tab?
-2. Do we require at least 10 uploaded items before showing the feed?
-3. Should v1 use LLM-generated looks live, or pre-generate/cache daily feed cards?
-4. How opinionated should the copy be? Safe stylist vs witty Bud-style editorial voice?
-5. Do we include chatbot in v1, or keep it as v1.5?
-6. Should we prioritize existing wardrobe only, or include “complete the look” shopping suggestions early?
-7. What is the minimum visual bar: garment collage, card thumbnails, or generated try-on?
+1. **Placement:** The Magazine Feed will replace the old `DailyOutfit` page as the primary **Home Screen** (rendered at `/` and `/daily-outfit`).
+2. **Onboarding Threshold:** A minimum of **5 uploaded garments** (with metadata generated) is required to activate the feed. Under 5 garments, a premium upload onboarding checklist will be shown.
+3. **Generation Strategy:** Feeds are pre-generated/cached per user for the day, but can be forced regenerated on-demand. If no feed exists for today upon login, it is generated on-demand with a beautiful loading animation.
+4. **Copy & Tone:** A witty, opinionated, "Bud-style" editorial voice. The copy should feel like a real fashion curator speaking to the user.
+5. **Chatbot:** Deferred to v1.5/Post-MVP.
+6. **Shopping / Recommendations:** Prioritize existing wardrobe only for the MVP (per "Owned Wardrobe First").
+7. **Visual Bar:** Outfit cards will display a beautiful grid collage of the garment thumbnails instantly. An interactive **"Run Try-On"** button on each card will let the user trigger and overlay the photorealistic Vertex AI/Fal try-on image on-demand.
 
 ---
 

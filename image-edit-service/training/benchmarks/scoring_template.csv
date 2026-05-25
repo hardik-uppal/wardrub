@@ -1,0 +1,1 @@
+run_name,manifest,sample_id,endpoint,output_path,success,score_overall_1_5,score_garment_fidelity_1_5,score_prompt_adherence_1_5,score_background_cleanliness_1_5,score_artifacts_1_5,score_consistency_1_5,pass_fail,reviewer,comments

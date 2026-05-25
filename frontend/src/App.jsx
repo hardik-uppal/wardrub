@@ -5,7 +5,7 @@ import Home from './pages/Home'
 import Capture from './pages/Capture'
 import DressingRoom from './pages/DressingRoom'
 import CreateAvatar from './pages/CreateAvatar'
-import DailyOutfit from './pages/DailyOutfit'
+import MagazineFeed from './pages/MagazineFeed'
 import Profile from './pages/Profile'
 import SavedLooks from './pages/SavedLooks'
 import Login from './pages/Login'
@@ -66,12 +66,12 @@ function AppRoutes() {
         
         {/* Protected routes - all wrapped in ProtectedLayout */}
         <Route element={<ProtectedLayout />}>
-        <Route path="/" element={<DailyOutfit />} />
+        <Route path="/" element={<MagazineFeed />} />
         <Route path="/capture" element={<Capture />} />
         <Route path="/wardrobe" element={<Home />} />
         <Route path="/dressing-room" element={<DressingRoom />} />
         <Route path="/create-avatar" element={<CreateAvatar />} />
-        <Route path="/daily-outfit" element={<DailyOutfit />} />
+        <Route path="/daily-outfit" element={<MagazineFeed />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/looks" element={<SavedLooks />} />
         </Route>

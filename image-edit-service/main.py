@@ -94,43 +94,68 @@ app.add_middleware(
 
 # === Prompts for different use cases ===
 
-# Ghost mannequin prompts - extract garment from person, clean product photo
+# Ghost mannequin prompts - strict floating garment (no mannequin/body)
+GHOST_FLOATING_GARMENT_GUARDRAIL = """
+FINAL OUTPUT REQUIREMENT (NON-NEGOTIABLE):
+- Show ONLY a floating garment product photo.
+- No mannequin, no dummy, no torso form, no neck block, no body silhouette, no person.
+- If any mannequin/body structure appears, remove it completely and keep only empty/hollow garment.
+""".strip()
+
+
+def _sanitize_ghost_prompt(text: str) -> str:
+    """Reduce mannequin-triggering wording in custom prompts."""
+    out = text
+    out = out.replace("ghost mannequin", "floating garment")
+    out = out.replace("Ghost mannequin", "Floating garment")
+    out = out.replace("ghost-mannequin", "floating garment")
+    return out
+
+
 GHOST_MANNEQUIN_PROMPTS = {
-    GarmentCategory.TOP: """Extract just the shirt/top from this image and create a clean product photo.
+    GarmentCategory.TOP: """Create a clean e-commerce product image of ONLY the shirt/top as a floating garment.
 
-Remove the person completely. Show ONLY the garment on pure white background.
-- Remove head, arms, hands, skin - nothing visible except the clothing item
-- Pure white background, no shadows
-- Keep exact original color and texture of the fabric
-- Flat frontal product view, centered
-- Professional e-commerce catalog style""",
+HARD REQUIREMENTS:
+- Keep the garment faithful to the input (color, print, fabric texture, shape)
+- Remove person completely
+- No mannequin, no torso, no neck, no arms, no hands, no skin
+- No hanger, no model, no extra clothing
+- Garment appears naturally hollow/empty inside (floating ghost style)
+- Centered on pure white background
+- Professional studio product photography""",
 
-    GarmentCategory.BOTTOM: """Extract just the pants/bottoms from this image and create a clean product photo.
+    GarmentCategory.BOTTOM: """Create a clean e-commerce product image of ONLY the pants/bottoms as a floating garment.
 
-Remove the person completely. Show ONLY the garment on pure white background.
-- Remove body, legs, feet - nothing visible except the pants
-- Pure white background, no shadows
-- Keep exact original color and texture of the fabric
-- Flat frontal product view, centered
-- Professional e-commerce catalog style""",
+HARD REQUIREMENTS:
+- Keep the garment faithful to the input (color, print, fabric texture, shape)
+- Remove person completely
+- No mannequin, no body, no legs, no feet, no skin
+- No hanger, no model, no extra clothing
+- Garment appears naturally hollow/empty inside (floating ghost style)
+- Centered on pure white background
+- Professional studio product photography""",
 
-    GarmentCategory.DRESS: """Extract just the dress from this image and create a clean product photo.
+    GarmentCategory.DRESS: """Create a clean e-commerce product image of ONLY the dress as a floating garment.
 
-Remove the person completely. Show ONLY the garment on pure white background.
-- Remove head, arms, legs - nothing visible except the dress
-- Pure white background, no shadows
-- Keep exact original color and texture of the fabric
-- Flat frontal product view, centered
-- Professional e-commerce catalog style""",
+HARD REQUIREMENTS:
+- Keep the garment faithful to the input (color, print, fabric texture, shape)
+- Remove person completely
+- No mannequin, no torso, no neck, no arms, no legs, no skin
+- No hanger, no model, no extra clothing
+- Garment appears naturally hollow/empty inside (floating ghost style)
+- Centered on pure white background
+- Professional studio product photography""",
 
-    GarmentCategory.OUTERWEAR: """Extract just the jacket/coat from this image and create a clean product photo.
+    GarmentCategory.OUTERWEAR: """Create a clean e-commerce product image of ONLY the jacket/coat as a floating garment.
 
-Remove the person completely. Show ONLY the garment on pure white background.
-- Remove head, arms, hands - nothing visible except the jacket
-- Pure white background, no shadows
-- Keep exact original color and texture of the fabric
-- Flat frontal product view, centered
-- Professional e-commerce catalog style""",
+HARD REQUIREMENTS:
+- Keep the garment faithful to the input (color, print, fabric texture, shape)
+- Remove person completely
+- No mannequin, no torso, no neck, no arms, no hands, no skin
+- No hanger, no model, no extra clothing
+- Garment appears naturally hollow/empty inside (floating ghost style)
+- Centered on pure white background
+- Professional studio product photography""",
 }
 
 
@@ -208,24 +233,25 @@ async def create_ghost_mannequin(
                 pass  # Ignore if back image fails to load
         
         # Select prompt
-        if custom_prompt:
-            prompt = custom_prompt
-        elif back_img is not None:
+        if back_img is not None:
             # Multi-image prompt
-            prompt = f"""Create a professional ghost mannequin e-commerce photo combining these front and back views.
+            prompt = f"""Combine image 1 (front view) and image 2 (back view) to create ONE clean floating garment product photo.
 
-The first image shows the FRONT of the garment.
-The second image shows the BACK of the garment.
-
-CRITICAL: Create a SINGLE floating garment showing its 3D shape.
-- NO visible mannequin or body parts
-- The garment should appear to float
-- Show natural shape and depth
-- Pure white background
-- Professional studio lighting
-- High-end fashion e-commerce style"""
+HARD REQUIREMENTS:
+- Keep garment details faithful (color, logos, print, seams, texture)
+- No mannequin, no torso, no neck, no body parts, no skin
+- No hanger, no model, no extra garment pieces
+- Garment must look empty/hollow inside, not worn by anyone
+- Single centered garment on pure white background
+- Natural product shape and depth, professional studio lighting"""
+        elif custom_prompt and not settings.GHOST_PROMPT_LOCKED:
+            prompt = _sanitize_ghost_prompt(custom_prompt)
         else:
+            if custom_prompt and settings.GHOST_PROMPT_LOCKED:
+                print("[ghost] ignoring custom_prompt because GHOST_PROMPT_LOCKED=true")
             prompt = GHOST_MANNEQUIN_PROMPTS[category]
+
+        prompt = f"{prompt}\n\n{GHOST_FLOATING_GARMENT_GUARDRAIL}"
         
         # Generate using ghost mannequin function
         output_image, seed_used = generate_ghost_mannequin(

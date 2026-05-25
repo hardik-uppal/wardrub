@@ -1,9 +1,9 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Shirt, Sun, Sparkles, Image, User } from 'lucide-react'
+import { Shirt, BookOpen, Sparkles, Image, User } from 'lucide-react'
 import { useWardrobe } from '../context/WardrobeContext'
 
 const navItems = [
-  { path: '/', icon: Sun, label: 'Daily' },
+  { path: '/', icon: BookOpen, label: 'Feed' },
   { path: '/wardrobe', icon: Shirt, label: 'Wardrobe' },
   { path: '/dressing-room', icon: Sparkles, label: 'Try On' },
   { path: '/looks', icon: Image, label: 'Looks' },

@@ -1,0 +1,3 @@
+{"id":"ghost_0001","endpoint":"ghost-mannequin","image":"test_images/garment_top.png","category":"top","custom_prompt":"Create a clean ghost mannequin product photo on pure white background.","tags":{"source_type":"flatlay_like","difficulty":"easy","split":"eval"},"notes":"starter sample from repo"}
+{"id":"ghost_0002","endpoint":"ghost-mannequin","image":"REPLACE_ME/ghost_inputs/person_001.jpg","category":"dress","custom_prompt":"Remove person fully and keep exact garment texture/color on white background.","tags":{"source_type":"person","difficulty":"medium","split":"eval"}}
+{"id":"ghost_0003","endpoint":"ghost-mannequin","image":"REPLACE_ME/ghost_inputs/hanger_001.jpg","category":"outerwear","tags":{"source_type":"hanger","difficulty":"medium","split":"eval"}}

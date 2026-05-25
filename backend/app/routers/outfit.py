@@ -14,6 +14,11 @@ from app.models.outfit import Occasion, OutfitRequest
 from app.models.daily_looks import DailyLooks, DailyLook
 from app.jobs.daily_looks_generator import generate_daily_looks
 from app.jobs.scheduler import get_job_status
+from app.services.magazine_feed_service import MagazineFeedService
+from app.models import MagazineFeed, LookFeedback
+import uuid
+from pydantic import BaseModel
+from datetime import datetime
 
 router = APIRouter()
 firestore = FirestoreService()
@@ -494,5 +499,142 @@ async def get_scheduler_status_endpoint():
         }
     except Exception as e:
         logger.error(f"Failed to get scheduler status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =========================================================================
+# Magazine Feed Endpoints
+# =========================================================================
+
+magazine_service = MagazineFeedService()
+
+
+class FeedbackRequest(BaseModel):
+    look_id: str
+    action: str  # love, save, dislike, wore_this
+
+
+@router.get("/magazine-feed")
+async def get_magazine_feed_endpoint(
+    mock: bool = Query(False, description="Force returning mock data for preview/testing"),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Get today's personalized magazine feed for the user.
+    If the user has fewer than 5 garments, returns onboarding status (unless dev-admin or mock parameter is set).
+    """
+    user_id = user["uid"]
+    logger.info(f"Retrieving magazine feed for user {user_id} (mock={mock})")
+    
+    try:
+        # Check if mock mode is forced, or if it is the dev admin bypass and wardrobe is underpopulated
+        if mock or user_id == "dev-admin-user-id":
+            # Auto-seed garments so that the UI can lookup mock garments correctly
+            from app.services.magazine_feed_service import async_seed_mock_garments
+            await async_seed_mock_garments(user_id, firestore)
+            
+            feed = await magazine_service.generate_mock_magazine_feed(user_id)
+            return {
+                "status": "success",
+                "feed": feed.model_dump()
+            }
+            
+        # Check garment onboarding gate
+        garments = await firestore.list_garments_metadata(user_id=user_id)
+        if len(garments) < 5:
+            return {
+                "status": "onboarding",
+                "count": len(garments),
+                "required": 5,
+                "message": "Add at least 5 clothing items to compile your first magazine stylebook"
+            }
+            
+        # Get or generate feed
+        feed = await magazine_service.generate_magazine_feed(user_id)
+        if not feed:
+            raise HTTPException(status_code=500, detail="Failed to compile stylebook feed")
+            
+        return {
+            "status": "success",
+            "feed": feed.model_dump()
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch magazine feed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/magazine-feed/generate")
+async def regenerate_magazine_feed_endpoint(
+    mock: bool = Query(False, description="Force returning mock data for preview/testing"),
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Force regenerate today's magazine feed.
+    """
+    user_id = user["uid"]
+    logger.info(f"Force regenerating magazine feed for user {user_id} (mock={mock})")
+    
+    try:
+        if mock or user_id == "dev-admin-user-id":
+            from app.services.magazine_feed_service import async_seed_mock_garments
+            await async_seed_mock_garments(user_id, firestore)
+            
+            feed = await magazine_service.generate_mock_magazine_feed(user_id)
+            return {
+                "status": "success",
+                "feed": feed.model_dump()
+            }
+            
+        # Check garment onboarding gate
+        garments = await firestore.list_garments_metadata(user_id=user_id)
+        if len(garments) < 5:
+            raise HTTPException(
+                status_code=400,
+                detail="Not enough garments to generate feed. Need at least 5."
+            )
+            
+        feed = await magazine_service.generate_magazine_feed(user_id, force_regenerate=True)
+        if not feed:
+            raise HTTPException(status_code=500, detail="Failed to regenerate feed")
+            
+        return {
+            "status": "success",
+            "feed": feed.model_dump()
+        }
+    except Exception as e:
+        logger.error(f"Failed to regenerate magazine feed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/magazine-feed/feedback")
+async def submit_magazine_feedback(
+    request: FeedbackRequest,
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Submit user feedback on a magazine look card.
+    """
+    user_id = user["uid"]
+    logger.info(f"Feedback submitted: user={user_id}, look={request.look_id}, action={request.action}")
+    
+    try:
+        feedback = LookFeedback(
+            id=f"fb-{uuid.uuid4().hex[:8]}",
+            user_id=user_id,
+            look_id=request.look_id,
+            action=request.action,
+            created_at=datetime.utcnow()
+        )
+        
+        success = await firestore.save_look_feedback(feedback)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to register feedback event")
+            
+        return {
+            "status": "success",
+            "feedback_id": feedback.id
+        }
+    except Exception as e:
+        logger.error(f"Failed to register feedback: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 

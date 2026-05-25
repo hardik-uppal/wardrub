@@ -145,6 +145,18 @@ Combines avatar + garment(s) using Gemini's image generation:
 - Single garment try-on
 - Multi-garment outfits (up to 4 items)
 
+**Deterministic Caching (Core Performance Tenant)**:
+To minimize try-on latency and save on expensive model generation API costs (Vertex AI/Fal.ai), every unique try-on outfit combination is cached deterministically:
+- **Cache Key**: A SHA-256 hash calculated from the base `avatar_url` combined with a lexicographically sorted list of the requested `garment_urls` (sorting ensures cache hits are order-independent).
+- **Data Schema (`tryon_cache` collection)**:
+  - `cache_key` (Document ID): string (SHA-256 hash)
+  - `user_id`: string
+  - `avatar_url`: string
+  - `garment_urls`: list of strings
+  - `result_url`: string (GCS try-on image)
+  - `created_at`: string (timestamp)
+- **Behavior**: A cache hit serves the pre-rendered image instantly (0s try-on delay). On a cache miss, the AI pipeline executes, uploads the result to GCS, and saves the new mapping.
+
 ### 4. Recommendation Engine
 
 Scoring factors:

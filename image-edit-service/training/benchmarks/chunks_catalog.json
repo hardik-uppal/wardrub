@@ -1,0 +1,22 @@
+{
+  "chunks": [
+    {
+      "chunk_id": "face_identity_lfw_small_v1",
+      "description": "Small face-identity chunk for identity consistency tests (LFW subset)",
+      "assets_root": "training/benchmarks/assets/chunks/face_identity_lfw_small_v1",
+      "manifest": "training/benchmarks/avatar_identity_lfw_small_v1.jsonl",
+      "rows": 48,
+      "identities": 8,
+      "images_per_identity": 6,
+      "task": "avatar"
+    },
+    {
+      "chunk_id": "fullbody_viton_small_v1",
+      "description": "Small full-body person-image chunk for neutral avatar transformation tests",
+      "assets_root": "training/benchmarks/assets/chunks/fullbody_viton_small_v1/persons",
+      "manifest": "training/benchmarks/avatar_fullbody_viton_small_v1.jsonl",
+      "rows": 48,
+      "task": "avatar"
+    }
+  ]
+}
