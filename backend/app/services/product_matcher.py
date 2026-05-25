@@ -251,7 +251,7 @@ Be specific and detailed. If something is not visible or identifiable, use your 
         
         try:
             response = gemini_client.models.generate_content(
-                model="gemini-2.0-flash",
+                model=settings.GEMINI_TEXT_MODEL,
                 contents=contents,
             )
             

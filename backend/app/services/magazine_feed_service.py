@@ -222,7 +222,7 @@ Return ONLY the raw JSON string."""
 
         try:
             response = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model=settings.GEMINI_TEXT_MODEL,
                 contents=[prompt],
             )
             

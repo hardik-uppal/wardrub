@@ -805,7 +805,7 @@ Return ONLY the JSON array, no other text."""
         try:
             # Use Flash for analysis (no image generation needed)
             response = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model=settings.GEMINI_TEXT_MODEL,
                 contents=contents,
             )
             

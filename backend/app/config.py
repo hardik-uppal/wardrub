@@ -83,6 +83,8 @@ class Settings:
     
     # Gemini
     GEMINI_MODEL: str = get_gemini_model()
+    GEMINI_TEXT_MODEL: str = os.getenv("GEMINI_TEXT_MODEL", "gemini-2.0-flash-lite")
+
     
     # Fal.ai API (for SAM serverless)
     FAL_KEY: str = os.getenv("FAL_KEY", "")
