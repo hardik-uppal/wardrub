@@ -13,6 +13,7 @@ from app.services.quality_assessment import QualityAssessmentService
 from app.services.color_analysis import ColorAnalysisService
 from app.services.product_matcher import ProductMatcherService
 from app.services.auth import get_current_user
+from app.config import get_settings
 from app.logging_config import get_logger
 from app.models.garment import (
     GarmentMetadata,
@@ -35,6 +36,7 @@ segmentation = SegmentationService()
 quality_service = QualityAssessmentService()
 color_service = ColorAnalysisService()
 product_matcher = ProductMatcherService()
+settings = get_settings()
 logger = get_logger("garment")
 
 
@@ -151,16 +153,17 @@ async def get_wardrobe(
         List of garment objects with URLs
     """
     user_id = user["uid"]
+    email = user.get("email")
     try:
         # For dev bypass, if they have no garments, let's ensure we seed them
-        if user_id == "dev-admin-user-id":
+        if settings.is_dev_user(user_id, email):
             from app.services.magazine_feed_service import async_seed_mock_garments
             await async_seed_mock_garments(user_id, firestore)
 
         garments = await storage.list_garments(user_id=user_id, category=category)
         
         # If list_garments succeeded but returned empty list for dev-admin, re-load from memory/firestore
-        if user_id == "dev-admin-user-id" and not garments:
+        if settings.is_dev_user(user_id, email) and not garments:
             from app.services.firestore import _memory_garments
             garments = [g for g in _memory_garments.values() if g.get("user_id") == user_id]
             if category:
@@ -170,7 +173,7 @@ async def get_wardrobe(
     except Exception as e:
         logger.error(f"Failed to fetch wardrobe: {e}")
         # If user is dev-admin, make sure we seed them in memory
-        if user_id == "dev-admin-user-id":
+        if settings.is_dev_user(user_id, email):
             from app.services.magazine_feed_service import seed_mock_garments
             seed_mock_garments(user_id)
             

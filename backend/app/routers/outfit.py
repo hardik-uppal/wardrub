@@ -9,6 +9,7 @@ from app.services.storage import StorageService
 from app.services.recommendation import RecommendationEngine
 from app.services.weather import WeatherService
 from app.services.auth import get_current_user
+from app.config import get_settings
 from app.logging_config import get_logger
 from app.models.outfit import Occasion, OutfitRequest
 from app.models.daily_looks import DailyLooks, DailyLook
@@ -25,6 +26,7 @@ firestore = FirestoreService()
 storage = StorageService()
 recommendation_engine = RecommendationEngine()
 weather_service = WeatherService()
+settings = get_settings()
 logger = get_logger("outfit")
 
 
@@ -524,11 +526,12 @@ async def get_magazine_feed_endpoint(
     If the user has fewer than 5 garments, returns onboarding status (unless dev-admin or mock parameter is set).
     """
     user_id = user["uid"]
+    email = user.get("email")
     logger.info(f"Retrieving magazine feed for user {user_id} (mock={mock})")
     
     try:
         # Check if mock mode is forced, or if it is the dev admin bypass and wardrobe is underpopulated
-        if mock or user_id == "dev-admin-user-id":
+        if mock or settings.is_dev_user(user_id, email):
             # Auto-seed garments so that the UI can lookup mock garments correctly
             from app.services.magazine_feed_service import async_seed_mock_garments
             await async_seed_mock_garments(user_id, firestore)
@@ -572,10 +575,11 @@ async def regenerate_magazine_feed_endpoint(
     Force regenerate today's magazine feed.
     """
     user_id = user["uid"]
+    email = user.get("email")
     logger.info(f"Force regenerating magazine feed for user {user_id} (mock={mock})")
     
     try:
-        if mock or user_id == "dev-admin-user-id":
+        if mock or settings.is_dev_user(user_id, email):
             from app.services.magazine_feed_service import async_seed_mock_garments
             await async_seed_mock_garments(user_id, firestore)
             
