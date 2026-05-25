@@ -521,7 +521,7 @@ async def async_seed_mock_garments(user_id: str = "dev-admin-user-id", firestore
             if firestore_service.client is not None and not firestore_service._use_memory:
                 # Check if it already exists in firestore
                 existing = await firestore_service.get_garment_metadata(garment_id)
-                if not existing:
+                if not existing or existing.user_id != user_id:
                     metadata = GarmentMetadata(
                         garment_id=garment_id,
                         user_id=user_id,
