@@ -164,10 +164,27 @@ async def get_wardrobe(
         
         # If list_garments succeeded but returned empty list for dev-admin, re-load from memory/firestore
         if settings.is_dev_user(user_id, email) and not garments:
-            from app.services.firestore import _memory_garments
-            garments = [g for g in _memory_garments.values() if g.get("user_id") == user_id]
-            if category:
-                garments = [g for g in garments if g.get("category") == category]
+            # Try to query from Firestore first if client is active
+            if firestore.client is not None and not firestore._use_memory:
+                try:
+                    db_garments = await firestore.list_garments_metadata(user_id=user_id, category=category)
+                    if db_garments:
+                        garments = []
+                        for g in db_garments:
+                            g_dict = g.model_dump()
+                            g_dict["id"] = g.garment_id
+                            g_dict["url"] = g.ghost_mannequin_url or (g.source_images[0].url if g.source_images else None)
+                            g_dict["front_url"] = g_dict["url"]
+                            garments.append(g_dict)
+                except Exception as ex:
+                    logger.error(f"Failed to fetch dev garments from Firestore: {ex}")
+            
+            # Fall back to in-memory if Firestore query returned nothing or is disabled
+            if not garments:
+                from app.services.firestore import _memory_garments
+                garments = [g for g in _memory_garments.values() if g.get("user_id") == user_id]
+                if category:
+                    garments = [g for g in garments if g.get("category") == category]
                 
         return {"garments": garments}
     except Exception as e:
@@ -177,14 +194,28 @@ async def get_wardrobe(
             from app.services.magazine_feed_service import seed_mock_garments
             seed_mock_garments(user_id)
             
+        user_garments = []
+        # Try loading from Firestore first
+        if firestore.client is not None and not firestore._use_memory:
+            try:
+                db_garments = await firestore.list_garments_metadata(user_id=user_id, category=category)
+                for g in db_garments:
+                    g_dict = g.model_dump()
+                    g_dict["id"] = g.garment_id
+                    g_dict["url"] = g.ghost_mannequin_url or (g.source_images[0].url if g.source_images else None)
+                    g_dict["front_url"] = g_dict["url"]
+                    user_garments.append(g_dict)
+            except Exception as ex:
+                logger.error(f"Failed to query Firestore for user garments: {ex}")
+                
         # Fallback to in-memory garments if populated for mock preview
-        from app.services.firestore import _memory_garments
-        if _memory_garments:
-            user_garments = [g for g in _memory_garments.values() if g.get("user_id") == user_id]
-            if category:
-                user_garments = [g for g in user_garments if g.get("category") == category]
-            return {"garments": user_garments}
-        return {"garments": []}
+        if not user_garments:
+            from app.services.firestore import _memory_garments
+            if _memory_garments:
+                user_garments = [g for g in _memory_garments.values() if g.get("user_id") == user_id]
+                if category:
+                    user_garments = [g for g in user_garments if g.get("category") == category]
+        return {"garments": user_garments}
 
 
 @router.delete("/garment/{garment_id}")
