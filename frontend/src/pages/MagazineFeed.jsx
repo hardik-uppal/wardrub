@@ -239,14 +239,14 @@ export default function MagazineFeed() {
               <div className="flex items-center gap-3 p-4 rounded-xl glass-card-static relative overflow-hidden">
                 <div 
                   className="absolute left-0 top-0 bottom-0 opacity-10 transition-all duration-500" 
-                  style={{ background: 'var(--accent)', width: `${(onboardingCount / 5) * 100}%` }}
+                  style={{ background: 'var(--accent)', width: `${Math.min((onboardingCount / 10) * 100, 100)}%` }}
                 />
                 <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center border-amber-500 text-xs font-bold text-amber-500">
                   {onboardingCount}
                 </div>
                 <div className="flex-1 flex justify-between items-center">
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Upload 5 clothing garments</span>
-                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{onboardingCount}/5 added</span>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Upload 10 clothing garments</span>
+                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{onboardingCount}/10 added</span>
                 </div>
               </div>
             </div>
@@ -255,7 +255,7 @@ export default function MagazineFeed() {
             <div className="w-full bg-[var(--glass-bg)] h-1.5 rounded-full overflow-hidden">
               <div 
                 className="h-full rounded-full transition-all duration-500"
-                style={{ background: 'var(--accent)', width: `${(onboardingCount / 5) * 100}%` }}
+                style={{ background: 'var(--accent)', width: `${Math.min((onboardingCount / 10) * 100, 100)}%` }}
               />
             </div>
 

@@ -51,7 +51,7 @@ class MagazineFeedService:
         
         Steps:
         1. Fetch user profile, weather, and garments.
-        2. Ensure user has at least 5 garments.
+        2. Ensure user has at least 10 garments.
         3. Score standard combinations to find top outfit candidates.
         4. Select a versatile garment (for 'One Item, Three Ways') and an underused garment.
         5. Invoke Gemini 2.0 to write Vogue-style copy and structure the final looks.
@@ -76,8 +76,8 @@ class MagazineFeedService:
 
         # Fetch garments
         garments = await self.firestore.list_garments_metadata(user_id=user_id)
-        if len(garments) < 5:
-            logger.warning(f"User {user_id} has only {len(garments)} garments. Minimum 5 required for feed.")
+        if len(garments) < 10:
+            logger.warning(f"User {user_id} has only {len(garments)} garments. Minimum 10 required for feed.")
             return None
 
         # Fetch weather

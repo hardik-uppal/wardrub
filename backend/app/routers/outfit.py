@@ -523,7 +523,7 @@ async def get_magazine_feed_endpoint(
 ):
     """
     Get today's personalized magazine feed for the user.
-    If the user has fewer than 5 garments, returns onboarding status (unless dev-admin or mock parameter is set).
+    If the user has fewer than 10 garments, returns onboarding status (unless dev-admin or mock parameter is set).
     """
     user_id = user["uid"]
     email = user.get("email")
@@ -547,7 +547,7 @@ async def get_magazine_feed_endpoint(
                     pass
 
         # Check if mock mode is forced, or if it is the dev admin bypass and wardrobe is underpopulated
-        if mock or (is_dev and custom_count < 5):
+        if mock or (is_dev and custom_count < 10):
             # Auto-seed garments so that the UI can lookup mock garments correctly
             from app.services.magazine_feed_service import async_seed_mock_garments
             await async_seed_mock_garments(user_id, firestore)
@@ -562,12 +562,12 @@ async def get_magazine_feed_endpoint(
         garments = await firestore.list_garments_metadata(user_id=user_id)
         # Exclude mock garments when counting for onboarding gate
         real_garments = [g for g in garments if not g.garment_id.startswith("mock-")]
-        if len(real_garments) < 5:
+        if len(real_garments) < 10:
             return {
                 "status": "onboarding",
                 "count": len(real_garments),
-                "required": 5,
-                "message": "Add at least 5 clothing items to compile your first magazine stylebook"
+                "required": 10,
+                "message": "Add at least 10 clothing items to compile your first magazine stylebook"
             }
             
         # Get or generate feed
@@ -613,7 +613,7 @@ async def regenerate_magazine_feed_endpoint(
                 except:
                     pass
 
-        if mock or (is_dev and custom_count < 5):
+        if mock or (is_dev and custom_count < 10):
             from app.services.magazine_feed_service import async_seed_mock_garments
             await async_seed_mock_garments(user_id, firestore)
             
@@ -626,10 +626,10 @@ async def regenerate_magazine_feed_endpoint(
         # Check garment onboarding gate
         garments = await firestore.list_garments_metadata(user_id=user_id)
         real_garments = [g for g in garments if not g.garment_id.startswith("mock-")]
-        if len(real_garments) < 5:
+        if len(real_garments) < 10:
             raise HTTPException(
                 status_code=400,
-                detail="Not enough garments to generate feed. Need at least 5."
+                detail="Not enough garments to generate feed. Need at least 10."
             )
             
         feed = await magazine_service.generate_magazine_feed(user_id, force_regenerate=True)

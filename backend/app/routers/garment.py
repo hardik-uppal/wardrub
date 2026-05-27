@@ -162,7 +162,7 @@ async def get_wardrobe(
 
         garments = await storage.list_garments(user_id=user_id, category=category)
         
-        # If the user is a dev user, they are shown the mock feed if their custom wardrobe size is < 5.
+        # If the user is a dev user, they are shown the mock feed if their custom wardrobe size is < 10.
         # In that case, we MUST append the mock garments to the wardrobe response so the mock feed can render them.
         if settings.is_dev_user(user_id, email):
             custom_count = len(garments) if garments else 0
@@ -173,7 +173,7 @@ async def get_wardrobe(
                 except:
                     pass
             
-            if custom_count < 5:
+            if custom_count < 10:
                 # Retrieve the seeded mock garments
                 mock_garments = []
                 if firestore.client is not None and not firestore._use_memory:
