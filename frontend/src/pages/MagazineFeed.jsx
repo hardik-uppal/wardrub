@@ -206,7 +206,7 @@ export default function MagazineFeed() {
               className="text-[42px] font-bold tracking-tight block leading-none"
               style={{ fontFamily: "'Playfair Display', Georgia, serif", color: 'var(--text-primary)' }}
             >
-              Wardrub
+              The Looker
             </span>
             <span 
               className="text-[10px] tracking-[0.25em] font-semibold text-center uppercase block mt-2"
@@ -226,7 +226,7 @@ export default function MagazineFeed() {
             </h2>
             
             <p className="text-sm leading-relaxed text-center" style={{ color: 'var(--text-secondary)' }}>
-              Wardrub compiles outfit recommendations, daily cover fits, and custom styling tutorials tailored to your garments. We need a few pieces to get started.
+              The Looker compiles outfit recommendations, daily cover fits, and custom styling tutorials tailored to your garments. We need a few pieces to get started.
             </p>
 
             {/* Checklist */}
@@ -295,7 +295,7 @@ export default function MagazineFeed() {
             className="text-4xl font-bold tracking-tight"
             style={{ fontFamily: "'Playfair Display', Georgia, serif", color: 'var(--text-primary)' }}
           >
-            Wardrub
+            The Looker
           </span>
           <div className="flex items-center justify-center gap-2 mt-2">
             <RefreshCw className="w-4 h-4 animate-spin" style={{ color: 'var(--accent)' }} />
@@ -515,7 +515,7 @@ export default function MagazineFeed() {
             className="text-[48px] md:text-[64px] font-bold leading-none select-none tracking-tighter"
             style={{ fontFamily: "'Playfair Display', Georgia, serif", color: 'var(--text-primary)' }}
           >
-            Wardrub
+            The Looker
           </h1>
           <span 
             className="text-[9px] tracking-[0.3em] font-semibold text-center uppercase block mt-3"
