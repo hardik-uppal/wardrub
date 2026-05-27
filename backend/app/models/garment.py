@@ -12,6 +12,7 @@ class GarmentCategory(str, Enum):
     BOTTOM = "bottom"
     DRESS = "dress"
     OUTERWEAR = "outerwear"
+    SHOES = "shoes"
 
 
 class FitType(str, Enum):

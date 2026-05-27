@@ -162,7 +162,61 @@ async def get_wardrobe(
 
         garments = await storage.list_garments(user_id=user_id, category=category)
         
-        # If list_garments succeeded but returned empty list for dev-admin, re-load from memory/firestore
+        # If the user is a dev user, they are shown the mock feed if their custom wardrobe size is < 5.
+        # In that case, we MUST append the mock garments to the wardrobe response so the mock feed can render them.
+        if settings.is_dev_user(user_id, email):
+            custom_count = len(garments) if garments else 0
+            if custom_count == 0 and firestore.client is not None and not firestore._use_memory:
+                try:
+                    db_garments = await firestore.list_garments_metadata(user_id=user_id)
+                    custom_count = len([g for g in db_garments if not g.garment_id.startswith("mock-")])
+                except:
+                    pass
+            
+            if custom_count < 5:
+                # Retrieve the seeded mock garments
+                mock_garments = []
+                if firestore.client is not None and not firestore._use_memory:
+                    try:
+                        db_garments = await firestore.list_garments_metadata(user_id=user_id, category=category)
+                        # Filter to only mock garments (IDs start with "mock-")
+                        mock_garments = [g for g in db_garments if g.garment_id.startswith("mock-")]
+                    except Exception as ex:
+                        logger.error(f"Failed to fetch mock garments from Firestore: {ex}")
+                
+                # Fallback to in-memory mock garments if Firestore fetch failed or returned nothing
+                if not mock_garments:
+                    from app.services.firestore import _memory_garments
+                    from app.services.magazine_feed_service import seed_mock_garments
+                    seed_mock_garments(user_id)
+                    mock_garments_data = [
+                        g for g in _memory_garments.values() 
+                        if g.get("user_id") == user_id and g.get("id", "").startswith("mock-")
+                    ]
+                    if category:
+                        mock_garments_data = [g for g in mock_garments_data if g.get("category") == category]
+                    
+                    for g in mock_garments_data:
+                        mock_garments.append(dict(g))
+                else:
+                    # Convert Firestore models to dictionaries
+                    formatted_mocks = []
+                    for g in mock_garments:
+                        g_dict = g.model_dump()
+                        g_dict["id"] = g.garment_id
+                        g_dict["url"] = g.ghost_mannequin_url or (g.source_images[0].url if g.source_images else None)
+                        g_dict["front_url"] = g_dict["url"]
+                        formatted_mocks.append(g_dict)
+                    mock_garments = formatted_mocks
+                
+                # Merge mock garments with custom garments, avoiding duplicates
+                existing_ids = {g["id"] for g in garments}
+                for mg in mock_garments:
+                    if mg["id"] not in existing_ids:
+                        garments.append(mg)
+
+        # If list_garments succeeded but returned empty list for dev-admin (and not caught by the block above),
+        # try to load whatever is left from Firestore/memory
         if settings.is_dev_user(user_id, email) and not garments:
             # Try to query from Firestore first if client is active
             if firestore.client is not None and not firestore._use_memory:
