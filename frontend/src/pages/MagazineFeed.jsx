@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { 
   Sparkles, RefreshCw, Shirt, User, Heart, Bookmark, Eye, CheckCircle2,
   ChevronRight, Wand2, ArrowRight, CloudRain, Sun, Snowflake, Cloud, 
-  HelpCircle, ChevronLeft
+  HelpCircle, ChevronLeft, Check, Camera
 } from 'lucide-react'
 import { useWardrobe } from '../context/WardrobeContext'
 import { useAuth } from '../context/AuthContext'
+import { useOnboarding } from '../context/OnboardingContext'
 import LoadingOverlay from '../components/LoadingOverlay'
 import BottomNav from '../components/BottomNav'
 
@@ -194,92 +195,14 @@ export default function MagazineFeed() {
     }
   }
 
-  // Onboarding Page
+  // Onboarding Page — uses OnboardingContext for unified progress
   if (isOnboarding && !isLoading) {
     return (
-      <div className="min-h-screen flex flex-col justify-between" style={{ background: 'var(--bg-primary)' }}>
-        <div className="page-container p-6 flex flex-col justify-center flex-1 max-w-lg mx-auto">
-          
-          {/* Logo / Header */}
-          <div className="text-center mb-10">
-            <span 
-              className="text-[42px] font-bold tracking-tight block leading-none"
-              style={{ fontFamily: "'Playfair Display', Georgia, serif", color: 'var(--text-primary)' }}
-            >
-              The Looker
-            </span>
-            <span 
-              className="text-[10px] tracking-[0.25em] font-semibold text-center uppercase block mt-2"
-              style={{ fontFamily: "'Syne', sans-serif", color: 'var(--accent)' }}
-            >
-              Your Closet, Curated.
-            </span>
-          </div>
-
-          {/* Premium Glass card onboarding */}
-          <div className="glass-card-elevated p-8 border border-[var(--glass-border-hover)] space-y-6">
-            <h2 
-              className="text-xl font-bold tracking-tight text-center" 
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Assembling Your Lookbook
-            </h2>
-            
-            <p className="text-sm leading-relaxed text-center" style={{ color: 'var(--text-secondary)' }}>
-              The Looker compiles outfit recommendations, daily cover fits, and custom styling tutorials tailored to your garments. We need a few pieces to get started.
-            </p>
-
-            {/* Checklist */}
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center gap-3 p-4 rounded-xl glass-card-static">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Create style profile</span>
-              </div>
-              
-              <div className="flex items-center gap-3 p-4 rounded-xl glass-card-static relative overflow-hidden">
-                <div 
-                  className="absolute left-0 top-0 bottom-0 opacity-10 transition-all duration-500" 
-                  style={{ background: 'var(--accent)', width: `${Math.min((onboardingCount / 10) * 100, 100)}%` }}
-                />
-                <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center border-amber-500 text-xs font-bold text-amber-500">
-                  {onboardingCount}
-                </div>
-                <div className="flex-1 flex justify-between items-center">
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Upload 10 clothing garments</span>
-                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{onboardingCount}/10 added</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Progress bar */}
-            <div className="w-full bg-[var(--glass-bg)] h-1.5 rounded-full overflow-hidden">
-              <div 
-                className="h-full rounded-full transition-all duration-500"
-                style={{ background: 'var(--accent)', width: `${Math.min((onboardingCount / 10) * 100, 100)}%` }}
-              />
-            </div>
-
-            <div className="flex flex-col gap-3 mt-4">
-              <button 
-                onClick={() => navigate('/capture')}
-                className="btn-primary btn-lg w-full flex items-center justify-center gap-2"
-              >
-                <Shirt className="w-4 h-4" />
-                <span>Capture Clothes</span>
-              </button>
-              
-              <button 
-                onClick={() => fetchMagazineFeed(false, true)}
-                className="btn-secondary btn-lg w-full flex items-center justify-center gap-2"
-              >
-                <Sparkles className="w-4 h-4 text-[var(--accent)]" />
-                <span>Preview with Demo Closet</span>
-              </button>
-            </div>
-          </div>
-        </div>
-        <BottomNav />
-      </div>
+      <MagazineOnboarding 
+        navigate={navigate} 
+        fetchMagazineFeed={fetchMagazineFeed}
+        onboardingCount={onboardingCount}
+      />
     )
   }
 
@@ -990,6 +913,147 @@ export default function MagazineFeed() {
       )}
 
       {/* Bottom Navigation */}
+      <BottomNav />
+    </div>
+  )
+}
+
+// Extracted onboarding component that uses OnboardingContext
+function MagazineOnboarding({ navigate, fetchMagazineFeed, onboardingCount }) {
+  const { milestones, overallProgress, GARMENT_GOAL } = useOnboarding()
+
+  const iconMap = {
+    User: User,
+    Shirt: Shirt,
+    Sparkles: Sparkles,
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col justify-between" style={{ background: 'var(--bg-primary)' }}>
+      <div className="page-container p-6 flex flex-col justify-center flex-1 max-w-lg mx-auto">
+        
+        {/* Logo / Header */}
+        <div className="text-center mb-10">
+          <span 
+            className="text-[42px] font-bold tracking-tight block leading-none"
+            style={{ fontFamily: "'Playfair Display', Georgia, serif", color: 'var(--text-primary)' }}
+          >
+            The Looker
+          </span>
+          <span 
+            className="text-[10px] tracking-[0.25em] font-semibold text-center uppercase block mt-2"
+            style={{ fontFamily: "'Syne', sans-serif", color: 'var(--accent)' }}
+          >
+            Your Closet, Curated.
+          </span>
+        </div>
+
+        {/* Premium Glass card onboarding */}
+        <div className="glass-card-elevated p-8 border border-[var(--glass-border-hover)] space-y-6">
+          <h2 
+            className="text-xl font-bold tracking-tight text-center" 
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Assembling Your Lookbook
+          </h2>
+          
+          <p className="text-sm leading-relaxed text-center" style={{ color: 'var(--text-secondary)' }}>
+            Complete these steps to unlock your personalized daily magazine with outfit recommendations and styling tips.
+          </p>
+
+          {/* Milestone Checklist */}
+          <div className="space-y-3 pt-2">
+            {milestones.map((milestone) => {
+              const Icon = iconMap[milestone.icon]
+              return (
+                <div 
+                  key={milestone.id} 
+                  className="flex items-center gap-3 p-4 rounded-xl glass-card-static relative overflow-hidden"
+                >
+                  {/* Progress fill for clothes milestone */}
+                  {milestone.id === 'clothes' && !milestone.done && (
+                    <div 
+                      className="absolute left-0 top-0 bottom-0 opacity-10 transition-all duration-500" 
+                      style={{ background: 'var(--accent)', width: `${(milestone.progress / GARMENT_GOAL) * 100}%` }}
+                    />
+                  )}
+                  
+                  {/* Status icon */}
+                  <div 
+                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: milestone.done ? 'var(--accent)' : 'var(--bg-secondary)',
+                      border: milestone.done ? 'none' : '1px solid var(--glass-border)',
+                    }}
+                  >
+                    {milestone.done ? (
+                      <Check className="w-3.5 h-3.5 text-white" />
+                    ) : (
+                      <Icon className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
+                    )}
+                  </div>
+                  
+                  {/* Label */}
+                  <div className="flex-1">
+                    <span 
+                      className="text-sm font-medium"
+                      style={{ 
+                        color: milestone.done ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                        textDecoration: milestone.done ? 'line-through' : 'none',
+                      }}
+                    >
+                      {milestone.label}
+                    </span>
+                    {milestone.id === 'clothes' && !milestone.done && (
+                      <span className="text-xs ml-2" style={{ color: 'var(--text-tertiary)' }}>
+                        {milestone.progress}/{GARMENT_GOAL}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* CTA arrow */}
+                  {!milestone.done && (
+                    <button
+                      onClick={() => navigate(milestone.route)}
+                      className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'var(--accent-glow)' }}
+                      aria-label={`Go to ${milestone.label}`}
+                    >
+                      <ArrowRight className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Overall Progress bar */}
+          <div className="w-full bg-[var(--glass-bg)] h-1.5 rounded-full overflow-hidden">
+            <div 
+              className="h-full rounded-full transition-all duration-500"
+              style={{ background: 'var(--accent)', width: `${overallProgress * 100}%` }}
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 mt-4">
+            <button 
+              onClick={() => navigate('/capture')}
+              className="btn-primary btn-lg w-full flex items-center justify-center gap-2"
+            >
+              <Shirt className="w-4 h-4" />
+              <span>Capture Clothes</span>
+            </button>
+            
+            <button 
+              onClick={() => fetchMagazineFeed(false, true)}
+              className="btn-secondary btn-lg w-full flex items-center justify-center gap-2"
+            >
+              <Sparkles className="w-4 h-4 text-[var(--accent)]" />
+              <span>Preview with Demo Closet</span>
+            </button>
+          </div>
+        </div>
+      </div>
       <BottomNav />
     </div>
   )

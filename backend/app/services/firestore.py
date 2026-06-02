@@ -13,13 +13,84 @@ from app.models.magazine_feed import MagazineFeed, LookFeedback
 settings = get_settings()
 logger = get_logger("firestore")
 
+import json
+import os
+
+DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "logs", "local_firestore.json")
+
+def save_local_db():
+    if getattr(save_local_db, "_disabled", False):
+        return
+    try:
+        os.makedirs(os.path.dirname(DB_FILE), exist_ok=True)
+        # Serialize datetime objects using isoformat
+        def json_serial(obj):
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+            raise TypeError(f"Type {type(obj)} not serializable")
+            
+        with open(DB_FILE, "w") as f:
+            json.dump({
+                "profiles": dict(_memory_profiles),
+                "garments": dict(_memory_garments),
+                "daily_looks": dict(_memory_daily_looks),
+                "magazine_feeds": dict(_memory_magazine_feeds),
+                "look_feedback": dict(_memory_look_feedback),
+                "tryon_cache": dict(_memory_tryon_cache)
+            }, f, default=json_serial, indent=2)
+    except Exception as e:
+        logger.warning(f"Failed to save local Firestore db: {e}")
+
+class PersistentDict(dict):
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        save_local_db()
+        
+    def __delitem__(self, key):
+        super().__delitem__(key)
+        save_local_db()
+        
+    def update(self, *args, **kwargs):
+        super().update(*args, **kwargs)
+        save_local_db()
+        
+    def pop(self, *args, **kwargs):
+        res = super().pop(*args, **kwargs)
+        save_local_db()
+        return res
+
+    def clear(self):
+        super().clear()
+        save_local_db()
+
 # In-memory fallback storage when Firestore isn't available
-_memory_profiles: Dict[str, Dict[str, Any]] = {}
-_memory_garments: Dict[str, Dict[str, Any]] = {}
-_memory_daily_looks: Dict[str, Dict[str, Any]] = {}  # key: "{user_id}_{date}"
-_memory_magazine_feeds: Dict[str, Dict[str, Any]] = {}  # key: "{user_id}_{date}"
-_memory_look_feedback: Dict[str, Dict[str, Any]] = {}  # key: "{feedback_id}"
-_memory_tryon_cache: Dict[str, Dict[str, Any]] = {}  # key: "{cache_key}"
+_memory_profiles = PersistentDict()
+_memory_garments = PersistentDict()
+_memory_daily_looks = PersistentDict()
+_memory_magazine_feeds = PersistentDict()
+_memory_look_feedback = PersistentDict()
+_memory_tryon_cache = PersistentDict()
+
+def load_local_db():
+    if os.path.exists(DB_FILE):
+        try:
+            save_local_db._disabled = True
+            with open(DB_FILE, "r") as f:
+                data = json.load(f)
+                _memory_profiles.update(data.get("profiles", {}))
+                _memory_garments.update(data.get("garments", {}))
+                _memory_daily_looks.update(data.get("daily_looks", {}))
+                _memory_magazine_feeds.update(data.get("magazine_feeds", {}))
+                _memory_look_feedback.update(data.get("look_feedback", {}))
+                _memory_tryon_cache.update(data.get("tryon_cache", {}))
+            logger.info("Loaded local Firestore database fallback from disk")
+        except Exception as e:
+            logger.warning(f"Failed to load local Firestore db: {e}")
+        finally:
+            save_local_db._disabled = False
+
+# Load database on module load
+load_local_db()
 
 
 class FirestoreService:

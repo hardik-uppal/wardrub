@@ -236,9 +236,20 @@ async def get_wardrobe(
             # Fall back to in-memory if Firestore query returned nothing or is disabled
             if not garments:
                 from app.services.firestore import _memory_garments
-                garments = [g for g in _memory_garments.values() if g.get("user_id") == user_id]
+                raw_garments = [g for g in _memory_garments.values() if g.get("user_id") == user_id]
                 if category:
-                    garments = [g for g in garments if g.get("category") == category]
+                    raw_garments = [g for g in raw_garments if g.get("category") == category]
+                
+                garments = []
+                for g in raw_garments:
+                    g_dict = dict(g)
+                    if "garment_id" in g_dict and "id" not in g_dict:
+                        g_dict["id"] = g_dict["garment_id"]
+                    if "ghost_mannequin_url" in g_dict and "url" not in g_dict:
+                        g_dict["url"] = g_dict["ghost_mannequin_url"]
+                    if "url" in g_dict and "front_url" not in g_dict:
+                        g_dict["front_url"] = g_dict["url"]
+                    garments.append(g_dict)
                 
         return {"garments": garments}
     except Exception as e:
@@ -266,9 +277,19 @@ async def get_wardrobe(
         if not user_garments:
             from app.services.firestore import _memory_garments
             if _memory_garments:
-                user_garments = [g for g in _memory_garments.values() if g.get("user_id") == user_id]
+                raw_garments = [g for g in _memory_garments.values() if g.get("user_id") == user_id]
                 if category:
-                    user_garments = [g for g in user_garments if g.get("category") == category]
+                    raw_garments = [g for g in raw_garments if g.get("category") == category]
+                
+                for g in raw_garments:
+                    g_dict = dict(g)
+                    if "garment_id" in g_dict and "id" not in g_dict:
+                        g_dict["id"] = g_dict["garment_id"]
+                    if "ghost_mannequin_url" in g_dict and "url" not in g_dict:
+                        g_dict["url"] = g_dict["ghost_mannequin_url"]
+                    if "url" in g_dict and "front_url" not in g_dict:
+                        g_dict["front_url"] = g_dict["url"]
+                    user_garments.append(g_dict)
         return {"garments": user_garments}
 
 
@@ -289,7 +310,18 @@ async def delete_garment(
     """
     try:
         user_id = user["uid"]
-        await storage.delete_garment(garment_id=garment_id, user_id=user_id)
+        
+        # Don't try to delete mock garments from GCS
+        if not garment_id.startswith("mock-"):
+            try:
+                await storage.delete_garment(garment_id=garment_id, user_id=user_id)
+            except Exception as se:
+                logger.warning(f"Storage deletion skipped or failed for {garment_id}: {se}")
+        else:
+            # Clean it up from the in-memory fallback dictionary if it exists
+            from app.services.firestore import _memory_garments
+            _memory_garments.pop(garment_id, None)
+            
         await firestore.delete_garment_metadata(garment_id)
         return {"status": "deleted", "id": garment_id}
     except Exception as e:

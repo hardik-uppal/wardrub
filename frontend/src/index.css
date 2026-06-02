@@ -448,3 +448,116 @@ p {
   border-color: var(--accent);
   box-shadow: 0 0 12px var(--accent-glow);
 }
+
+/* ============================================================
+   ONBOARDING SYSTEM
+   ============================================================ */
+
+/* Floating widget container */
+.onboarding-widget-container {
+  position: fixed;
+  z-index: 50;
+  /* Mobile: above bottom nav, centered */
+  bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+  right: 16px;
+}
+
+@media (min-width: 768px) {
+  .onboarding-widget-container {
+    /* Desktop: bottom-right, accounting for sidebar */
+    bottom: 24px;
+    right: 24px;
+  }
+}
+
+/* Progress ring animation */
+.onboarding-progress-ring-fill {
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Milestone celebration flash */
+@keyframes celebrate-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.3); }
+  50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.onboarding-celebrate {
+  animation: celebrate-pulse 1s ease-out 2;
+}
+
+/* Tooltip base */
+.onboarding-tooltip {
+  position: relative;
+  background: var(--bg-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-md);
+  max-width: 260px;
+}
+
+/* Tooltip arrows */
+.onboarding-tooltip-arrow {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--glass-border);
+  transform: rotate(45deg);
+}
+
+.onboarding-tooltip-arrow-top {
+  bottom: -6px;
+  left: 24px;
+  border-top: none;
+  border-left: none;
+}
+
+.onboarding-tooltip-arrow-bottom {
+  top: -6px;
+  left: 24px;
+  border-bottom: none;
+  border-right: none;
+}
+
+.onboarding-tooltip-arrow-left {
+  right: -6px;
+  top: 12px;
+  border-bottom: none;
+  border-left: none;
+}
+
+.onboarding-tooltip-arrow-right {
+  left: -6px;
+  top: 12px;
+  border-top: none;
+  border-right: none;
+}
+
+/* Secondary button style for onboarding */
+.btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 10px 20px;
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-secondary:hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 12px;
+}

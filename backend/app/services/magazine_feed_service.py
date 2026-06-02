@@ -433,6 +433,15 @@ def seed_mock_garments(user_id: str = "dev-admin-user-id"):
     """Seed the mock wardrobe garments in the local in-memory storage dictionary."""
     from app.services.firestore import _memory_garments
     
+    # Check if there are already any mock garments for this user in memory
+    user_mocks = [
+        g for g in _memory_garments.values()
+        if g.get("user_id") == user_id and g.get("id", "").startswith("mock-")
+    ]
+    if user_mocks:
+        # Already seeded, don't overwrite (allows deletion)
+        return
+
     mock_items = [
         {
             "garment_id": "mock-g1",
@@ -504,7 +513,19 @@ def seed_mock_garments(user_id: str = "dev-admin-user-id"):
 
 async def async_seed_mock_garments(user_id: str = "dev-admin-user-id", firestore_service=None) -> None:
     """Seed the mock wardrobe garments in the database and local memory."""
-    # Seed in-memory
+    if firestore_service is not None and firestore_service.client is not None and not firestore_service._use_memory:
+        try:
+            db_garments = await firestore_service.list_garments_metadata(user_id=user_id)
+            db_mocks = [g for g in db_garments if g.garment_id.startswith("mock-")]
+            if db_mocks:
+                # Already seeded in Firestore, do not re-seed in Firestore
+                # Still seed in-memory to ensure alignment (checking if memory already has them)
+                seed_mock_garments(user_id)
+                return
+        except Exception as e:
+            logger.warning(f"Failed to check existing mock garments in Firestore: {e}")
+
+    # Seed in-memory (checking if memory already has them)
     seed_mock_garments(user_id)
     
     if firestore_service is None:

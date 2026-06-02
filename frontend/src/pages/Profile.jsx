@@ -5,7 +5,9 @@ import {
 } from 'lucide-react'
 import { useWardrobe } from '../context/WardrobeContext'
 import { useAuth } from '../context/AuthContext'
+import { useOnboarding } from '../context/OnboardingContext'
 import LoadingOverlay from '../components/LoadingOverlay'
+import OnboardingTooltip from '../components/OnboardingTooltip'
 import BottomNav from '../components/BottomNav'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
@@ -511,6 +513,19 @@ export default function Profile() {
           {/* Right Column - Styling Recommendations */}
           <div className="md:col-span-7 lg:col-span-8 flex flex-col gap-5">
             
+            {/* Onboarding tooltip for style analysis */}
+            {!colorRecs && !bodyType && (
+              <div className="mx-4 md:mx-0 mb-4">
+                <OnboardingTooltip
+                  id="profile-analyze-style"
+                  message="Upload a few photos of yourself to discover your best colors, season type, and body shape — so we can recommend outfits that truly suit you."
+                  cta="Upload photos above"
+                  onCtaClick={() => {}}
+                  position="bottom"
+                />
+              </div>
+            )}
+
             {/* CTA State if profile is not analyzed */}
             {!colorRecs && !bodyType && (
               <div className="mx-4 md:mx-0 glass-card-elevated p-8 text-center flex flex-col items-center justify-center min-h-[300px]">

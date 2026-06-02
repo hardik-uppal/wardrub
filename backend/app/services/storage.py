@@ -16,9 +16,66 @@ from app.logging_config import get_logger
 settings = get_settings()
 logger = get_logger("storage")
 
+import os
+
+STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "logs", "local_storage")
+
+class PersistentMemoryFiles(dict):
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        if getattr(self, "_disabled", False):
+            return
+        filepath = os.path.join(STORAGE_DIR, *key.split("/"))
+        try:
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            with open(filepath, "wb") as f:
+                f.write(value)
+        except Exception as e:
+            logger.warning(f"Failed to save file to local mock storage: {e}")
+
+    def __delitem__(self, key):
+        super().__delitem__(key)
+        filepath = os.path.join(STORAGE_DIR, *key.split("/"))
+        try:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+        except Exception as e:
+            pass
+
+    def pop(self, key, default=None):
+        res = super().pop(key, default)
+        filepath = os.path.join(STORAGE_DIR, *key.split("/"))
+        try:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+        except Exception as e:
+            pass
+        return res
+
 # In-memory storage mock when GCS is unavailable
-_memory_files: dict[str, bytes] = {}
+_memory_files = PersistentMemoryFiles()
 _memory_signed_urls: dict[str, str] = {}
+
+def load_local_storage():
+    if os.path.exists(STORAGE_DIR):
+        try:
+            _memory_files._disabled = True
+            for root, dirs, files in os.walk(STORAGE_DIR):
+                for file in files:
+                    filepath = os.path.join(root, file)
+                    relpath = os.path.relpath(filepath, STORAGE_DIR)
+                    blob_name = relpath.replace(os.path.sep, "/")
+                    with open(filepath, "rb") as f:
+                        _memory_files[blob_name] = f.read()
+                        _memory_signed_urls[blob_name] = f"/api/mock-gcs/{blob_name}"
+            logger.info("Loaded local mock GCS files from disk")
+        except Exception as e:
+            logger.warning(f"Failed to load local storage files: {e}")
+        finally:
+            _memory_files._disabled = False
+
+# Load mock files on module load
+load_local_storage()
 
 
 class StorageService:

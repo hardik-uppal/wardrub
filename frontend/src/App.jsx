@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { WardrobeProvider } from './context/WardrobeContext'
+import { OnboardingProvider } from './context/OnboardingContext'
 import Home from './pages/Home'
 import Capture from './pages/Capture'
 import DressingRoom from './pages/DressingRoom'
@@ -10,6 +11,8 @@ import Profile from './pages/Profile'
 import SavedLooks from './pages/SavedLooks'
 import Login from './pages/Login'
 import SideNav from './components/SideNav'
+import WelcomeModal from './components/WelcomeModal'
+import OnboardingWidget from './components/OnboardingWidget'
 import { Shirt } from 'lucide-react'
 
 // Loading spinner component
@@ -41,10 +44,14 @@ function ProtectedLayout() {
 
   return (
     <WardrobeProvider>
-      <SideNav />
-      <main className="main-layout-content">
-        <Outlet />
-      </main>
+      <OnboardingProvider>
+        <SideNav />
+        <main className="main-layout-content">
+          <Outlet />
+        </main>
+        <WelcomeModal />
+        <OnboardingWidget />
+      </OnboardingProvider>
     </WardrobeProvider>
   )
 }

@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Shirt, User, Plus, Trash2 } from 'lucide-react'
 import { useWardrobe } from '../context/WardrobeContext'
+import { useOnboarding } from '../context/OnboardingContext'
 import LoadingOverlay from '../components/LoadingOverlay'
 import GarmentPreview from '../components/GarmentPreview'
+import OnboardingTooltip from '../components/OnboardingTooltip'
 import BottomNav from '../components/BottomNav'
 
 const categories = [
@@ -26,6 +28,8 @@ export default function Home() {
     deleteGarment,
     clearError 
   } = useWardrobe()
+  
+  const realGarmentsCount = garments ? garments.filter(g => !g.id.startsWith('mock-')).length : 0
   
   const [activeCategory, setActiveCategory] = useState('all')
   const [deleteMode, setDeleteMode] = useState(false)
@@ -160,6 +164,19 @@ export default function Home() {
             <p className="text-sm text-center font-medium" style={{ color: 'var(--error)' }}>
               Tap items to delete • Tap outside to cancel
             </p>
+          </div>
+        )}
+
+        {/* Onboarding Tooltip — shown when wardrobe is nearly empty */}
+        {realGarmentsCount < 3 && (
+          <div className="mx-4 mt-4">
+            <OnboardingTooltip
+              id="wardrobe-add-clothes"
+              message="Start by adding your first pieces of clothing! Capture or upload photos of your garments to build your virtual wardrobe."
+              cta="Add clothes now"
+              onCtaClick={() => navigate('/capture')}
+              position="bottom"
+            />
           </div>
         )}
 
