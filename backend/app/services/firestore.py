@@ -71,6 +71,9 @@ _memory_magazine_feeds = PersistentDict()
 _memory_look_feedback = PersistentDict()
 _memory_tryon_cache = PersistentDict()
 
+# Track deleted mock garment IDs in-memory (best-effort; Firestore flag is the persistent source)
+_deleted_mock_ids: set = set()
+
 def load_local_db():
     if os.path.exists(DB_FILE):
         try:
@@ -103,6 +106,7 @@ class FirestoreService:
     MAGAZINE_FEED_COLLECTION = "magazine_feeds"
     LOOK_FEEDBACK_COLLECTION = "look_feedback"
     TRYON_CACHE_COLLECTION = "tryon_cache"
+    USER_SETTINGS_COLLECTION = "user_settings"
     
     # Legacy user ID (for migration purposes)
     LEGACY_USER_ID = "default_user"
@@ -266,6 +270,12 @@ class FirestoreService:
     async def delete_user_profile(self, user_id: str = LEGACY_USER_ID) -> bool:
         """Delete user profile."""
         try:
+            # Use in-memory fallback
+            if self._use_memory or self.client is None:
+                _memory_profiles.pop(user_id, None)
+                logger.info(f"Deleted user profile for {user_id} (in-memory)")
+                return True
+                
             doc_ref = self.client.collection(self.PROFILES_COLLECTION).document(user_id)
             doc_ref.delete()
             logger.info(f"Deleted user profile for {user_id}")
@@ -357,6 +367,15 @@ class FirestoreService:
         """
         try:
             updates["updated_at"] = datetime.utcnow()
+            
+            # Use in-memory fallback
+            if self._use_memory or self.client is None:
+                if garment_id in _memory_garments:
+                    _memory_garments[garment_id].update(updates)
+                    logger.info(f"Updated garment metadata for {garment_id} (in-memory)")
+                    return True
+                return False
+                
             doc_ref = self.client.collection(self.GARMENTS_COLLECTION).document(garment_id)
             doc_ref.update(updates)
             logger.info(f"Updated garment metadata for {garment_id}")
@@ -368,6 +387,18 @@ class FirestoreService:
     async def delete_garment_metadata(self, garment_id: str) -> bool:
         """Delete garment metadata."""
         try:
+            # Track mock garment deletions so they don't get re-seeded
+            if garment_id.startswith("mock-"):
+                _deleted_mock_ids.add(garment_id)
+            
+            # Always clean up from memory cache
+            _memory_garments.pop(garment_id, None)
+            
+            # Use in-memory fallback
+            if self._use_memory or self.client is None:
+                logger.info(f"Deleted garment metadata for {garment_id} (in-memory)")
+                return True
+                
             doc_ref = self.client.collection(self.GARMENTS_COLLECTION).document(garment_id)
             doc_ref.delete()
             logger.info(f"Deleted garment metadata for {garment_id}")
@@ -375,6 +406,47 @@ class FirestoreService:
         except Exception as e:
             logger.error(f"Failed to delete garment metadata: {e}")
             return False
+            
+    def get_memory_garments(self, user_id: str, category: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get memory fallback garments (only for routing or dev bypass use)."""
+        results = []
+        for garment_id, data in _memory_garments.items():
+            if data.get("user_id") == user_id:
+                if category is None or data.get("category") == category:
+                    results.append(dict(data))
+        return results
+    
+    async def mark_mocks_seeded(self, user_id: str) -> None:
+        """Persistently mark that mock garments have been seeded for this user.
+        After this flag is set, deleted mocks will NOT be re-created."""
+        try:
+            if self._use_memory or self.client is None:
+                # Use in-memory flag via a sentinel key
+                _memory_garments[f"_mock_seeded_{user_id}"] = {"seeded": True, "user_id": user_id}
+                return
+            doc_ref = self.client.collection(self.USER_SETTINGS_COLLECTION).document(user_id)
+            doc_ref.set({"mock_seeded": True}, merge=True)
+            logger.info(f"Marked mocks as seeded for user {user_id}")
+        except Exception as e:
+            logger.warning(f"Failed to mark mocks seeded for {user_id}: {e}")
+    
+    async def is_mocks_seeded(self, user_id: str) -> bool:
+        """Check if mock garments have already been seeded for this user."""
+        try:
+            if self._use_memory or self.client is None:
+                return f"_mock_seeded_{user_id}" in _memory_garments
+            doc_ref = self.client.collection(self.USER_SETTINGS_COLLECTION).document(user_id)
+            doc = doc_ref.get()
+            if doc.exists:
+                return doc.to_dict().get("mock_seeded", False)
+            return False
+        except Exception as e:
+            logger.warning(f"Failed to check mock seeded status for {user_id}: {e}")
+            return False
+    
+    def is_mock_deleted(self, garment_id: str) -> bool:
+        """Check if a mock garment was deleted in this session."""
+        return garment_id in _deleted_mock_ids
     
     async def list_garments_metadata(
         self, 
@@ -462,6 +534,20 @@ class FirestoreService:
             List of GarmentMetadata sorted by score
         """
         try:
+            # Use in-memory fallback
+            if self._use_memory or self.client is None:
+                results = []
+                for garment_id, data in _memory_garments.items():
+                    if data.get("user_id") == user_id:
+                        scores = data.get("recommendation_scores")
+                        overall = scores.get("overall", 0.0) if scores else 0.0
+                        if overall >= min_overall_score:
+                            if category is None or data.get("category") == category:
+                                results.append(GarmentMetadata(**data))
+                # Sort by overall score descending
+                results.sort(key=lambda x: x.recommendation_scores.overall if x.recommendation_scores else 0.0, reverse=True)
+                return results[:limit]
+
             from google.cloud import firestore
             
             collection_ref = self.client.collection(self.GARMENTS_COLLECTION)

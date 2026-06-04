@@ -429,20 +429,9 @@ Return ONLY the raw JSON string."""
         )
 
 
-def seed_mock_garments(user_id: str = "dev-admin-user-id"):
-    """Seed the mock wardrobe garments in the local in-memory storage dictionary."""
-    from app.services.firestore import _memory_garments
-    
-    # Check if there are already any mock garments for this user in memory
-    user_mocks = [
-        g for g in _memory_garments.values()
-        if g.get("user_id") == user_id and g.get("id", "").startswith("mock-")
-    ]
-    if user_mocks:
-        # Already seeded, don't overwrite (allows deletion)
-        return
-
-    mock_items = [
+def _get_mock_items():
+    """Return the canonical list of mock garment definitions."""
+    return [
         {
             "garment_id": "mock-g1",
             "category": "outerwear",
@@ -500,61 +489,102 @@ def seed_mock_garments(user_id: str = "dev-admin-user-id"):
             "description": {"short": "Leather Chelsea Boots", "detailed": "Leather Chelsea Boots", "style_tags": ["classic", "streetwear"]}
         }
     ]
+
+
+def seed_mock_garments(user_id: str = "dev-admin-user-id"):
+    """Seed the mock wardrobe garments in the local in-memory storage dictionary.
+    Skips any mock IDs that the user has deleted during this session."""
+    from app.services.firestore import _memory_garments, _deleted_mock_ids
     
-    for item in mock_items:
+    # Check if there are already any mock garments for this user in memory
+    user_mocks = [
+        g for g in _memory_garments.values()
+        if g.get("user_id") == user_id and g.get("id", "").startswith("mock-")
+    ]
+    if user_mocks:
+        # Already seeded, don't overwrite (allows deletion)
+        return
+    
+    for item in _get_mock_items():
+        gid = item["garment_id"]
+        # Skip mocks that were deleted this session
+        if gid in _deleted_mock_ids:
+            continue
         item_dict = {
-            "id": item["garment_id"],
+            "id": gid,
             "url": item["front_url"],
             "user_id": user_id,
             **item
         }
-        _memory_garments[item["garment_id"]] = item_dict
+        _memory_garments[gid] = item_dict
 
 
 async def async_seed_mock_garments(user_id: str = "dev-admin-user-id", firestore_service=None) -> None:
-    """Seed the mock wardrobe garments in the database and local memory."""
-    if firestore_service is not None and firestore_service.client is not None and not firestore_service._use_memory:
-        try:
-            db_garments = await firestore_service.list_garments_metadata(user_id=user_id)
-            db_mocks = [g for g in db_garments if g.garment_id.startswith("mock-")]
-            if db_mocks:
-                # Already seeded in Firestore, do not re-seed in Firestore
-                # Still seed in-memory to ensure alignment (checking if memory already has them)
-                seed_mock_garments(user_id)
-                return
-        except Exception as e:
-            logger.warning(f"Failed to check existing mock garments in Firestore: {e}")
-
-    # Seed in-memory (checking if memory already has them)
-    seed_mock_garments(user_id)
+    """Seed mock wardrobe garments. Uses a persistent 'seeded' flag so that
+    once mocks are seeded, deleted mocks are NOT re-created on cold starts."""
     
-    if firestore_service is None:
-        return
+    has_firestore = (
+        firestore_service is not None
+        and firestore_service.client is not None
+        and not firestore_service._use_memory
+    )
+    
+    if has_firestore:
+        # Check persistent flag first
+        already_seeded = await firestore_service.is_mocks_seeded(user_id)
         
-    # Seed to firestore if client is active and configured
-    from app.models.garment import GarmentMetadata, GarmentCategory, GarmentDescription, WeatherRange
-    from app.services.firestore import _memory_garments
-    
-    for garment_id, data in _memory_garments.items():
-        if data.get("user_id") != user_id:
-            continue
-        try:
-            if firestore_service.client is not None and not firestore_service._use_memory:
-                # Check if it already exists in firestore
-                existing = await firestore_service.get_garment_metadata(garment_id)
-                if not existing or existing.user_id != user_id:
+        if already_seeded:
+            # Mocks were seeded before. Load whatever STILL EXISTS in Firestore
+            # into memory (deleted ones will be absent — that's the whole point).
+            try:
+                db_garments = await firestore_service.list_garments_metadata(user_id=user_id)
+                db_mocks = [g for g in db_garments if g.garment_id.startswith("mock-")]
+                from app.services.firestore import _memory_garments
+                for g in db_mocks:
+                    if g.garment_id not in _memory_garments:
+                        _memory_garments[g.garment_id] = {
+                            "id": g.garment_id,
+                            "garment_id": g.garment_id,
+                            "category": g.category.value if hasattr(g.category, 'value') else g.category,
+                            "front_url": g.ghost_mannequin_url,
+                            "ghost_mannequin_url": g.ghost_mannequin_url,
+                            "url": g.ghost_mannequin_url,
+                            "user_id": user_id,
+                            "description": {
+                                "short": g.description.short if g.description else "",
+                                "detailed": g.description.detailed if g.description else "",
+                                "style_tags": g.description.style_tags if g.description else []
+                            }
+                        }
+            except Exception as e:
+                logger.warning(f"Failed to load existing mock garments from Firestore: {e}")
+            return
+        
+        # First-time seeding: write all mocks to Firestore and set the flag
+        from app.models.garment import GarmentMetadata, GarmentCategory, GarmentDescription, WeatherRange
+        
+        for item in _get_mock_items():
+            gid = item["garment_id"]
+            try:
+                existing = await firestore_service.get_garment_metadata(gid)
+                if not existing:
                     metadata = GarmentMetadata(
-                        garment_id=garment_id,
+                        garment_id=gid,
                         user_id=user_id,
-                        category=GarmentCategory(data["category"]),
-                        ghost_mannequin_url=data["front_url"],
+                        category=GarmentCategory(item["category"]),
+                        ghost_mannequin_url=item["front_url"],
                         description=GarmentDescription(
-                            short=data["description"]["short"],
-                            detailed=data["description"]["detailed"],
-                            style_tags=data["description"]["style_tags"]
+                            short=item["description"]["short"],
+                            detailed=item["description"]["detailed"],
+                            style_tags=item["description"]["style_tags"]
                         ),
                         weather_range=WeatherRange(min_temp=10, max_temp=30)
                     )
                     await firestore_service.save_garment_metadata(metadata)
-        except Exception as e:
-            logger.warning(f"Failed to save mock garment {garment_id} to Firestore: {e}")
+            except Exception as e:
+                logger.warning(f"Failed to save mock garment {gid} to Firestore: {e}")
+        
+        await firestore_service.mark_mocks_seeded(user_id)
+    
+    # Also seed in-memory for the current instance
+    seed_mock_garments(user_id)

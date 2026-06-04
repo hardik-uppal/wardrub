@@ -186,18 +186,12 @@ async def get_wardrobe(
                 
                 # Fallback to in-memory mock garments if Firestore fetch failed or returned nothing
                 if not mock_garments:
-                    from app.services.firestore import _memory_garments
                     from app.services.magazine_feed_service import seed_mock_garments
                     seed_mock_garments(user_id)
-                    mock_garments_data = [
-                        g for g in _memory_garments.values() 
-                        if g.get("user_id") == user_id and g.get("id", "").startswith("mock-")
-                    ]
-                    if category:
-                        mock_garments_data = [g for g in mock_garments_data if g.get("category") == category]
-                    
+                    mock_garments_data = firestore.get_memory_garments(user_id, category)
+                    mock_garments_data = [g for g in mock_garments_data if g.get("id", "").startswith("mock-")]
                     for g in mock_garments_data:
-                        mock_garments.append(dict(g))
+                        mock_garments.append(g)
                 else:
                     # Convert Firestore models to dictionaries
                     formatted_mocks = []
@@ -235,11 +229,7 @@ async def get_wardrobe(
             
             # Fall back to in-memory if Firestore query returned nothing or is disabled
             if not garments:
-                from app.services.firestore import _memory_garments
-                raw_garments = [g for g in _memory_garments.values() if g.get("user_id") == user_id]
-                if category:
-                    raw_garments = [g for g in raw_garments if g.get("category") == category]
-                
+                raw_garments = firestore.get_memory_garments(user_id, category)
                 garments = []
                 for g in raw_garments:
                     g_dict = dict(g)
@@ -250,6 +240,10 @@ async def get_wardrobe(
                     if "url" in g_dict and "front_url" not in g_dict:
                         g_dict["front_url"] = g_dict["url"]
                     garments.append(g_dict)
+                
+        # Filter out any mock garments deleted in this session
+        from app.services.firestore import _deleted_mock_ids
+        garments = [g for g in garments if g.get("id", "") not in _deleted_mock_ids]
                 
         return {"garments": garments}
     except Exception as e:
@@ -275,21 +269,19 @@ async def get_wardrobe(
                 
         # Fallback to in-memory garments if populated for mock preview
         if not user_garments:
-            from app.services.firestore import _memory_garments
-            if _memory_garments:
-                raw_garments = [g for g in _memory_garments.values() if g.get("user_id") == user_id]
-                if category:
-                    raw_garments = [g for g in raw_garments if g.get("category") == category]
-                
-                for g in raw_garments:
-                    g_dict = dict(g)
-                    if "garment_id" in g_dict and "id" not in g_dict:
-                        g_dict["id"] = g_dict["garment_id"]
-                    if "ghost_mannequin_url" in g_dict and "url" not in g_dict:
-                        g_dict["url"] = g_dict["ghost_mannequin_url"]
-                    if "url" in g_dict and "front_url" not in g_dict:
-                        g_dict["front_url"] = g_dict["url"]
-                    user_garments.append(g_dict)
+            raw_garments = firestore.get_memory_garments(user_id, category)
+            for g in raw_garments:
+                g_dict = dict(g)
+                if "garment_id" in g_dict and "id" not in g_dict:
+                    g_dict["id"] = g_dict["garment_id"]
+                if "ghost_mannequin_url" in g_dict and "url" not in g_dict:
+                    g_dict["url"] = g_dict["ghost_mannequin_url"]
+                if "url" in g_dict and "front_url" not in g_dict:
+                    g_dict["front_url"] = g_dict["url"]
+                user_garments.append(g_dict)
+        # Filter out any mock garments deleted in this session
+        from app.services.firestore import _deleted_mock_ids
+        user_garments = [g for g in user_garments if g.get("id", "") not in _deleted_mock_ids]
         return {"garments": user_garments}
 
 
@@ -311,19 +303,28 @@ async def delete_garment(
     try:
         user_id = user["uid"]
         
-        # Don't try to delete mock garments from GCS
+        # Verify ownership if metadata exists
+        metadata = await firestore.get_garment_metadata(garment_id)
+        if metadata and metadata.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+            
+        # Don't try to delete mock garments from GCS (they're Unsplash URLs)
         if not garment_id.startswith("mock-"):
             try:
                 await storage.delete_garment(garment_id=garment_id, user_id=user_id)
+            except ValueError:
+                # "Garment not found" in GCS — OK, metadata-only garment
+                logger.info(f"GCS blob not found for {garment_id}, continuing with metadata cleanup")
             except Exception as se:
-                logger.warning(f"Storage deletion skipped or failed for {garment_id}: {se}")
-        else:
-            # Clean it up from the in-memory fallback dictionary if it exists
-            from app.services.firestore import _memory_garments
-            _memory_garments.pop(garment_id, None)
+                logger.error(f"GCS deletion failed for {garment_id}: {se}")
+                raise HTTPException(status_code=500, detail=f"Failed to delete garment files: {str(se)}")
             
-        await firestore.delete_garment_metadata(garment_id)
+        deleted = await firestore.delete_garment_metadata(garment_id)
+        if not deleted:
+            logger.warning(f"Firestore metadata deletion returned False for {garment_id}")
         return {"status": "deleted", "id": garment_id}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete garment: {str(e)}")
 
