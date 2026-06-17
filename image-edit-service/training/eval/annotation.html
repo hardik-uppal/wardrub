@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wardrub Benchmark Annotation</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f13; color: #e0e0e0; }
+header { background: #1a1a2e; padding: 16px 24px; border-bottom: 1px solid #2a2a4a; position: sticky; top: 0; z-index: 100; }
+header h1 { font-size: 18px; font-weight: 600; }
+header .meta { font-size: 12px; color: #888; margin-top: 4px; }
+.toolbar { display: flex; gap: 12px; padding: 12px 24px; background: #16162a; border-bottom: 1px solid #2a2a4a; align-items: center; flex-wrap: wrap; }
+.toolbar select, .toolbar button { padding: 8px 14px; border-radius: 6px; border: 1px solid #3a3a5a; background: #1e1e36; color: #e0e0e0; font-size: 13px; cursor: pointer; }
+.toolbar button { background: #4a4aff; border-color: #4a4aff; font-weight: 600; }
+.toolbar button:hover { background: #5a5aff; }
+.toolbar button.export { background: #2ecc71; border-color: #2ecc71; }
+.toolbar button.export:hover { background: #3ddb84; }
+.toolbar .nav { display: flex; gap: 8px; align-items: center; }
+.toolbar .nav span { font-size: 13px; color: #aaa; }
+.toolbar .nav button.small { padding: 6px 10px; font-size: 12px; }
+.main { display: flex; height: calc(100vh - 110px); }
+.sidebar { width: 260px; background: #12121f; border-right: 1px solid #2a2a4a; overflow-y: auto; padding: 8px; flex-shrink: 0; }
+.sidebar .sample { padding: 10px 12px; margin: 2px 0; border-radius: 6px; cursor: pointer; font-size: 13px; color: #aaa; transition: all 0.15s; }
+.sidebar .sample:hover { background: #1e1e36; color: #ddd; }
+.sidebar .sample.active { background: #2a2a5a; color: #fff; font-weight: 600; }
+.sidebar .sample.done { border-left: 3px solid #2ecc71; }
+.sidebar .identity { font-size: 11px; color: #666; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.content { flex: 1; overflow-y: auto; padding: 24px; }
+.card { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+.card h2 { font-size: 15px; margin-bottom: 16px; color: #aaa; }
+.images { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.image-box { background: #12121f; border-radius: 8px; overflow: hidden; border: 1px solid #2a2a4a; }
+.image-box img { width: 100%; height: auto; display: block; }
+.image-box .label { padding: 8px 12px; font-size: 11px; color: #888; background: #0f0f1a; border-top: 1px solid #2a2a4a; }
+.image-box .label .tag { display: inline-block; background: #2a2a5a; padding: 2px 6px; border-radius: 3px; margin-right: 4px; font-size: 10px; }
+.scoring { margin-top: 20px; }
+.scoring h3 { font-size: 14px; margin-bottom: 12px; }
+.scores { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.score-group { background: #12121f; border: 1px solid #2a2a4a; border-radius: 8px; padding: 12px; }
+.score-group label { display: block; font-size: 12px; color: #aaa; margin-bottom: 6px; }
+.score-group .stars { display: flex; gap: 4px; }
+.score-group .stars button { background: none; border: none; font-size: 20px; cursor: pointer; color: #3a3a5a; transition: color 0.1s; padding: 2px; }
+.score-group .stars button:hover, .score-group .stars button.active { color: #ffd700; }
+.score-group .stars button.selected { color: #ffd700; }
+.verdict { margin-top: 16px; display: flex; gap: 12px; align-items: center; }
+.verdict label { font-size: 13px; color: #aaa; }
+.verdict select { padding: 6px 10px; border-radius: 6px; border: 1px solid #3a3a5a; background: #1e1e36; color: #e0e0e0; font-size: 13px; }
+.comments { margin-top: 12px; }
+.comments textarea { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #3a3a5a; background: #12121f; color: #e0e0e0; font-size: 13px; font-family: inherit; resize: vertical; min-height: 60px; }
+.summary-bar { display: flex; gap: 16px; padding: 8px 24px; background: #16162a; border-top: 1px solid #2a2a4a; font-size: 12px; color: #888; position: sticky; bottom: 0; }
+.summary-bar span { color: #2ecc71; }
+.hidden { display: none; }
+.empty-state { text-align: center; padding: 60px 20px; color: #666; }
+.empty-state h2 { font-size: 18px; margin-bottom: 8px; color: #888; }
+.comparison-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.comparison-card { background: #12121f; border: 1px solid #2a2a4a; border-radius: 8px; padding: 12px; }
+.comparison-card .run-label { font-size: 11px; color: #666; margin-bottom: 8px; text-transform: uppercase; }
+.comparison-card img { width: 100%; border-radius: 4px; }
+.note { font-size: 11px; color: #666; font-style: italic; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎽 Wardrub Benchmark Annotation</h1>
+  <div class="meta" id="header-meta">Loading...</div>
+</header>
+<div class="toolbar">
+  <select id="task-select" onchange="loadManifest()">
+    <option value="">Select benchmark task...</option>
+  </select>
+  <select id="run-select" onchange="loadManifest()">
+    <option value="">All runs</option>
+  </select>
+  <div class="nav">
+    <button class="small" onclick="navigate(-1)">◀ Prev</button>
+    <span id="nav-info">-/-</span>
+    <button class="small" onclick="navigate(1)">Next ▶</button>
+  </div>
+  <button class="export" onclick="exportAnnotations()">📥 Export JSON</button>
+  <button onclick="loadAllData()">🔄 Refresh</button>
+</div>
+<div class="main">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="content" id="content">
+    <div class="empty-state">
+      <h2>Select a benchmark task above</h2>
+      <p>Then annotate each sample by comparing original vs generated images.</p>
+    </div>
+  </div>
+</div>
+<div class="summary-bar" id="summary-bar"></div>
+
+<script>
+// ─── State ──────────────────────────────────────────────────────
+let state = {
+  index: null,
+  currentManifest: null,
+  currentRun: null,
+  currentSampleIdx: 0,
+  samples: [],
+  generated: {},      // sample_id -> { run_name -> image_path }
+  annotations: {},    // sample_id -> { scores, pass_fail, comments }
+  runImages: {},      // run_name -> { sample_id -> path }
+};
+
+// ─── Init ───────────────────────────────────────────────────────
+async function loadAllData() {
+  const res = await fetch('/api/index');
+  state.index = await res.json();
+  
+  // Build run image index
+  state.runImages = {};
+  for (const run of state.index.runs) {
+    state.runImages[run.name] = run.generated;
+  }
+  
+  // Populate task select
+  const sel = document.getElementById('task-select');
+  sel.innerHTML = '<option value="">Select benchmark task...</option>';
+  for (const m of state.index.manifests) {
+    sel.innerHTML += `<option value="${m.name}">${m.name} (${m.samples.length} samples)</option>`;
+  }
+  
+  // Populate run select
+  const rsel = document.getElementById('run-select');
+  rsel.innerHTML = '<option value="">All runs</option>';
+  for (const run of state.index.runs) {
+    if (Object.keys(run.generated).length > 0) {
+      rsel.innerHTML += `<option value="${run.name}">${run.name} (${run.count} imgs)</option>`;
+    }
+  }
+  
+  updateSummary();
+}
+
+function loadManifest() {
+  const name = document.getElementById('task-select').value;
+  const runFilter = document.getElementById('run-select').value;
+  if (!name) { document.getElementById('content').innerHTML = '<div class="empty-state"><h2>Select a benchmark task above</h2></div>'; return; }
+
+  const manifest = state.index.manifests.find(m => m.name === name);
+  state.currentManifest = manifest;
+  state.currentRun = runFilter || null;
+  state.samples = manifest.samples;
+  state.currentSampleIdx = 0;
+
+  // Build generated map: sample_id -> { run_name -> path }
+  state.generated = {};
+  for (const sample of state.samples) {
+    state.generated[sample.id] = {};
+    for (const run of state.index.runs) {
+      if (runFilter && run.name !== runFilter) continue;
+      if (run.generated[sample.id]) {
+        state.generated[sample.id][run.name] = run.generated[sample.id];
+      }
+    }
+  }
+  
+  renderSidebar();
+  showSample(0);
+}
+
+// ─── Navigation ─────────────────────────────────────────────────
+function navigate(dir) {
+  const idx = state.currentSampleIdx + dir;
+  if (idx >= 0 && idx < state.samples.length) {
+    showSample(idx);
+  }
+}
+
+function showSample(idx) {
+  state.currentSampleIdx = idx;
+  renderSidebar();
+  renderSample();
+  document.getElementById('nav-info').textContent = `${idx + 1}/${state.samples.length}`;
+}
+
+// ─── Render Sidebar ─────────────────────────────────────────────
+function renderSidebar() {
+  const sb = document.getElementById('sidebar');
+  // Group by identity
+  let currentIdentity = '';
+  let html = '';
+  for (let i = 0; i < state.samples.length; i++) {
+    const s = state.samples[i];
+    const identity = s.tags?.identity || '';
+    if (identity && identity !== currentIdentity) {
+      currentIdentity = identity;
+      html += `<div class="identity">${identity}</div>`;
+    }
+    const done = state.annotations[s.id] ? 'done' : '';
+    const active = i === state.currentSampleIdx ? 'active' : '';
+    html += `<div class="sample ${active} ${done}" onclick="showSample(${i})">${s.id}</div>`;
+  }
+  sb.innerHTML = html;
+}
+
+// ─── Render Sample ──────────────────────────────────────────────
+function renderSample() {
+  const sample = state.samples[state.currentSampleIdx];
+  const annot = state.annotations[sample.id] || {};
+  const gens = state.generated[sample.id] || {};
+
+  let html = `<div class="card">
+    <h2>📷 Sample: ${sample.id} ${sample.tags?.identity ? '— ' + sample.tags.identity : ''}</h2>`;
+
+  // Original (input) image
+  if (sample.image) {
+    html += `<div class="images">
+      <div class="image-box">
+        <img src="/${sample.image}" alt="Input" loading="lazy">
+        <div class="label">📥 <span class="tag">INPUT</span> Original — ${sample.image.split('/').pop()}</div>
+      </div>`;
+  }
+
+  // Generated outputs from each run
+  const runNames = Object.keys(gens).sort();
+  for (const run of runNames) {
+    const shortRun = run.replace('20260524_', '').replace('avatar_identity_', '').substring(0, 30);
+    html += `<div class="image-box">
+      <img src="/${gens[run]}" alt="Generated ${run}" loading="lazy">
+      <div class="label">🤖 <span class="tag">${shortRun}</span></div>
+    </div>`;
+  }
+  html += `</div>`;
+
+  if (runNames.length === 0) {
+    html += `<p class="note" style="margin-top:12px;">No generated outputs found for this sample. Run a benchmark first.</p>`;
+  }
+
+  // Scoring
+  html += `<div class="scoring">
+    <h3>📊 Scoring</h3>
+    <div class="scores">
+      ${scoreRow('overall', 'Overall Quality', annot)}
+      ${scoreRow('identity', 'Identity Preservation', annot)}
+      ${scoreRow('clarity', 'Face Clarity', annot)}
+      ${scoreRow('background', 'Background Cleanliness', annot)}
+      ${scoreRow('artifacts', 'Artifact Freedom', annot)}
+    </div>
+    <div class="verdict">
+      <label>Verdict:</label>
+      <select id="verdict-${sample.id}" onchange="saveAnnotation('${sample.id}')">
+        <option value="">—</option>
+        <option value="pass" ${annot.pass_fail === 'pass' ? 'selected' : ''}>✅ Pass</option>
+        <option value="fail" ${annot.pass_fail === 'fail' ? 'selected' : ''}>❌ Fail</option>
+      </select>
+    </div>
+    <div class="comments">
+      <textarea id="comments-${sample.id}" placeholder="Notes..." onchange="saveAnnotation('${sample.id}')">${annot.comments || ''}</textarea>
+    </div>
+  </div>`;
+
+  html += `</div>`;
+  document.getElementById('content').innerHTML = html;
+
+  // Render star buttons
+  for (const key of ['overall', 'identity', 'clarity', 'background', 'artifacts']) {
+    const stars = document.querySelectorAll(`[data-score-key="${key}"][data-sample="${sample.id}"]`);
+    stars.forEach(btn => {
+      btn.addEventListener('click', () => setScore(sample.id, key, parseInt(btn.dataset.value)));
+    });
+  }
+}
+
+function scoreRow(key, label, annot) {
+  const sampleId = state.samples[state.currentSampleIdx].id;
+  const val = annot[key] || 0;
+  let btns = '';
+  for (let i = 1; i <= 5; i++) {
+    const cls = i <= val ? 'selected' : '';
+    btns += `<button class="${cls}" data-score-key="${key}" data-sample="${sampleId}" data-value="${i}">★</button>`;
+  }
+  return `<div class="score-group">
+    <label>${label}</label>
+    <div class="stars">${btns}</div>
+  </div>`;
+}
+
+function setScore(sampleId, key, value) {
+  if (!state.annotations[sampleId]) state.annotations[sampleId] = {};
+  state.annotations[sampleId][key] = value;
+  saveAnnotation(sampleId);
+  renderSample(); // re-render star buttons
+}
+
+function saveAnnotation(sampleId) {
+  if (!state.annotations[sampleId]) state.annotations[sampleId] = {};
+  
+  const verdict = document.getElementById(`verdict-${sampleId}`);
+  const comments = document.getElementById(`comments-${sampleId}`);
+  if (verdict) state.annotations[sampleId].pass_fail = verdict.value || undefined;
+  if (comments) state.annotations[sampleId].comments = comments.value || undefined;
+  
+  state.annotations[sampleId]._timestamp = new Date().toISOString();
+  
+  updateSummary();
+  renderSidebar();
+}
+
+// ─── Export ──────────────────────────────────────────────────────
+function exportAnnotations() {
+  const payload = {
+    exported_at: new Date().toISOString(),
+    manifest: state.currentManifest?.name,
+    run_filter: state.currentRun,
+    reviewer: prompt("Your name/initials for the review?", "hardik") || "anonymous",
+    samples: state.samples.map(s => ({
+      id: s.id,
+      endpoint: s.endpoint,
+      identity: s.tags?.identity,
+      input_image: s.image,
+      generated: state.generated[s.id] || {},
+      ...(state.annotations[s.id] || {}),
+    })),
+  };
+
+  // Remove _timestamp from each sample
+  for (const s of payload.samples) {
+    delete s._timestamp;
+  }
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `wardrub_annotations_${payload.manifest || 'unknown'}_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Summary ─────────────────────────────────────────────────────
+function updateSummary() {
+  const total = state.samples.length;
+  const done = Object.keys(state.annotations).filter(id => {
+    const a = state.annotations[id];
+    return a.pass_fail || Object.values(a).some(v => typeof v === 'number' && v > 0);
+  }).length;
+
+  const bar = document.getElementById('summary-bar');
+  bar.innerHTML = `
+    📋 Samples: <span>${total}</span> &nbsp;|&nbsp;
+    ✅ Annotated: <span>${done}</span> &nbsp;|&nbsp;
+    ❌ Remaining: <span>${total - done}</span> &nbsp;|&nbsp;
+    📍 Manifest: <span>${state.currentManifest?.name || '—'}</span>
+  `;
+}
+
+// ─── Start ───────────────────────────────────────────────────────
+loadAllData();
+</script>
+</body>
+</html>
