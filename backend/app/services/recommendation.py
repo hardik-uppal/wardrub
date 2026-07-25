@@ -36,6 +36,7 @@ class RecommendationEngine:
     
     async def get_recommendations(
         self,
+        user_id: str,
         user_profile: Optional[UserProfile] = None,
         weather: Optional[WeatherInfo] = None,
         occasion: Optional[Occasion] = None,
@@ -57,10 +58,10 @@ class RecommendationEngine:
         
         # Get user profile if not provided
         if user_profile is None:
-            user_profile = await self.firestore.get_user_profile()
+            user_profile = await self.firestore.get_user_profile(user_id)
         
         # Get all garments with metadata
-        garments = await self.firestore.list_garments_metadata()
+        garments = await self.firestore.list_garments_metadata(user_id=user_id)
         
         if not garments:
             logger.warning("No garments found for recommendations")
@@ -391,6 +392,7 @@ Be encouraging and helpful. Return ONLY JSON."""
     
     async def get_daily_outfit(
         self,
+        user_id: str,
         user_profile: Optional[UserProfile] = None,
         use_weather: bool = True,
         occasion: Optional[Occasion] = None
@@ -408,7 +410,7 @@ Be encouraging and helpful. Return ONLY JSON."""
         """
         # Get profile if needed
         if user_profile is None:
-            user_profile = await self.firestore.get_user_profile()
+            user_profile = await self.firestore.get_user_profile(user_id)
         
         # Get weather if enabled and profile has location
         weather = None
@@ -420,6 +422,7 @@ Be encouraging and helpful. Return ONLY JSON."""
         
         # Get recommendations
         outfits = await self.get_recommendations(
+            user_id=user_id,
             user_profile=user_profile,
             weather=weather,
             occasion=occasion,
@@ -435,4 +438,3 @@ Be encouraging and helpful. Return ONLY JSON."""
         outfit.reasoning = await self.generate_outfit_reasoning(outfit, user_profile)
         
         return outfit
-

@@ -6,43 +6,14 @@ const OnboardingContext = createContext(null)
 
 // Non-sensitive UI preference keys for localStorage
 const STORAGE_KEYS = {
-  WELCOME_SEEN: 'wardrub_welcome_seen',
-  DISMISSED_TOOLTIPS: 'wardrub_dismissed_tooltips',
   WIDGET_MINIMIZED: 'wardrub_widget_minimized',
   CELEBRATION_SEEN: 'wardrub_celebration_seen',
 }
 
 const GARMENT_GOAL = 10
 
-// Steps in order
-const STEPS = {
-  WELCOME: 'welcome',
-  AVATAR: 'avatar',
-  CLOTHES: 'clothes',
-  STYLE: 'style',
-  COMPLETE: 'complete',
-}
-
 export function OnboardingProvider({ children }) {
   const { avatarUrl, garments, userProfile } = useWardrobe()
-  
-  // localStorage-backed UI preferences (non-sensitive display state only)
-  const [welcomeSeen, setWelcomeSeen] = useState(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEYS.WELCOME_SEEN) === 'true'
-    } catch {
-      return false
-    }
-  })
-  
-  const [dismissedTooltips, setDismissedTooltips] = useState(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.DISMISSED_TOOLTIPS)
-      return stored ? JSON.parse(stored) : []
-    } catch {
-      return []
-    }
-  })
   
   const [widgetMinimized, setWidgetMinimized] = useState(() => {
     try {
@@ -82,15 +53,6 @@ export function OnboardingProvider({ children }) {
   const totalMilestones = 3
   const overallProgress = completedCount / totalMilestones
 
-  // Determine current step (first incomplete milestone)
-  const currentStep = useMemo(() => {
-    if (!welcomeSeen) return STEPS.WELCOME
-    if (!avatarDone) return STEPS.AVATAR
-    if (!garmentsDone) return STEPS.CLOTHES
-    if (!profileDone) return STEPS.STYLE
-    return STEPS.COMPLETE
-  }, [welcomeSeen, avatarDone, garmentsDone, profileDone])
-
   // Milestones data for the widget
   const milestones = useMemo(() => [
     {
@@ -122,31 +84,6 @@ export function OnboardingProvider({ children }) {
   ], [avatarDone, garmentsDone, garmentsProgress, profileDone])
 
   // Actions
-  const markWelcomeSeen = useCallback(() => {
-    setWelcomeSeen(true)
-    try {
-      localStorage.setItem(STORAGE_KEYS.WELCOME_SEEN, 'true')
-    } catch {
-      // localStorage not available, state still updates in memory
-    }
-  }, [])
-
-  const dismissTooltip = useCallback((tooltipId) => {
-    setDismissedTooltips(prev => {
-      const updated = [...prev, tooltipId]
-      try {
-        localStorage.setItem(STORAGE_KEYS.DISMISSED_TOOLTIPS, JSON.stringify(updated))
-      } catch {
-        // localStorage not available
-      }
-      return updated
-    })
-  }, [])
-
-  const isTooltipDismissed = useCallback((tooltipId) => {
-    return dismissedTooltips.includes(tooltipId)
-  }, [dismissedTooltips])
-
   const toggleWidgetMinimized = useCallback(() => {
     setWidgetMinimized(prev => {
       const next = !prev
@@ -182,18 +119,25 @@ export function OnboardingProvider({ children }) {
   
   useEffect(() => {
     if (isOnboardingComplete && !celebrationSeen.complete) {
-      setShowCompleteCelebration(true)
-      const timer = setTimeout(() => {
-        setShowCompleteCelebration(false)
-        markCelebration('complete')
-      }, 5000)
-      return () => clearTimeout(timer)
+      const startTimer = setTimeout(() => {
+        setShowCompleteCelebration(true)
+      }, 0)
+      return () => clearTimeout(startTimer)
     }
-  }, [isOnboardingComplete, celebrationSeen.complete, markCelebration])
+  }, [isOnboardingComplete, celebrationSeen.complete])
+
+  useEffect(() => {
+    if (!showCompleteCelebration) return
+
+    const timer = setTimeout(() => {
+      setShowCompleteCelebration(false)
+      markCelebration('complete')
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [showCompleteCelebration, markCelebration])
 
   const value = useMemo(() => ({
     // State
-    welcomeSeen,
     avatarDone,
     garmentsDone,
     garmentsCount,
@@ -203,24 +147,20 @@ export function OnboardingProvider({ children }) {
     completedCount,
     totalMilestones,
     overallProgress,
-    currentStep,
     milestones,
     widgetMinimized,
     showCompleteCelebration,
     GARMENT_GOAL,
     
     // Actions
-    markWelcomeSeen,
-    dismissTooltip,
-    isTooltipDismissed,
     toggleWidgetMinimized,
     markCelebration,
     shouldCelebrate,
   }), [
-    welcomeSeen, avatarDone, garmentsDone, garmentsCount, garmentsProgress,
+    avatarDone, garmentsDone, garmentsCount, garmentsProgress,
     profileDone, isOnboardingComplete, completedCount, overallProgress,
-    currentStep, milestones, widgetMinimized, showCompleteCelebration,
-    markWelcomeSeen, dismissTooltip, isTooltipDismissed, toggleWidgetMinimized,
+    milestones, widgetMinimized, showCompleteCelebration,
+    toggleWidgetMinimized,
     markCelebration, shouldCelebrate,
   ])
 
@@ -238,5 +178,3 @@ export function useOnboarding() {
   }
   return context
 }
-
-export { STEPS }

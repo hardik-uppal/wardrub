@@ -8,7 +8,7 @@ import time
 import uuid
 
 from app.config import get_settings
-from app.routers import garment, avatar, tryon, profile, outfit, extension
+from app.routers import analytics, garment, avatar, tryon, profile, outfit, extension
 from app.logging_config import setup_logging, get_logger
 from app.middleware.auth import AuthMiddleware
 from app.services.auth import initialize_firebase
@@ -111,6 +111,7 @@ app.include_router(tryon.router, prefix="/api", tags=["Try-On"])
 app.include_router(profile.router, prefix="/api", tags=["Profile"])
 app.include_router(outfit.router, prefix="/api", tags=["Outfit"])
 app.include_router(extension.router, prefix="/api", tags=["Extension"])
+app.include_router(analytics.router, prefix="/api", tags=["Analytics"])
 
 
 @app.get("/")
@@ -140,9 +141,9 @@ async def serve_mock_gcs(blob_name: str):
     media_type = "image/png"
     if blob_name.endswith(".jpg") or blob_name.endswith(".jpeg"):
         media_type = "image/jpeg"
+    elif blob_name.endswith(".webp"):
+        media_type = "image/webp"
     elif blob_name.endswith(".json"):
         media_type = "application/json"
         
     return Response(content=file_bytes, media_type=media_type)
-
-

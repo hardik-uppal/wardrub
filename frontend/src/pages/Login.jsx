@@ -5,7 +5,17 @@ import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { user, loading, error, signInWithGoogle, signInWithDevBypass, clearError } = useAuth()
+  const {
+    user,
+    loading,
+    error,
+    initializationError,
+    isDevAuthBypassEnabled,
+    signInWithGoogle,
+    signInWithDevBypass,
+    retryAuthInitialization,
+    clearError,
+  } = useAuth()
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -78,6 +88,30 @@ export default function Login() {
             </span>
           </div>
 
+          {initializationError && (
+            <div
+              role="alert"
+              className="text-sm"
+              style={{
+                background: 'rgba(223, 139, 3, 0.08)',
+                color: 'var(--text-primary)',
+                border: '1px solid rgba(223, 139, 3, 0.25)',
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-md)',
+                marginBottom: '1rem',
+              }}
+            >
+              <p>{initializationError}</p>
+              <button
+                type="button"
+                onClick={retryAuthInitialization}
+                className="mt-2 underline font-medium"
+              >
+                Retry sign-in check
+              </button>
+            </div>
+          )}
+
           {/* Error message */}
           {error && (
             <div 
@@ -126,7 +160,7 @@ export default function Login() {
             Continue with Google
           </button>
 
-          {import.meta.env.DEV && (
+          {isDevAuthBypassEnabled && (
             <button
               onClick={handleDevBypassSignIn}
               className="btn-ghost w-full"

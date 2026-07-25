@@ -1,10 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Image, User, Trash2, Sparkles } from 'lucide-react'
+import { Heart, Image, MoreVertical, Share2, Sparkles, Trash2, User } from 'lucide-react'
 import { useWardrobe } from '../context/WardrobeContext'
 import LoadingOverlay from '../components/LoadingOverlay'
 import LookPreview from '../components/LookPreview'
 import BottomNav from '../components/BottomNav'
+import ResilientImage from '../components/ResilientImage'
+
+const OCCASIONS = ['Everyday', 'Work', 'Weekend', 'Evening', 'Event']
+
+function formatLookDate(value) {
+  if (!value) return 'Saved look'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Saved look'
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+  }).format(date)
+}
 
 export default function SavedLooks() {
   const navigate = useNavigate()
@@ -16,52 +30,74 @@ export default function SavedLooks() {
     error,
     fetchLooks,
     deleteLook,
+    updateLook,
     clearError 
   } = useWardrobe()
   
-  const [deleteMode, setDeleteMode] = useState(false)
-  const [pressTimer, setPressTimer] = useState(null)
   const [selectedLook, setSelectedLook] = useState(null)
+  const [openMenuId, setOpenMenuId] = useState(null)
+  const [viewMode, setViewMode] = useState('all')
+  const [sortMode, setSortMode] = useState('newest')
+  const [pendingDelete, setPendingDelete] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     fetchLooks()
   }, [fetchLooks])
 
-  const handleLongPress = () => {
-    setDeleteMode(true)
-  }
-
-  const handlePressStart = () => {
-    const timer = setTimeout(handleLongPress, 500)
-    setPressTimer(timer)
-  }
-
-  const handlePressEnd = () => {
-    if (pressTimer) {
-      clearTimeout(pressTimer)
-      setPressTimer(null)
-    }
-  }
-
   const handleDeleteLook = async (lookId) => {
     setIsDeleting(true)
     try {
       await deleteLook(lookId)
+      setPendingDelete(null)
+      setOpenMenuId(null)
     } catch (err) {
       console.error('Delete look failed:', err)
     } finally {
       setIsDeleting(false)
     }
   }
-  
-  const handleLookClick = (look) => {
-    if (deleteMode) {
-      handleDeleteLook(look.id)
-    } else {
-      setSelectedLook(look)
+
+  const handleUpdateLook = async (lookId, updates) => {
+    try {
+      await updateLook(lookId, updates)
+    } catch (updateError) {
+      console.error('Update look failed:', updateError)
+    } finally {
+      setOpenMenuId(null)
     }
   }
+  
+  const handleShareLook = async (look) => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'My Wardrub look',
+          text: 'A look from my Wardrub',
+          url: look.url,
+        })
+      } else {
+        await navigator.clipboard.writeText(look.url)
+      }
+    } catch (shareError) {
+      if (shareError?.name !== 'AbortError') {
+        console.error('Share failed:', shareError)
+      }
+    }
+    setOpenMenuId(null)
+  }
+
+  const visibleLooks = useMemo(() => {
+    const filtered = viewMode === 'favorites'
+      ? looks.filter(look => look.favorite)
+      : [...looks]
+
+    return filtered.sort((a, b) => {
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0
+      return sortMode === 'oldest' ? aTime - bTime : bTime - aTime
+    })
+  }, [looks, sortMode, viewMode])
 
   return (
     <div className="min-h-screen flex flex-col safe-top safe-bottom" style={{ background: 'var(--bg-primary)' }}>
@@ -69,14 +105,16 @@ export default function SavedLooks() {
       
       {/* Error Toast */}
       {error && (
-        <div 
+        <button
+          type="button"
           className="fixed top-4 left-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-lg animate-fade-in max-w-md mx-auto cursor-pointer"
           style={{ background: 'var(--error)', color: 'white' }}
           onClick={clearError}
+          aria-label="Dismiss error"
         >
           <p className="text-sm">{error}</p>
           <p className="text-xs opacity-70 mt-1">Tap to dismiss</p>
-        </div>
+        </button>
       )}
 
       <div className="flex-1 flex flex-col page-container space-y-5">
@@ -97,9 +135,10 @@ export default function SavedLooks() {
             style={{
               border: '1px solid var(--accent)',
             }}
+            aria-label="Open profile"
           >
             {avatarUrl ? (
-              <img 
+              <ResilientImage
                 src={avatarUrl} 
                 alt="Your avatar" 
                 className="w-full h-full object-cover" 
@@ -113,20 +152,42 @@ export default function SavedLooks() {
           </button>
         </header>
 
-        {/* Delete Mode Hint */}
-        {deleteMode && (
-          <div className="mx-4 rounded-2xl px-5 py-4 flex-shrink-0" style={{ background: 'rgba(248, 113, 113, 0.15)', border: '1px solid rgba(248, 113, 113, 0.3)' }}>
-            <p className="text-sm text-center font-medium" style={{ color: 'var(--error)' }}>
-              Tap looks to delete • Tap outside to cancel
-            </p>
+        <div className="mx-4 flex items-center gap-2">
+          <div className="flex p-1 rounded-md flex-1" style={{ background: 'var(--bg-secondary)' }}>
+            {[
+              ['all', 'All'],
+              ['favorites', 'Favorites'],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className="flex-1 px-3 py-2 rounded text-sm font-medium"
+                style={{
+                  background: viewMode === value ? 'var(--bg-primary)' : 'transparent',
+                  color: viewMode === value ? 'var(--text-primary)' : 'var(--text-secondary)',
+                }}
+                onClick={() => setViewMode(value)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-        )}
+          <label>
+            <span className="sr-only">Sort looks</span>
+            <select
+              value={sortMode}
+              onChange={event => setSortMode(event.target.value)}
+              className="h-11 px-3 rounded-md text-sm"
+              style={{ background: 'var(--bg-primary)', border: '1px solid var(--glass-border)' }}
+            >
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+            </select>
+          </label>
+        </div>
 
         {/* Looks Grid */}
-        <div 
-          className="mx-4 flex-1 glass-card-static p-5 mb-4 overflow-y-auto"
-          onClick={() => deleteMode && setDeleteMode(false)}
-        >
+        <div className="mx-4 flex-1 glass-card-static p-4 md:p-5 mb-4 overflow-y-auto">
           {looks.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-16">
               <div
@@ -146,38 +207,123 @@ export default function SavedLooks() {
                 Try On Clothes
               </button>
             </div>
+          ) : visibleLooks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-center py-16">
+              <Heart className="w-10 h-10 mb-4" style={{ color: 'var(--text-tertiary)' }} />
+              <h3 className="text-lg font-semibold">No favorite looks yet</h3>
+              <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
+                Mark a look as favorite to keep it close.
+              </p>
+            </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 nav-bottom-spacing">
-              {looks.map((look, i) => (
-                <button
+              {visibleLooks.map((look, i) => (
+                <article
                   key={look.id}
-                  className={`relative aspect-[3/4] rounded-2xl overflow-hidden transition-all active:scale-95 hover:scale-[1.03] animate-fade-in ${
-                    deleteMode ? 'animate-pulse-soft' : ''
-                  }`}
+                  className="relative rounded-xl animate-fade-in"
                   style={{
                     background: 'var(--glass-bg-elevated)',
                     border: '1px solid var(--glass-border)',
                     animationDelay: `${i * 0.03}s`,
                   }}
-                  onTouchStart={handlePressStart}
-                  onTouchEnd={handlePressEnd}
-                  onMouseDown={handlePressStart}
-                  onMouseUp={handlePressEnd}
-                  onMouseLeave={handlePressEnd}
-                  onClick={() => handleLookClick(look)}
                 >
-                  <img
-                    src={look.url}
-                    alt="Saved look"
-                    className="w-full h-full object-cover object-top"
-                    loading="lazy"
-                  />
-                  {deleteMode && (
-                    <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(248, 113, 113, 0.8)' }}>
-                      <Trash2 className="w-6 h-6 text-white" />
+                  <button
+                    type="button"
+                    className="relative block w-full aspect-[3/4] rounded-t-xl overflow-hidden active:scale-[0.99]"
+                    onClick={() => setSelectedLook(look)}
+                    aria-label={`Open look from ${formatLookDate(look.created_at)}`}
+                  >
+                    <ResilientImage
+                      src={look.thumbnail_url || look.url}
+                      alt={`Look from ${formatLookDate(look.created_at)}`}
+                      className="w-full h-full object-cover object-top"
+                      loading="lazy"
+                    />
+                    {look.favorite && (
+                      <span className="absolute top-2 left-2 w-8 h-8 rounded-full flex items-center justify-center bg-black/70">
+                        <Heart className="w-4 h-4 fill-white text-white" aria-label="Favorite" />
+                      </span>
+                    )}
+                  </button>
+
+                  <div className="flex items-start gap-2 px-3 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {look.occasion || formatLookDate(look.created_at)}
+                      </p>
+                      <p className="text-xs capitalize truncate mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                        {look.garment_categories?.length
+                          ? look.garment_categories.join(' + ')
+                          : formatLookDate(look.created_at)}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="w-9 h-9 rounded-full flex items-center justify-center"
+                      style={{ background: 'var(--bg-secondary)' }}
+                      onClick={() => setOpenMenuId(current => current === look.id ? null : look.id)}
+                      aria-label="Look options"
+                      aria-expanded={openMenuId === look.id}
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {openMenuId === look.id && (
+                    <div
+                      className="absolute right-2 bottom-12 z-20 min-w-44 rounded-md overflow-hidden shadow-lg"
+                      style={{ background: 'var(--bg-primary)', border: '1px solid var(--glass-border)' }}
+                    >
+                      <button
+                        type="button"
+                        className="w-full px-4 py-3 text-left text-sm flex items-center gap-2"
+                        onClick={() => handleUpdateLook(look.id, { favorite: !look.favorite })}
+                      >
+                        <Heart className={`w-4 h-4 ${look.favorite ? 'fill-current' : ''}`} />
+                        {look.favorite ? 'Remove favorite' : 'Add favorite'}
+                      </button>
+                      <label
+                        className="block px-4 py-3 text-sm"
+                        style={{ borderTop: '1px solid var(--glass-border)' }}
+                      >
+                        <span className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
+                          Occasion
+                        </span>
+                        <select
+                          className="w-full bg-transparent"
+                          value={look.occasion || ''}
+                          onChange={event => handleUpdateLook(
+                            look.id,
+                            { occasion: event.target.value },
+                          )}
+                        >
+                          <option value="">None</option>
+                          {OCCASIONS.map(occasion => (
+                            <option key={occasion} value={occasion}>{occasion}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        className="w-full px-4 py-3 text-left text-sm flex items-center gap-2"
+                        style={{ borderTop: '1px solid var(--glass-border)' }}
+                        onClick={() => handleShareLook(look)}
+                      >
+                        <Share2 className="w-4 h-4" />
+                        Share
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full px-4 py-3 text-left text-sm flex items-center gap-2"
+                        style={{ color: 'var(--error)', borderTop: '1px solid var(--glass-border)' }}
+                        onClick={() => setPendingDelete(look)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete…
+                      </button>
                     </div>
                   )}
-                </button>
+                </article>
               ))}
             </div>
           )}
@@ -192,6 +338,42 @@ export default function SavedLooks() {
           onDelete={handleDeleteLook}
           isDeleting={isDeleting}
         />
+      )}
+
+      {pendingDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.72)' }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-look-title"
+        >
+          <div className="w-full max-w-sm glass-card-elevated p-6">
+            <h2 id="delete-look-title" className="text-lg font-bold">Delete this look?</h2>
+            <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
+              This cannot be undone.
+            </p>
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                className="btn-ghost flex-1"
+                onClick={() => setPendingDelete(null)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="flex-1 py-3 px-4 rounded-md font-medium"
+                style={{ color: 'white', background: 'var(--error)' }}
+                onClick={() => handleDeleteLook(pendingDelete.id)}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       
       {/* Bottom Navigation */}

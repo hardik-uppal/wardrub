@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, Trash2, Download, Share2 } from 'lucide-react'
+import ResilientImage from './ResilientImage'
 
 export default function LookPreview({ 
   look, 
@@ -46,14 +47,18 @@ export default function LookPreview({
   }
   
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
       style={{ background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(8px)' }}
-      onClick={onClose}
     >
+      <button
+        type="button"
+        className="absolute inset-0"
+        onClick={onClose}
+        aria-label="Close look preview"
+      />
       <div 
-        className="relative w-full max-w-md md:max-w-lg glass-card-elevated overflow-hidden animate-scale-in"
-        onClick={e => e.stopPropagation()}
+        className="relative z-10 w-full max-w-md md:max-w-lg glass-card-elevated overflow-hidden animate-scale-in"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-5" style={{ borderBottom: '1px solid var(--glass-border)' }}>
@@ -72,10 +77,11 @@ export default function LookPreview({
         
         {/* Look Image */}
         <div className="max-h-[60vh] overflow-auto p-4" style={{ background: 'var(--bg-tertiary)' }}>
-          <img
+          <ResilientImage
             src={look.url}
             alt="Saved look"
             className="w-full h-auto rounded-lg"
+            fallbackClassName="w-full min-h-64 rounded-lg"
           />
         </div>
         

@@ -87,6 +87,7 @@ async def get_daily_outfit(
         
         # Get daily outfit
         outfit = await recommendation_engine.get_daily_outfit(
+            user_id=user_id,
             user_profile=profile,
             use_weather=use_weather,
             occasion=occasion_enum
@@ -150,6 +151,7 @@ async def get_recommendations(
         
         # Get recommendations
         outfits = await recommendation_engine.get_recommendations(
+            user_id=user_id,
             user_profile=profile,
             weather=weather,
             occasion=request.occasion,
@@ -676,4 +678,3 @@ async def submit_magazine_feedback(
     except Exception as e:
         logger.error(f"Failed to register feedback: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-

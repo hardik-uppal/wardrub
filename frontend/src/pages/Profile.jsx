@@ -5,10 +5,9 @@ import {
 } from 'lucide-react'
 import { useWardrobe } from '../context/WardrobeContext'
 import { useAuth } from '../context/AuthContext'
-import { useOnboarding } from '../context/OnboardingContext'
 import LoadingOverlay from '../components/LoadingOverlay'
-import OnboardingTooltip from '../components/OnboardingTooltip'
 import BottomNav from '../components/BottomNav'
+import ResilientImage from '../components/ResilientImage'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -285,13 +284,15 @@ export default function Profile() {
       
       {/* Error Toast */}
       {error && (
-        <div 
+        <button
+          type="button"
           className="fixed top-4 left-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg max-w-md mx-auto cursor-pointer"
           style={{ background: 'var(--error)', color: 'white' }}
           onClick={() => setError(null)}
+          aria-label="Dismiss error"
         >
           <p className="text-sm">{error}</p>
-        </div>
+        </button>
       )}
       
       {/* Header */}
@@ -301,6 +302,7 @@ export default function Profile() {
             onClick={() => navigate('/')}
             className="w-10 h-10 rounded-full flex items-center justify-center"
             style={{ background: 'var(--glass-bg)' }}
+            aria-label="Back to feed"
           >
             <ChevronLeft className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
           </button>
@@ -315,6 +317,7 @@ export default function Profile() {
             className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
             style={{ background: 'rgba(248, 113, 113, 0.1)' }}
             title="Sign out"
+            aria-label="Sign out"
           >
             <LogOut className="w-4 h-4" style={{ color: 'var(--error)' }} />
           </button>
@@ -371,6 +374,7 @@ export default function Profile() {
                 <button 
                   onClick={() => navigate('/create-avatar')}
                   className="relative group"
+                  aria-label="Update avatar"
                 >
                   <div
                     className="w-24 h-24 rounded-full overflow-hidden transition-all"
@@ -379,7 +383,7 @@ export default function Profile() {
                     }}
                   >
                     {avatarUrl ? (
-                      <img 
+                      <ResilientImage
                         src={avatarUrl} 
                         alt="Avatar" 
                         className="w-full h-full object-cover" 
@@ -415,6 +419,9 @@ export default function Profile() {
                   <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                     {skinTone.undertone} • {skinTone.depth}
                     {bodyType && ` • ${bodyType.replace('_', ' ')}`}
+                  </p>
+                  <p className="text-xs mt-2" style={{ color: 'var(--text-secondary)' }}>
+                    Based on your uploaded photos. Re-analyze whenever your lighting or appearance changes.
                   </p>
                 </div>
               ) : (
@@ -513,19 +520,6 @@ export default function Profile() {
           {/* Right Column - Styling Recommendations */}
           <div className="md:col-span-7 lg:col-span-8 flex flex-col gap-5">
             
-            {/* Onboarding tooltip for style analysis */}
-            {!colorRecs && !bodyType && (
-              <div className="mx-4 md:mx-0 mb-4">
-                <OnboardingTooltip
-                  id="profile-analyze-style"
-                  message="Upload a few photos of yourself to discover your best colors, season type, and body shape — so we can recommend outfits that truly suit you."
-                  cta="Upload photos above"
-                  onCtaClick={() => {}}
-                  position="bottom"
-                />
-              </div>
-            )}
-
             {/* CTA State if profile is not analyzed */}
             {!colorRecs && !bodyType && (
               <div className="mx-4 md:mx-0 glass-card-elevated p-8 text-center flex flex-col items-center justify-center min-h-[300px]">
@@ -611,6 +605,13 @@ export default function Profile() {
                             <p key={i} className="text-xs" style={{ color: 'var(--text-secondary)' }}>{item}</p>
                           ))}
                         </div>
+                        <button
+                          type="button"
+                          className="mt-4 text-xs font-semibold underline"
+                          onClick={() => navigate('/wardrobe?category=top')}
+                        >
+                          Find recommended tops
+                        </button>
                       </div>
                     )}
                     
@@ -626,6 +627,13 @@ export default function Profile() {
                             <p key={i} className="text-xs" style={{ color: 'var(--text-secondary)' }}>{item}</p>
                           ))}
                         </div>
+                        <button
+                          type="button"
+                          className="mt-4 text-xs font-semibold underline"
+                          onClick={() => navigate('/wardrobe?category=bottom')}
+                        >
+                          Find recommended bottoms
+                        </button>
                       </div>
                     )}
                   </div>
@@ -636,6 +644,14 @@ export default function Profile() {
                     {fitRecs.notes}
                   </p>
                 )}
+                <button
+                  type="button"
+                  className="btn-primary mt-5"
+                  onClick={() => navigate('/dressing-room')}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Build an outfit
+                </button>
               </div>
             )}
           </div>

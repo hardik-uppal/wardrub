@@ -26,6 +26,8 @@ node_modules/
 dist/
 dist-ssr/
 .npm/
+frontend/test-results/
+frontend/playwright-report/
 
 # Logs
 logs/
@@ -66,5 +68,4 @@ backend/vision_api_results.json
 backend/=1.0.0
 backend/=6.0.0
 service.yaml
-
 

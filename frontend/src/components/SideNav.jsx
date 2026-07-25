@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Shirt, BookOpen, Sparkles, Image, User } from 'lucide-react'
 import { useWardrobe } from '../context/WardrobeContext'
+import ResilientImage from './ResilientImage'
 
 const navItems = [
   { path: '/', icon: BookOpen, label: 'Feed' },
@@ -120,7 +121,7 @@ export default function SideNav() {
             }}
           >
             {avatarUrl ? (
-              <img 
+              <ResilientImage
                 src={avatarUrl} 
                 alt="Avatar" 
                 className="w-full h-full object-cover" 

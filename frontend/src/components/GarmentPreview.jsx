@@ -29,14 +29,18 @@ export default function GarmentPreview({
   }
   
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
       style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
-      onClick={onClose}
     >
+      <button
+        type="button"
+        className="absolute inset-0"
+        onClick={onClose}
+        aria-label="Close garment preview"
+      />
       <div 
-        className="relative w-full max-w-md md:max-w-lg glass-card-elevated overflow-hidden animate-scale-in"
-        onClick={e => e.stopPropagation()}
+        className="relative z-10 w-full max-w-md md:max-w-lg glass-card-elevated overflow-hidden animate-scale-in"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-5" style={{ borderBottom: '1px solid var(--glass-border)' }}>

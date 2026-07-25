@@ -141,7 +141,7 @@ export function VisibilityBadge({ visibility }) {
   const config = statusConfig[status] || statusConfig.acceptable
 
   return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${config.color}`}>
+    <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${config.color}`}>
       {config.label}
     </span>
   )
@@ -162,7 +162,7 @@ export function RecommendationBadge({ score }) {
   else if (percentage >= 40) color = 'bg-amber-100 text-amber-700'
 
   return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${color}`}>
+    <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${color}`}>
       {percentage}% match
     </span>
   )

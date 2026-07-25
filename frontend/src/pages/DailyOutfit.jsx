@@ -249,7 +249,7 @@ export default function DailyOutfit() {
                         <span className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
                           {forecast.temp}°
                         </span>
-                        <span className="text-[10px] font-medium" style={{ color: 'var(--text-tertiary)' }}>
+                        <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>
                           {forecast.time_label}
                         </span>
                       </div>
@@ -276,7 +276,7 @@ export default function DailyOutfit() {
                         <span className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
                           {weather.temp ? `${Math.round(weather.temp)}°` : '--°'}
                         </span>
-                        <span className="text-[10px] font-medium" style={{ color: 'var(--text-tertiary)' }}>{label}</span>
+                        <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>{label}</span>
                       </div>
                     </div>
                   )

@@ -1,11 +1,12 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Shirt, BookOpen, Sparkles, Image } from 'lucide-react'
+import { Shirt, BookOpen, Sparkles, Image, User } from 'lucide-react'
 
 const navItems = [
   { path: '/wardrobe', icon: Shirt, label: 'Wardrobe' },
   { path: '/', icon: BookOpen, label: 'Feed' },
   { path: '/dressing-room', icon: Sparkles, label: 'Try On' },
   { path: '/looks', icon: Image, label: 'Looks' },
+  { path: '/profile', icon: User, label: 'Profile' },
 ]
 
 export default function BottomNav() {
@@ -25,7 +26,7 @@ export default function BottomNav() {
         borderTop: '1px solid var(--glass-border)',
       }}
     >
-      <div className="flex items-center justify-around px-2 py-2 max-w-lg mx-auto">
+      <div className="flex items-center justify-around px-1 py-2 max-w-lg mx-auto">
         {navItems.map((item) => {
           const Icon = item.icon
           const active = isActive(item.path)
@@ -34,7 +35,8 @@ export default function BottomNav() {
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className="flex flex-col items-center gap-1 py-2 px-3 min-w-[60px] transition-all active:scale-90"
+              className="flex flex-col items-center gap-1 py-2 px-1 min-w-[56px] transition-all active:scale-90"
+              aria-current={active ? 'page' : undefined}
             >
               <div
                 className="w-10 h-10 rounded-md flex items-center justify-center transition-all relative"
@@ -57,7 +59,7 @@ export default function BottomNav() {
                 )}
               </div>
               <span
-                className="text-[10px] font-medium transition-colors"
+                className="text-xs font-medium transition-colors"
                 style={{
                   color: active ? 'var(--accent-light)' : 'var(--text-tertiary)',
                 }}

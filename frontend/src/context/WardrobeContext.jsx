@@ -1,6 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from './AuthContext'
+import { buildMultiTryOnGarments } from '../utils/tryOn'
+import { trackActivationEvent } from '../utils/analytics'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -182,6 +184,11 @@ export function WardrobeProvider({ children }) {
         category: data.category
       }])
       invalidateCache('garments') // Invalidate cache after adding new garment
+      void trackActivationEvent(
+        'first_garment_added',
+        getIdToken,
+        { category: data.category || category, garment_count: 1 },
+      )
 
       return data
     } catch (err) {
@@ -229,6 +236,14 @@ export function WardrobeProvider({ children }) {
           category: g.category,
           description: g.description
         }))])
+        void trackActivationEvent(
+          'first_garment_added',
+          getIdToken,
+          {
+            category: data.garments[0].category,
+            garment_count: data.garments.length,
+          },
+        )
       }
 
       return data
@@ -272,6 +287,7 @@ export function WardrobeProvider({ children }) {
       const data = await response.json()
       setAvatarUrl(data.avatar_url)
       invalidateCache('avatar') // Invalidate cache after creating new avatar
+      void trackActivationEvent('avatar_created', getIdToken, { mode })
 
       return data
     } catch (err) {
@@ -322,6 +338,13 @@ export function WardrobeProvider({ children }) {
           id: data.id || Date.now().toString(),
           url: data.result_url,
         }, ...prev])
+        void trackActivationEvent('first_try_on_completed', getIdToken, {
+          category,
+          garment_count: 1,
+        })
+        void trackActivationEvent('first_look_saved', getIdToken, {
+          garment_count: 1,
+        })
       }
       
       return data
@@ -350,6 +373,8 @@ export function WardrobeProvider({ children }) {
     setError(null)
 
     try {
+      const requestGarments = buildMultiTryOnGarments(garments)
+
       setTimeout(() => setLoadingMessage('Fitting the garments...'), 5000)
       setTimeout(() => setLoadingMessage('Styling your outfit...'), 10000)
       setTimeout(() => setLoadingMessage('Almost ready...'), 15000)
@@ -361,10 +386,7 @@ export function WardrobeProvider({ children }) {
         },
         body: JSON.stringify({
           avatar_url: avatarUrl,
-          garments: garments.map(g => ({
-            url: g.url,
-            category: g.category,
-          })),
+          garments: requestGarments,
         }),
       })
 
@@ -382,6 +404,12 @@ export function WardrobeProvider({ children }) {
           url: data.result_url,
           garment_count: data.garment_count,
         }, ...prev])
+        void trackActivationEvent('first_try_on_completed', getIdToken, {
+          garment_count: garments.length,
+        })
+        void trackActivationEvent('first_look_saved', getIdToken, {
+          garment_count: garments.length,
+        })
       }
       
       return data
@@ -442,6 +470,32 @@ export function WardrobeProvider({ children }) {
 
       setLooks(prev => prev.filter(l => l.id !== lookId))
       invalidateCache('looks')
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
+  }
+
+  const updateLook = async (lookId, updates) => {
+    try {
+      const response = await authFetch(`${API_URL}/api/look/${lookId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to update look')
+      }
+
+      const data = await response.json()
+      setLooks(prev => prev.map(look => (
+        look.id === lookId ? { ...look, ...data } : look
+      )))
+      return data
     } catch (err) {
       setError(err.message)
       throw err
@@ -586,6 +640,11 @@ export function WardrobeProvider({ children }) {
         visibility: data.visibility,
         recommendation_scores: data.recommendation_scores
       }])
+      void trackActivationEvent(
+        'first_garment_added',
+        getIdToken,
+        { category: data.category || category, garment_count: 1 },
+      )
 
       return data
     } catch (err) {
@@ -629,6 +688,7 @@ export function WardrobeProvider({ children }) {
       if (data.profile) {
         setUserProfile(data.profile)
       }
+      void trackActivationEvent('avatar_created', getIdToken, { mode })
 
       return data
     } catch (err) {
@@ -701,6 +761,7 @@ export function WardrobeProvider({ children }) {
     deleteGarment,
     deleteAvatar,
     deleteLook,
+    updateLook,
     clearError,
     fetchProfile,
     analyzeProfile,

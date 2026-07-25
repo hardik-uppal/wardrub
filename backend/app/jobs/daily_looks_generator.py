@@ -56,7 +56,7 @@ async def generate_daily_looks(
         return None
     
     # 2. Get avatar
-    avatar_url = await storage.get_avatar()
+    avatar_url = await storage.get_avatar(user_id)
     if not avatar_url:
         logger.warning(f"No avatar found for {user_id} - cannot generate try-on images")
         return None
@@ -101,7 +101,7 @@ async def generate_daily_looks(
         logger.info("Using default weather (no location set)")
     
     # 4. Load garments with metadata
-    garments = await firestore.list_garments_metadata()
+    garments = await firestore.list_garments_metadata(user_id=user_id)
     
     if len(garments) < 2:
         logger.warning(f"Not enough garments ({len(garments)}) to create outfits")
@@ -163,7 +163,12 @@ async def generate_daily_looks(
                 )
             
             # Upload try-on result
-            tryon_url = await storage.upload_tryon_result(tryon_bytes)
+            tryon_url = await storage.upload_tryon_result(
+                tryon_bytes,
+                user_id=user_id,
+                garment_ids=[item.garment_id for item in scored_outfit.items],
+                garment_categories=[item.category for item in scored_outfit.items],
+            )
             logger.info(f"  Try-on image uploaded: {tryon_url[:50]}...")
             
             # Build weather context string
@@ -266,4 +271,3 @@ async def regenerate_daily_looks_if_missing(user_id: str = "default_user") -> bo
     logger.info(f"No daily looks for {today}, generating...")
     result = await generate_daily_looks(user_id)
     return result is not None
-

@@ -163,12 +163,14 @@ export default function CreateAvatar() {
 
         {/* Error Toast */}
         {error && (
-          <div 
+          <button
+            type="button"
             className="mx-4 mb-3 bg-[var(--error)] text-white px-3 py-2 rounded-md animate-fade-in"
             onClick={clearError}
+            aria-label="Dismiss error"
           >
             <p className="text-sm">{error}</p>
-          </div>
+          </button>
         )}
 
         <div className="flex-1 px-5 overflow-y-auto max-w-lg mx-auto w-full">
@@ -205,7 +207,7 @@ export default function CreateAvatar() {
               <div className="relative w-52 rounded-md overflow-hidden bg-[var(--glass-bg)] border border-[var(--glass-border)] shadow-sm animate-fade-in">
                 <img
                   src={previewUrl}
-                  alt="Your photo"
+                  alt="Selected avatar preview"
                   className="w-full h-auto object-contain"
                 />
                 <button
@@ -337,4 +339,3 @@ export default function CreateAvatar() {
     </div>
   )
 }
-

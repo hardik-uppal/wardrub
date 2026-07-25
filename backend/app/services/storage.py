@@ -3,12 +3,13 @@
 import uuid
 import json
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from io import BytesIO
 
 from google.cloud import storage
 from google.oauth2 import service_account
+from PIL import Image, ImageOps
 
 from app.config import get_settings
 from app.logging_config import get_logger
@@ -55,6 +56,7 @@ class PersistentMemoryFiles(dict):
 # In-memory storage mock when GCS is unavailable
 _memory_files = PersistentMemoryFiles()
 _memory_signed_urls: dict[str, str] = {}
+_memory_look_metadata: dict[str, dict] = {}
 
 def load_local_storage():
     if os.path.exists(STORAGE_DIR):
@@ -159,6 +161,43 @@ class StorageService:
     def _user_tryon_path(self, user_id: str, result_id: str) -> str:
         """Generate the storage path for a user's try-on result."""
         return f"users/{user_id}/tryon-results/{result_id}.png"
+
+    @staticmethod
+    def _thumbnail_path(blob_name: str) -> str:
+        stem, _ = os.path.splitext(blob_name)
+        return f"{stem}_thumb.webp"
+
+    @staticmethod
+    def _create_thumbnail(image_bytes: bytes, max_size: int = 480) -> Optional[bytes]:
+        """Create a compact display derivative while retaining the original asset."""
+        try:
+            with Image.open(BytesIO(image_bytes)) as source:
+                image = ImageOps.exif_transpose(source)
+                if image.mode not in ("RGB", "RGBA"):
+                    image = image.convert("RGBA" if "transparency" in image.info else "RGB")
+                image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+                output = BytesIO()
+                image.save(output, format="WEBP", quality=80, method=6)
+                return output.getvalue()
+        except Exception as error:
+            logger.warning(f"Could not create image thumbnail: {error}")
+            return None
+
+    def _backfill_gcs_thumbnail(self, original_blob_name: str) -> Optional[str]:
+        """Create a missing derivative for assets uploaded before thumbnail support."""
+        try:
+            original_blob = self.bucket.blob(original_blob_name)
+            thumbnail_bytes = self._create_thumbnail(original_blob.download_as_bytes())
+            if not thumbnail_bytes:
+                return None
+            thumbnail_name = self._thumbnail_path(original_blob_name)
+            thumbnail_blob = self.bucket.blob(thumbnail_name)
+            thumbnail_blob.metadata = original_blob.metadata
+            thumbnail_blob.upload_from_string(thumbnail_bytes, content_type="image/webp")
+            return self._generate_signed_url(thumbnail_name)
+        except Exception as error:
+            logger.warning(f"Could not backfill thumbnail for {original_blob_name}: {error}")
+            return None
     
     async def upload_garment(
         self, 
@@ -171,10 +210,15 @@ class StorageService:
         Upload a processed garment image to GCS.
         """
         blob_name = self._user_garment_path(user_id, category, garment_id)
+        thumbnail_name = self._thumbnail_path(blob_name)
+        thumbnail_bytes = self._create_thumbnail(image_bytes)
         if self.bucket is None:
             url = f"/api/mock-gcs/{blob_name}"
             _memory_files[blob_name] = image_bytes
             _memory_signed_urls[blob_name] = url
+            if thumbnail_bytes:
+                _memory_files[thumbnail_name] = thumbnail_bytes
+                _memory_signed_urls[thumbnail_name] = f"/api/mock-gcs/{thumbnail_name}"
             logger.info(f"Mock uploaded garment to {url} (in-memory)")
             return url
             
@@ -185,6 +229,10 @@ class StorageService:
             "user_id": user_id
         }
         blob.upload_from_string(image_bytes, content_type="image/png")
+        if thumbnail_bytes:
+            thumbnail_blob = self.bucket.blob(thumbnail_name)
+            thumbnail_blob.metadata = blob.metadata
+            thumbnail_blob.upload_from_string(thumbnail_bytes, content_type="image/webp")
         return self._generate_signed_url(blob_name)
     
     async def upload_avatar(self, image_bytes: bytes, user_id: str) -> str:
@@ -204,22 +252,47 @@ class StorageService:
         blob.upload_from_string(image_bytes, content_type="image/png")
         return self._generate_signed_url(blob_name)
     
-    async def upload_tryon_result(self, image_bytes: bytes, user_id: str) -> str:
+    async def upload_tryon_result(
+        self,
+        image_bytes: bytes,
+        user_id: str,
+        garment_ids: Optional[List[str]] = None,
+        garment_categories: Optional[List[str]] = None,
+    ) -> str:
         """
         Upload a try-on result image to GCS.
         """
         result_id = str(uuid.uuid4())
         blob_name = self._user_tryon_path(user_id, result_id)
+        metadata = {
+            "user_id": user_id,
+            "result_id": result_id,
+            "garment_ids": ",".join(garment_ids or []),
+            "garment_categories": ",".join(garment_categories or []),
+            "favorite": "false",
+            "occasion": "",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        thumbnail_name = self._thumbnail_path(blob_name)
+        thumbnail_bytes = self._create_thumbnail(image_bytes)
         if self.bucket is None:
             url = f"/api/mock-gcs/{blob_name}"
             _memory_files[blob_name] = image_bytes
             _memory_signed_urls[blob_name] = url
+            _memory_look_metadata[blob_name] = metadata
+            if thumbnail_bytes:
+                _memory_files[thumbnail_name] = thumbnail_bytes
+                _memory_signed_urls[thumbnail_name] = f"/api/mock-gcs/{thumbnail_name}"
             logger.info(f"Mock uploaded try-on result to {url} (in-memory)")
             return url
             
         blob = self.bucket.blob(blob_name)
-        blob.metadata = {"user_id": user_id, "result_id": result_id}
+        blob.metadata = metadata
         blob.upload_from_string(image_bytes, content_type="image/png")
+        if thumbnail_bytes:
+            thumbnail_blob = self.bucket.blob(thumbnail_name)
+            thumbnail_blob.metadata = metadata
+            thumbnail_blob.upload_from_string(thumbnail_bytes, content_type="image/webp")
         return self._generate_signed_url(blob_name)
     
     async def upload_source_image(
@@ -313,7 +386,7 @@ class StorageService:
         if self.bucket is None:
             prefix = f"users/{user_id}/garments/{category}/" if category else f"users/{user_id}/garments/"
             garment_map = {}
-            for name, val in _memory_files.items():
+            for name, val in list(_memory_files.items()):
                 if name.startswith(prefix) and name.endswith(".png"):
                     parts = name.split("/")
                     if len(parts) >= 5:
@@ -336,6 +409,8 @@ class StorageService:
                                 "category": cat,
                                 "front_url": None,
                                 "back_url": None,
+                                "thumbnail_url": None,
+                                "back_thumbnail_url": None,
                                 "url": None
                             }
                             
@@ -343,8 +418,21 @@ class StorageService:
                         if view == "front":
                             garment_map[base_id]["front_url"] = url
                             garment_map[base_id]["url"] = url
+                            thumbnail_name = self._thumbnail_path(name)
+                            thumbnail_url = _memory_signed_urls.get(thumbnail_name)
+                            if not thumbnail_url:
+                                thumbnail_bytes = self._create_thumbnail(val)
+                                if thumbnail_bytes:
+                                    _memory_files[thumbnail_name] = thumbnail_bytes
+                                    thumbnail_url = f"/api/mock-gcs/{thumbnail_name}"
+                                    _memory_signed_urls[thumbnail_name] = thumbnail_url
+                            garment_map[base_id]["thumbnail_url"] = thumbnail_url
                         else:
                             garment_map[base_id]["back_url"] = url
+                            thumbnail_name = self._thumbnail_path(name)
+                            garment_map[base_id]["back_thumbnail_url"] = _memory_signed_urls.get(
+                                thumbnail_name
+                            )
             return list(garment_map.values())
             
         if category:
@@ -352,7 +440,8 @@ class StorageService:
         else:
             prefix = f"users/{user_id}/garments/"
         
-        blobs = self.client.list_blobs(self.bucket, prefix=prefix)
+        blobs = list(self.client.list_blobs(self.bucket, prefix=prefix))
+        blob_names = {blob.name for blob in blobs}
         garment_map = {}
         for blob in blobs:
             if blob.name.endswith(".png"):
@@ -377,6 +466,8 @@ class StorageService:
                             "category": cat,
                             "front_url": None,
                             "back_url": None,
+                            "thumbnail_url": None,
+                            "back_thumbnail_url": None,
                             "url": None
                         }
                     
@@ -384,8 +475,22 @@ class StorageService:
                     if view == "front":
                         garment_map[base_id]["front_url"] = url
                         garment_map[base_id]["url"] = url
+                        thumbnail_name = self._thumbnail_path(blob.name)
+                        if thumbnail_name in blob_names:
+                            garment_map[base_id]["thumbnail_url"] = self._generate_signed_url(
+                                thumbnail_name
+                            )
+                        else:
+                            garment_map[base_id]["thumbnail_url"] = self._backfill_gcs_thumbnail(
+                                blob.name
+                            )
                     else:
                         garment_map[base_id]["back_url"] = url
+                        thumbnail_name = self._thumbnail_path(blob.name)
+                        if thumbnail_name in blob_names:
+                            garment_map[base_id]["back_thumbnail_url"] = self._generate_signed_url(
+                                thumbnail_name
+                            )
         
         return list(garment_map.values())
     
@@ -396,42 +501,126 @@ class StorageService:
         if self.bucket is None:
             prefix = f"users/{user_id}/tryon-results/"
             results = []
-            for name, val in _memory_files.items():
+            for name, val in list(_memory_files.items()):
                 if name.startswith(prefix) and name.endswith(".png"):
                     result_id = name.split("/")[-1].replace(".png", "")
+                    thumbnail_name = self._thumbnail_path(name)
+                    thumbnail_url = _memory_signed_urls.get(thumbnail_name)
+                    if not thumbnail_url:
+                        thumbnail_bytes = self._create_thumbnail(val)
+                        if thumbnail_bytes:
+                            _memory_files[thumbnail_name] = thumbnail_bytes
+                            thumbnail_url = f"/api/mock-gcs/{thumbnail_name}"
+                            _memory_signed_urls[thumbnail_name] = thumbnail_url
                     results.append({
                         "id": result_id,
-                        "url": _memory_signed_urls.get(name, f"/api/mock-gcs/{name}")
+                        "url": _memory_signed_urls.get(name, f"/api/mock-gcs/{name}"),
+                        "thumbnail_url": thumbnail_url,
+                        **self._format_look_metadata(_memory_look_metadata.get(name, {})),
                     })
-            return results[:limit]
+            return self._sort_looks(results)[:limit]
             
         prefix = f"users/{user_id}/tryon-results/"
-        blobs = self.client.list_blobs(
+        blobs = list(self.client.list_blobs(
             self.bucket, 
             prefix=prefix,
-            max_results=limit
-        )
+        ))
+        blob_names = {blob.name for blob in blobs}
         
         results = []
         for blob in blobs:
             if blob.name.endswith(".png"):
                 result_id = blob.name.split("/")[-1].replace(".png", "")
+                blob_metadata = blob.metadata or {}
                 results.append({
                     "id": result_id,
-                    "url": self._generate_signed_url(blob.name)
+                    "url": self._generate_signed_url(blob.name),
+                    "thumbnail_url": (
+                        self._generate_signed_url(self._thumbnail_path(blob.name))
+                        if self._thumbnail_path(blob.name) in blob_names
+                        else self._backfill_gcs_thumbnail(blob.name)
+                    ),
+                    **self._format_look_metadata({
+                        **blob_metadata,
+                        "created_at": (
+                            blob_metadata.get("created_at")
+                            or (blob.time_created.isoformat() if blob.time_created else "")
+                        ),
+                    }),
                 })
         
-        return results
+        return self._sort_looks(results)[:limit]
+
+    @staticmethod
+    def _format_look_metadata(metadata: dict) -> dict:
+        """Normalize persisted string metadata for API clients."""
+        return {
+            "created_at": metadata.get("created_at") or None,
+            "favorite": str(metadata.get("favorite", "false")).lower() == "true",
+            "occasion": metadata.get("occasion") or None,
+            "garment_ids": [
+                item for item in str(metadata.get("garment_ids", "")).split(",") if item
+            ],
+            "garment_categories": [
+                item for item in str(metadata.get("garment_categories", "")).split(",") if item
+            ],
+        }
+
+    @staticmethod
+    def _sort_looks(looks: List[dict]) -> List[dict]:
+        return sorted(
+            looks,
+            key=lambda look: look.get("created_at") or "",
+            reverse=True,
+        )
+
+    async def update_look_metadata(
+        self,
+        look_id: str,
+        user_id: str,
+        favorite: Optional[bool] = None,
+        occasion: Optional[str] = None,
+    ) -> dict:
+        """Update user-editable metadata attached to a saved look."""
+        blob_name = self._user_tryon_path(user_id, look_id)
+
+        if self.bucket is None:
+            if blob_name not in _memory_files:
+                raise ValueError(f"Look {look_id} not found")
+            metadata = dict(_memory_look_metadata.get(blob_name, {}))
+            if favorite is not None:
+                metadata["favorite"] = str(favorite).lower()
+            if occasion is not None:
+                metadata["occasion"] = occasion
+            _memory_look_metadata[blob_name] = metadata
+            return self._format_look_metadata(metadata)
+
+        blob = self.bucket.blob(blob_name)
+        if not blob.exists():
+            raise ValueError(f"Look {look_id} not found")
+        blob.reload()
+        metadata = dict(blob.metadata or {})
+        if favorite is not None:
+            metadata["favorite"] = str(favorite).lower()
+        if occasion is not None:
+            metadata["occasion"] = occasion
+        blob.metadata = metadata
+        blob.patch()
+        return self._format_look_metadata(metadata)
     
     async def delete_look(self, look_id: str, user_id: str) -> None:
         """
         Delete a saved look (try-on result).
         """
         blob_name = self._user_tryon_path(user_id, look_id)
+        thumbnail_name = self._thumbnail_path(blob_name)
         if self.bucket is None:
             if blob_name in _memory_files:
                 _memory_files.pop(blob_name, None)
                 _memory_signed_urls.pop(blob_name, None)
+                _memory_look_metadata.pop(blob_name, None)
+                _memory_files.pop(thumbnail_name, None)
+                _memory_signed_urls.pop(thumbnail_name, None)
                 logger.info(f"Mock deleted look {look_id}")
                 return
             raise ValueError(f"Look {look_id} not found")
@@ -439,6 +628,9 @@ class StorageService:
         blob = self.bucket.blob(blob_name)
         if blob.exists():
             blob.delete()
+            thumbnail_blob = self.bucket.blob(thumbnail_name)
+            if thumbnail_blob.exists():
+                thumbnail_blob.delete()
         else:
             raise ValueError(f"Look {look_id} not found")
             
@@ -488,6 +680,9 @@ class StorageService:
                     if blob_name in _memory_files:
                         _memory_files.pop(blob_name, None)
                         _memory_signed_urls.pop(blob_name, None)
+                        thumbnail_name = self._thumbnail_path(blob_name)
+                        _memory_files.pop(thumbnail_name, None)
+                        _memory_signed_urls.pop(thumbnail_name, None)
                         deleted = True
             if not deleted:
                 raise ValueError(f"Garment {garment_id} not found")
@@ -500,18 +695,27 @@ class StorageService:
             front_blob = self.bucket.blob(front_blob_name)
             if front_blob.exists():
                 front_blob.delete()
+                front_thumbnail = self.bucket.blob(self._thumbnail_path(front_blob_name))
+                if front_thumbnail.exists():
+                    front_thumbnail.delete()
                 deleted = True
             
             back_blob_name = self._user_garment_path(user_id, category, f"{garment_id}_back")
             back_blob = self.bucket.blob(back_blob_name)
             if back_blob.exists():
                 back_blob.delete()
+                back_thumbnail = self.bucket.blob(self._thumbnail_path(back_blob_name))
+                if back_thumbnail.exists():
+                    back_thumbnail.delete()
                 deleted = True
             
             legacy_blob_name = self._user_garment_path(user_id, category, garment_id)
             legacy_blob = self.bucket.blob(legacy_blob_name)
             if legacy_blob.exists():
                 legacy_blob.delete()
+                legacy_thumbnail = self.bucket.blob(self._thumbnail_path(legacy_blob_name))
+                if legacy_thumbnail.exists():
+                    legacy_thumbnail.delete()
                 deleted = True
         
         if not deleted:

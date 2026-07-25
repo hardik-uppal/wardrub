@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Sparkles, X, Download, Share2, ChevronLeft, ChevronRight, Check, Save } from 'lucide-react'
+import { Sparkles, X, Download, Share2, ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { useWardrobe } from '../context/WardrobeContext'
 import LoadingOverlay from '../components/LoadingOverlay'
 import BottomNav from '../components/BottomNav'
+import { getTryOnResultUrl } from '../utils/tryOn'
+import ResilientImage from '../components/ResilientImage'
 
 // Category configuration
 const CATEGORIES = [
-  { id: 'top', label: 'Tops', icon: '👕' },
-  { id: 'bottom', label: 'Bottoms', icon: '👖' },
-  { id: 'dress', label: 'Dresses', icon: '👗' },
-  { id: 'outerwear', label: 'Outerwear', icon: '🧥' },
+  { id: 'top', label: 'Tops' },
+  { id: 'bottom', label: 'Bottoms' },
+  { id: 'dress', label: 'Dresses' },
+  { id: 'outerwear', label: 'Outerwear' },
 ]
 
 export default function DressingRoom() {
@@ -21,7 +23,6 @@ export default function DressingRoom() {
     garments, 
     fetchGarments, 
     tryOnMultiple,
-    saveLook,
     isLoading, 
     loadingMessage,
     error,
@@ -32,8 +33,6 @@ export default function DressingRoom() {
   const [selectedGarments, setSelectedGarments] = useState({})
   const [tryOnResult, setTryOnResult] = useState(null)
   const [showResult, setShowResult] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState(false)
   const carouselRefs = useRef({})
 
   useEffect(() => {
@@ -53,8 +52,11 @@ export default function DressingRoom() {
         }
       })
       if (Object.keys(newSelection).length > 0) {
-        setSelectedGarments(newSelection)
-        hasAppliedPreselection.current = true
+        const timer = setTimeout(() => {
+          setSelectedGarments(newSelection)
+          hasAppliedPreselection.current = true
+        }, 0)
+        return () => clearTimeout(timer)
       }
     }
   }, [location.state, garments])
@@ -114,12 +116,11 @@ export default function DressingRoom() {
     if (selectedCount === 0) return
     
     try {
-      const garmentIds = selectedGarmentsArray.map(g => g.id)
-      const resultUrl = await tryOnMultiple(garmentIds)
+      const result = await tryOnMultiple(selectedGarmentsArray)
+      const resultUrl = getTryOnResultUrl(result)
       if (resultUrl) {
         setTryOnResult(resultUrl)
         setShowResult(true)
-        setSaveSuccess(false)
       }
     } catch (err) {
       console.error('Try-on failed:', err)
@@ -129,22 +130,6 @@ export default function DressingRoom() {
   const handleCloseResult = () => {
     setShowResult(false)
     setTryOnResult(null)
-    setSaveSuccess(false)
-  }
-
-  const handleSaveLook = async () => {
-    if (!tryOnResult || isSaving) return
-    
-    setIsSaving(true)
-    try {
-      const garmentIds = selectedGarmentsArray.map(g => g.id)
-      await saveLook(tryOnResult, garmentIds)
-      setSaveSuccess(true)
-    } catch (err) {
-      console.error('Save failed:', err)
-    } finally {
-      setIsSaving(false)
-    }
   }
 
   const handleDownload = async () => {
@@ -252,11 +237,16 @@ export default function DressingRoom() {
 
         {/* Error Toast */}
         {error && (
-          <div className="mx-4 mt-3 flex-shrink-0" onClick={clearError}>
+          <button
+            type="button"
+            className="mx-4 mt-3 flex-shrink-0 text-left"
+            onClick={clearError}
+            aria-label="Dismiss error"
+          >
             <div className="px-4 py-3 rounded-xl animate-fade-in" style={{ background: 'var(--error)', color: 'white' }}>
               <p className="text-sm">{error}</p>
             </div>
-          </div>
+          </button>
         )}
 
         {/* Responsive Grid Layout */}
@@ -269,7 +259,7 @@ export default function DressingRoom() {
                 className="relative w-28 md:w-full aspect-[3/4] rounded-xl overflow-hidden flex-shrink-0"
                 style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)' }}
               >
-                <img
+                <ResilientImage
                   src={avatarUrl}
                   alt="Your avatar"
                   className="w-full h-full object-cover object-top"
@@ -283,57 +273,70 @@ export default function DressingRoom() {
                 </h3>
                 
                 {selectedCount === 0 ? (
-                  <p className="text-sm md:text-center" style={{ color: 'var(--text-tertiary)' }}>
-                    Select items below to build your look
-                  </p>
+                  <div className="space-y-2 md:text-center">
+                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      Select items below to build your look.
+                    </p>
+                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      Choose a dress or a top and bottom. Outerwear works with either.
+                    </p>
+                  </div>
                 ) : (
-                  <div className="space-y-2 md:max-h-[220px] lg:max-h-[300px] overflow-y-auto pr-1">
-                    {selectedGarmentsArray.map(garment => (
-                      <div 
-                        key={garment.id}
-                        className="flex items-center gap-2 rounded-lg p-2"
-                        style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)' }}
-                      >
-                        <img 
-                          src={garment.front_url || garment.url} 
-                          alt={garment.category}
-                          className="w-10 h-10 object-contain rounded"
-                          style={{ background: 'var(--glass-bg-elevated)' }}
-                        />
-                        <span className="text-sm capitalize flex-1" style={{ color: 'var(--text-primary)' }}>
-                          {garment.category}
-                        </span>
-                        <button
-                          onClick={() => handleSelectGarment(garment)}
-                          className="w-6 h-6 rounded-full flex items-center justify-center transition-colors"
-                          style={{ background: 'var(--glass-bg-hover)' }}
+                  <div>
+                    <div className="space-y-2 md:max-h-[220px] lg:max-h-[300px] overflow-y-auto pr-1">
+                      {selectedGarmentsArray.map(garment => (
+                        <div
+                          key={garment.id}
+                          className="flex items-center gap-2 rounded-lg p-2"
+                          style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)' }}
                         >
-                          <X className="w-3 h-3" style={{ color: 'var(--text-secondary)' }} />
-                        </button>
-                      </div>
-                    ))}
+                          <ResilientImage
+                            src={garment.thumbnail_url || garment.front_url || garment.url}
+                            alt={garment.category}
+                            className="w-10 h-10 object-contain rounded"
+                            style={{ background: 'var(--glass-bg-elevated)' }}
+                          />
+                          <span className="text-sm capitalize flex-1" style={{ color: 'var(--text-primary)' }}>
+                            {garment.category}
+                          </span>
+                          <button
+                            onClick={() => handleSelectGarment(garment)}
+                            className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                            style={{ background: 'var(--glass-bg-hover)' }}
+                            aria-label={`Remove ${garment.category}`}
+                          >
+                            <X className="w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs mt-3 md:text-center" style={{ color: 'var(--text-secondary)' }}>
+                      Generation usually takes 20–40 seconds.
+                    </p>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Desktop Try-on Button */}
-            <button
-              onClick={handleTryOn}
-              disabled={selectedCount === 0 || isLoading}
-              className="hidden md:flex btn-primary btn-lg w-full"
-            >
-              <Sparkles className="w-5 h-5" />
-              {selectedCount === 0 
-                ? 'Select items to try on' 
-                : `Try On ${selectedCount} Item${selectedCount > 1 ? 's' : ''}`
-              }
-            </button>
+            <div className="hidden md:block">
+              <button
+                onClick={handleTryOn}
+                disabled={selectedCount === 0 || isLoading}
+                className="btn-primary btn-lg w-full"
+              >
+                <Sparkles className="w-5 h-5" />
+                {selectedCount === 0
+                  ? 'Choose an item to continue'
+                  : `Try On ${selectedCount} Item${selectedCount > 1 ? 's' : ''}`
+                }
+              </button>
+            </div>
           </div>
 
           {/* Right Column: Garment Categories */}
           <div className="md:col-span-8 lg:col-span-9 flex-1 overflow-y-auto glass-card-elevated min-h-[400px] md:min-h-0">
-            <div className="p-5 nav-bottom-spacing md:pb-5">
+            <div className="p-5 pb-44 md:pb-5">
               {CATEGORIES.map(category => {
                 const categoryGarments = garmentsByCategory[category.id]
                 if (categoryGarments.length === 0) return null
@@ -343,7 +346,13 @@ export default function DressingRoom() {
                     {/* Category Header */}
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <span className="text-xl">{category.icon}</span>
+                        <span
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                          style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+                          aria-hidden="true"
+                        >
+                          {category.label.slice(0, 1)}
+                        </span>
                         <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
                           {category.label}
                         </h3>
@@ -359,6 +368,7 @@ export default function DressingRoom() {
                           onClick={() => scrollCarousel(category.id, 'left')}
                           className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
                           style={{ background: 'var(--glass-bg)' }}
+                          aria-label={`Scroll ${category.label} left`}
                         >
                           <ChevronLeft className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
                         </button>
@@ -366,6 +376,7 @@ export default function DressingRoom() {
                           onClick={() => scrollCarousel(category.id, 'right')}
                           className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
                           style={{ background: 'var(--glass-bg)' }}
+                          aria-label={`Scroll ${category.label} right`}
                         >
                           <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
                         </button>
@@ -393,8 +404,8 @@ export default function DressingRoom() {
                               transform: selected ? 'scale(1.05)' : 'scale(1)',
                             }}
                           >
-                            <img
-                              src={garment.front_url || garment.url}
+                            <ResilientImage
+                              src={garment.thumbnail_url || garment.front_url || garment.url}
                               alt={garment.category}
                               className="w-full h-full object-contain p-1.5"
                             />
@@ -437,21 +448,20 @@ export default function DressingRoom() {
       </div>
 
       {/* Floating Try On Button (mobile only) */}
-      <div className="fixed bottom-24 md:hidden left-0 right-0 page-padding pointer-events-none z-30">
-        <div className="page-container pointer-events-auto">
-          <button
-            onClick={handleTryOn}
-            disabled={selectedCount === 0 || isLoading}
-            className="btn-primary btn-lg w-full"
-          >
-            <Sparkles className="w-5 h-5" />
-            {selectedCount === 0 
-              ? 'Select items to try on' 
-              : `Try On ${selectedCount} Item${selectedCount > 1 ? 's' : ''}`
-            }
-          </button>
+      {selectedCount > 0 && (
+        <div className="fixed bottom-24 md:hidden left-0 right-0 px-4 pointer-events-none z-30">
+          <div className="max-w-lg mx-auto pointer-events-auto">
+            <button
+              onClick={handleTryOn}
+              disabled={isLoading}
+              className="btn-primary btn-lg w-full shadow-lg"
+            >
+              <Sparkles className="w-5 h-5" />
+              {`Try On ${selectedCount} Item${selectedCount > 1 ? 's' : ''}`}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Result Modal */}
       {showResult && tryOnResult && (
@@ -471,29 +481,20 @@ export default function DressingRoom() {
 
             <div className="flex-1 flex items-center justify-center page-padding overflow-auto">
               <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ boxShadow: '0 0 40px rgba(224, 120, 80, 0.2)' }}>
-                <img
+                <ResilientImage
                   src={tryOnResult}
                   alt="Try-on result"
                   className="w-full h-auto object-contain"
+                  fallbackClassName="w-full min-h-64"
                 />
               </div>
             </div>
 
             <div className="page-padding pb-6 flex-shrink-0">
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  onClick={handleSaveLook}
-                  disabled={isSaving || saveSuccess}
-                  className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl font-medium text-sm transition-all"
-                  style={{
-                    background: saveSuccess ? 'rgba(74, 222, 128, 0.15)' : 'var(--glass-bg)',
-                    color: saveSuccess ? '#4ade80' : 'var(--text-primary)',
-                    border: '1px solid var(--glass-border)',
-                  }}
-                >
-                  {saveSuccess ? <Check className="w-5 h-5" /> : <Save className="w-5 h-5" />}
-                  <span>{saveSuccess ? 'Saved!' : 'Save'}</span>
-                </button>
+              <p className="text-center text-sm mb-3 text-white/80">
+                Saved automatically to Looks
+              </p>
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={handleDownload}
                   className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl font-medium text-sm"

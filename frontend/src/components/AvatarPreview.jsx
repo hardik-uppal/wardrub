@@ -26,13 +26,15 @@ export default function AvatarPreview({
   }
   
   return (
-    <div 
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+      <button
+        type="button"
+        className="absolute inset-0"
+        onClick={onClose}
+        aria-label="Close avatar preview"
+      />
       <div 
-        className="relative w-full max-w-sm bg-[var(--bg-primary)] rounded-3xl overflow-hidden shadow-2xl animate-scale-up"
-        onClick={e => e.stopPropagation()}
+        className="relative z-10 w-full max-w-sm bg-[var(--bg-primary)] rounded-3xl overflow-hidden shadow-2xl animate-scale-up"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-[var(--color-warm-gray)]/10">
@@ -123,5 +125,4 @@ export default function AvatarPreview({
     </div>
   )
 }
-
 

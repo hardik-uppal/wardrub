@@ -86,6 +86,7 @@ class Settings:
     GEMINI_TEXT_MODEL: str = os.getenv("GEMINI_TEXT_MODEL", "gemini-2.0-flash-lite")
     
     # Developer bypass accounts
+    ALLOW_DEV_AUTH_BYPASS: bool = os.getenv("ALLOW_DEV_AUTH_BYPASS", "false").lower() in ("1", "true", "yes")
     DEV_USER_UIDS: list[str] = [uid.strip() for uid in os.getenv("DEV_USER_UIDS", "dev-admin-user-id").split(",") if uid.strip()]
     DEV_EMAILS: list[str] = [email.strip() for email in os.getenv("DEV_EMAILS", "hardikuppal.hu@gmail.com,admin@wardrub.test").split(",") if email.strip()]
 
@@ -116,4 +117,3 @@ class Settings:
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()
-

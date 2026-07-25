@@ -73,7 +73,7 @@ function GarmentCard({
       
       {/* Category badge */}
       <div className="absolute bottom-1 left-1 px-2 py-0.5 bg-[var(--color-charcoal)]/60 rounded-full">
-        <span className="text-[10px] text-white capitalize">
+        <span className="text-xs text-white capitalize">
           {garment.category}
         </span>
       </div>

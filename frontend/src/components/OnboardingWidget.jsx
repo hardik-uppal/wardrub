@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { 
   User, Shirt, Sparkles, ChevronUp, ChevronDown, 
   Check, ArrowRight, PartyPopper
@@ -47,6 +47,7 @@ function ProgressRing({ progress, size = 44, strokeWidth = 3 }) {
 
 export default function OnboardingWidget() {
   const navigate = useNavigate()
+  const location = useLocation()
   const {
     isOnboardingComplete,
     completedCount,
@@ -66,16 +67,26 @@ export default function OnboardingWidget() {
 
   // Check for milestone celebrations
   useEffect(() => {
-    for (const m of milestones) {
-      if (shouldCelebrate(m.id)) {
-        setJustCompleted(m.id)
-        markCelebration(m.id)
-        // Auto-clear after animation
-        const timer = setTimeout(() => setJustCompleted(null), 3000)
-        return () => clearTimeout(timer)
-      }
+    const milestone = milestones.find(m => shouldCelebrate(m.id))
+    if (milestone) {
+      const startTimer = setTimeout(() => {
+        setJustCompleted(milestone.id)
+        markCelebration(milestone.id)
+      }, 0)
+
+      return () => clearTimeout(startTimer)
     }
   }, [milestones, shouldCelebrate, markCelebration])
+
+  useEffect(() => {
+    if (justCompleted) {
+      const timer = setTimeout(() => {
+        setJustCompleted(null)
+      }, 3000)
+
+      return () => clearTimeout(timer)
+    }
+  }, [justCompleted])
 
   // Hide completely after completion celebration ends
   useEffect(() => {
@@ -87,10 +98,21 @@ export default function OnboardingWidget() {
 
   if (isHidden) return null
 
+  const widgetClassName = `onboarding-widget-container ${
+    location.pathname === '/dressing-room' ? 'onboarding-widget-with-action' : ''
+  }`
+
+  const goToMilestone = (route) => {
+    if (!widgetMinimized) {
+      toggleWidgetMinimized()
+    }
+    navigate(route)
+  }
+
   // Completion celebration state
   if (showCompleteCelebration) {
     return (
-      <div className="onboarding-widget-container animate-scale-in">
+      <div className={`${widgetClassName} animate-scale-in`}>
         <div 
           className="onboarding-widget-expanded"
           style={{
@@ -122,7 +144,7 @@ export default function OnboardingWidget() {
   // Collapsed state — just the progress ring
   if (widgetMinimized) {
     return (
-      <div className="onboarding-widget-container">
+      <div className={widgetClassName}>
         <button
           onClick={toggleWidgetMinimized}
           className="onboarding-widget-collapsed"
@@ -143,7 +165,7 @@ export default function OnboardingWidget() {
         >
           <ProgressRing progress={overallProgress} size={44} strokeWidth={3} />
           <span 
-            className="absolute text-[10px] font-bold"
+            className="absolute text-xs font-bold"
             style={{ color: 'var(--text-primary)' }}
           >
             {completedCount}/{totalMilestones}
@@ -155,7 +177,7 @@ export default function OnboardingWidget() {
 
   // Expanded state
   return (
-    <div className="onboarding-widget-container animate-scale-in">
+    <div className={`${widgetClassName} animate-scale-in`}>
       <div 
         className="onboarding-widget-expanded"
         style={{
@@ -176,12 +198,12 @@ export default function OnboardingWidget() {
             <ProgressRing progress={overallProgress} size={32} strokeWidth={2.5} />
             <div>
               <h4 
-                className="text-xs font-bold uppercase tracking-wider"
+                className="text-sm font-bold"
                 style={{ color: 'var(--text-primary)' }}
               >
-                Getting Started
+                Set up your Wardrub
               </h4>
-              <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                 {completedCount} of {totalMilestones} complete
               </p>
             </div>
@@ -198,7 +220,7 @@ export default function OnboardingWidget() {
 
         {/* Milestones */}
         <div className="px-3 py-2">
-          {milestones.map((milestone, index) => {
+          {milestones.map((milestone) => {
             const Icon = iconMap[milestone.icon]
             const isCelebrating = justCompleted === milestone.id
             
@@ -259,7 +281,7 @@ export default function OnboardingWidget() {
                         />
                       </div>
                       <span 
-                        className="text-[10px] font-medium tabular-nums flex-shrink-0"
+                        className="text-xs font-medium tabular-nums flex-shrink-0"
                         style={{ color: 'var(--text-tertiary)' }}
                       >
                         {milestone.progress}/{GARMENT_GOAL}
@@ -271,7 +293,7 @@ export default function OnboardingWidget() {
                 {/* CTA Arrow */}
                 {!milestone.done && (
                   <button
-                    onClick={() => navigate(milestone.route)}
+                    onClick={() => goToMilestone(milestone.route)}
                     className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
                     style={{ background: 'var(--accent-glow)' }}
                     aria-label={`Go to ${milestone.label}`}

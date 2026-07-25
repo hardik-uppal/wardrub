@@ -398,7 +398,7 @@ export default function Capture() {
                 className="w-full h-full object-contain"
               />
               <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 rounded-lg">
-                <span className="text-[10px] text-white font-medium">FRONT</span>
+                <span className="text-xs text-white font-medium">FRONT</span>
               </div>
               <button
                 onClick={handleRetakeFront}
@@ -417,7 +417,7 @@ export default function Capture() {
                   className="w-full h-full object-contain"
                 />
                 <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 rounded-lg">
-                  <span className="text-[10px] text-white font-medium">BACK</span>
+                  <span className="text-xs text-white font-medium">BACK</span>
                 </div>
                 <button
                   onClick={handleRetakeBack}
@@ -433,7 +433,7 @@ export default function Capture() {
               >
                 <Plus className="w-8 h-8 text-white/50" />
                 <span className="text-xs text-white/50">Add Back</span>
-                <span className="text-[10px] text-white/30">(Optional)</span>
+                <span className="text-xs text-white/30">(Optional)</span>
               </button>
             )}
           </div>
@@ -455,7 +455,7 @@ export default function Capture() {
               </div>
             </button>
             {useGhostMannequin && (
-              <p className="text-[10px] text-white/40 mt-1 text-center">
+              <p className="text-xs text-white/40 mt-1 text-center">
                 AI will create a 3D mannequin effect using Gemini
               </p>
             )}
@@ -487,7 +487,7 @@ export default function Capture() {
         
         {/* Mode indicator */}
         <div className="absolute top-3 left-3 px-2 py-1 bg-[var(--accent)] rounded-lg">
-          <span className="text-[10px] text-white font-medium uppercase">{captureMode}</span>
+          <span className="text-xs text-white font-medium uppercase">{captureMode}</span>
         </div>
       </div>
     )
@@ -535,12 +535,14 @@ export default function Capture() {
 
         {/* Error Toast */}
         {error && (
-          <div 
+          <button
+            type="button"
             className="mx-4 mb-3 bg-[var(--accent)] text-white px-3 py-2 rounded-xl animate-fade-in"
             onClick={clearError}
+            aria-label="Dismiss error"
           >
             <p className="text-sm">{error}</p>
-          </div>
+          </button>
         )}
 
         {/* Mode Selection / Camera / Upload View */}

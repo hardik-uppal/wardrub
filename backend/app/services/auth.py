@@ -11,6 +11,7 @@ from firebase_admin import auth, credentials
 
 from app.config import get_settings
 from app.logging_config import get_logger
+from app.services.dev_auth import decode_dev_auth_token
 
 settings = get_settings()
 logger = get_logger("auth")
@@ -94,21 +95,9 @@ def verify_token(token: str) -> Optional[Dict[str, Any]]:
         Decoded token claims including uid, email, etc.
         None if verification fails
     """
-    # Dev bypass for testing/mocking
-    if token == "dev-mock-admin-token" or token.startswith("mock-token-"):
-        uid = token.replace("mock-token-", "") if token.startswith("mock-token-") else "dev-admin-user-id"
-        return {
-            "uid": uid,
-            "email": "admin@wardrub.test",
-            "name": "Dev Admin",
-            "picture": "https://lh3.googleusercontent.com/a/default-user=s96-c",
-            "auth_time": int(time.time()),
-            "user_id": uid,
-            "firebase": {
-                "identities": {"google.com": ["admin@wardrub.test"]},
-                "sign_in_provider": "google.com"
-            }
-        }
+    dev_user = decode_dev_auth_token(token, settings.ALLOW_DEV_AUTH_BYPASS)
+    if dev_user:
+        return dev_user
 
     # Check cache first
     token_hash = _get_token_hash(token)
@@ -212,4 +201,3 @@ def get_user_id(user: Dict[str, Any]) -> str:
         Firebase user UID
     """
     return user.get("uid", "")
-

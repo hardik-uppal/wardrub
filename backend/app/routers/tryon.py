@@ -1,7 +1,7 @@
 """Virtual try-on router - combines avatar with garments using Vertex AI."""
 
 import hashlib
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
@@ -25,6 +25,7 @@ class TryOnRequest(BaseModel):
 
 class GarmentItem(BaseModel):
     """Individual garment for multi-try-on."""
+    id: Optional[str] = None
     url: str
     category: str  # top, bottom, dress, outerwear
 
@@ -33,6 +34,12 @@ class MultiTryOnRequest(BaseModel):
     """Request model for multi-garment try-on endpoint."""
     avatar_url: str
     garments: List[GarmentItem]
+
+
+class LookMetadataRequest(BaseModel):
+    """User-editable metadata for a saved look."""
+    favorite: Optional[bool] = None
+    occasion: Optional[str] = None
 
 
 def calculate_tryon_cache_key(avatar_url: str, garment_urls: List[str]) -> str:
@@ -88,7 +95,11 @@ async def try_on(
         )
         
         # Upload result to storage
-        result_url = await storage.upload_tryon_result(result_bytes, user_id=user_id)
+        result_url = await storage.upload_tryon_result(
+            result_bytes,
+            user_id=user_id,
+            garment_categories=[request.category],
+        )
         
         # Save to cache
         await firestore.save_tryon_cache(
@@ -174,7 +185,12 @@ async def try_on_multiple(
         )
         
         # Upload result to storage
-        result_url = await storage.upload_tryon_result(result_bytes, user_id=user_id)
+        result_url = await storage.upload_tryon_result(
+            result_bytes,
+            user_id=user_id,
+            garment_ids=[garment.id for garment in request.garments if garment.id],
+            garment_categories=[garment.category for garment in request.garments],
+        )
         
         # Save to cache
         await firestore.save_tryon_cache(
@@ -237,4 +253,30 @@ async def delete_look(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete look: {str(e)}")
 
+
+@router.patch("/look/{look_id}")
+async def update_look(
+    look_id: str,
+    request: LookMetadataRequest,
+    user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Update favorite and occasion metadata for a saved look."""
+    if request.occasion is not None and len(request.occasion) > 40:
+        raise HTTPException(status_code=400, detail="Occasion must be 40 characters or fewer")
+
+    try:
+        metadata = await storage.update_look_metadata(
+            look_id=look_id,
+            user_id=user["uid"],
+            favorite=request.favorite,
+            occasion=request.occasion.strip() if request.occasion is not None else None,
+        )
+        return {"status": "updated", "id": look_id, **metadata}
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update look: {error}",
+        ) from error
 

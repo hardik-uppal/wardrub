@@ -1,19 +1,20 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { WardrobeProvider } from './context/WardrobeContext'
 import { OnboardingProvider } from './context/OnboardingContext'
-import Home from './pages/Home'
-import Capture from './pages/Capture'
-import DressingRoom from './pages/DressingRoom'
-import CreateAvatar from './pages/CreateAvatar'
-import MagazineFeed from './pages/MagazineFeed'
-import Profile from './pages/Profile'
-import SavedLooks from './pages/SavedLooks'
-import Login from './pages/Login'
 import SideNav from './components/SideNav'
-import WelcomeModal from './components/WelcomeModal'
 import OnboardingWidget from './components/OnboardingWidget'
 import { Shirt } from 'lucide-react'
+
+const Home = lazy(() => import('./pages/Home'))
+const Capture = lazy(() => import('./pages/Capture'))
+const DressingRoom = lazy(() => import('./pages/DressingRoom'))
+const CreateAvatar = lazy(() => import('./pages/CreateAvatar'))
+const MagazineFeed = lazy(() => import('./pages/MagazineFeed'))
+const Profile = lazy(() => import('./pages/Profile'))
+const SavedLooks = lazy(() => import('./pages/SavedLooks'))
+const Login = lazy(() => import('./pages/Login'))
 
 // Loading spinner component
 function LoadingSpinner() {
@@ -49,7 +50,6 @@ function ProtectedLayout() {
         <main className="main-layout-content">
           <Outlet />
         </main>
-        <WelcomeModal />
         <OnboardingWidget />
       </OnboardingProvider>
     </WardrobeProvider>
@@ -67,22 +67,24 @@ function AppRoutes() {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-primary)' }}>
-      <Routes>
-        {/* Public route */}
-        <Route path="/login" element={<Login />} />
-        
-        {/* Protected routes - all wrapped in ProtectedLayout */}
-        <Route element={<ProtectedLayout />}>
-        <Route path="/" element={<MagazineFeed />} />
-        <Route path="/capture" element={<Capture />} />
-        <Route path="/wardrobe" element={<Home />} />
-        <Route path="/dressing-room" element={<DressingRoom />} />
-        <Route path="/create-avatar" element={<CreateAvatar />} />
-        <Route path="/daily-outfit" element={<MagazineFeed />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/looks" element={<SavedLooks />} />
-        </Route>
-      </Routes>
+      <Suspense fallback={<LoadingSpinner />}>
+        <Routes>
+          {/* Public route */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Protected routes - all wrapped in ProtectedLayout */}
+          <Route element={<ProtectedLayout />}>
+            <Route path="/" element={<MagazineFeed />} />
+            <Route path="/capture" element={<Capture />} />
+            <Route path="/wardrobe" element={<Home />} />
+            <Route path="/dressing-room" element={<DressingRoom />} />
+            <Route path="/create-avatar" element={<CreateAvatar />} />
+            <Route path="/daily-outfit" element={<MagazineFeed />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/looks" element={<SavedLooks />} />
+          </Route>
+        </Routes>
+      </Suspense>
     </div>
   )
 }
