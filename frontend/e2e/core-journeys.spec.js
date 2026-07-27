@@ -99,6 +99,8 @@ test('core wardrobe journeys remain usable', async ({ page }) => {
 })
 
 test('primary routes have no serious automated accessibility violations', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+
   for (const route of ['/', '/wardrobe', '/dressing-room', '/looks', '/profile']) {
     await page.goto(route)
     await expect(page.locator('main, [role="main"], h1').first()).toBeVisible()
