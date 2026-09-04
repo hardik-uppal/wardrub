@@ -321,7 +321,9 @@ async def delete_garment(
             
         deleted = await firestore.delete_garment_metadata(garment_id)
         if not deleted:
-            logger.warning(f"Firestore metadata deletion returned False for {garment_id}")
+            logger.error(f"Firestore metadata deletion failed for {garment_id}")
+            raise HTTPException(status_code=500, detail="Failed to delete garment metadata")
+
         return {"status": "deleted", "id": garment_id}
     except HTTPException:
         raise
