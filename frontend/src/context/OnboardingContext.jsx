@@ -34,7 +34,7 @@ export function OnboardingProvider({ children }) {
 
   // Derived milestone states
   const avatarDone = !!avatarUrl
-  const garmentsCount = garments ? garments.filter(g => !g.id.startsWith('mock-')).length : 0
+  const garmentsCount = garments?.length || 0
   const garmentsDone = garmentsCount >= GARMENT_GOAL
   const garmentsProgress = Math.min(garmentsCount, GARMENT_GOAL)
   const profileDone = !!(userProfile?.skin_tone || userProfile?.body_type)

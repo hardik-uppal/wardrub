@@ -1,23 +1,38 @@
 """Magazine Feed Service - curates personalized editorial feeds using Gemini."""
 
-import os
 import json
-import uuid
+import os
 import random
+import uuid
 from datetime import date, datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional
 
 from app.config import get_settings
 from app.logging_config import get_logger
-from app.models.user_profile import UserProfile
-from app.models.garment import GarmentMetadata
-from app.models.magazine_feed import LookCard, MagazineFeed, SwapSuggestion, LookFeedback
-from app.services.firestore import FirestoreService
-from app.services.weather import WeatherService
+from app.models.magazine_feed import LookCard, MagazineFeed, SwapSuggestion
+from app.services.firestore import FirestoreService, is_legacy_demo_garment_id
 from app.services.outfit_scorer import OutfitScorerService
+from app.services.weather import WeatherService
 
 settings = get_settings()
 logger = get_logger("magazine_feed_service")
+
+
+def _contains_legacy_demo_garments(feed: MagazineFeed) -> bool:
+    """Return whether a cached issue references the retired demo closet."""
+    looks = [
+        feed.cover_look,
+        *feed.daily_fits,
+        *feed.one_item_three_ways,
+        feed.underused_edit,
+    ]
+    for look in looks:
+        referenced_ids = [*look.garment_ids, look.hero_item_id]
+        for swap in look.swaps:
+            referenced_ids.extend([swap.replace_item_id, swap.with_item_id])
+        if any(is_legacy_demo_garment_id(item_id) for item_id in referenced_ids):
+            return True
+    return False
 
 
 class MagazineFeedService:
@@ -62,9 +77,13 @@ class MagazineFeedService:
         # Check cache unless force requested
         if not force_regenerate:
             cached_feed = await self.firestore.get_magazine_feed(user_id, today_str)
-            if cached_feed:
+            if cached_feed and not _contains_legacy_demo_garments(cached_feed):
                 logger.info(f"Returning cached magazine feed for {user_id} on {today_str}")
                 return cached_feed
+            if cached_feed:
+                logger.warning(
+                    f"Ignoring cached magazine feed with retired demo garments for {user_id}"
+                )
 
         logger.info(f"Starting magazine feed generation for user {user_id}...")
 
@@ -301,290 +320,3 @@ Return ONLY the raw JSON string."""
         except Exception as e:
             logger.error(f"Error compiling magazine feed: {e}", exc_info=True)
             return None
-
-    async def generate_mock_magazine_feed(self, user_id: str) -> MagazineFeed:
-        """Generates a high-quality mock editorial feed with public Unsplash assets for previewing the UI."""
-        seed_mock_garments(user_id)
-            
-        today_str = date.today().isoformat()
-        
-        # Build looks using mock garment IDs
-        cover_look = LookCard(
-            id="mock-cover",
-            title="The Creative Director",
-            subtitle="Low Contrast, Maximum Impact",
-            section="cover",
-            garment_ids=["mock-g1", "mock-g2", "mock-g3"],
-            hero_item_id="mock-g1",
-            occasion="Creative Workplace",
-            why_it_works="The fluid drape of the cream trenchcoat pairs elegantly with a crisp white oxford. The olive chinos anchor the look without adding harsh contrast.",
-            styling_tips=[
-                "Leave the trenchcoat unbelted to show the layered silhouette.",
-                "Sleeve roll the oxford shirt slightly for an effortless air."
-            ],
-            swaps=[
-                SwapSuggestion(
-                    replace_item_id="mock-g1",
-                    with_item_id="mock-g5",
-                    reason="Swap for the denim jacket to make it a casual weekend brunch fit."
-                )
-            ],
-            score=0.96,
-            generated_at=datetime.utcnow()
-        )
-        
-        daily_fits = [
-            LookCard(
-                id="mock-fit-1",
-                title="Tonal Casual",
-                section="daily",
-                garment_ids=["mock-g6", "mock-g7", "mock-g4"],
-                why_it_works="Charcoal and black create a sleek, low-noise palette. The addition of brown leather loafers adds a touch of classic polish.",
-                occasion="Brunch & City Walk",
-                styling_tips=["Opt for no-show socks to keep the ankle clean."],
-                score=0.88,
-                generated_at=datetime.utcnow()
-            ),
-            LookCard(
-                id="mock-fit-2",
-                title="High-Street Layering",
-                section="daily",
-                garment_ids=["mock-g5", "mock-g2", "mock-g3", "mock-g8"],
-                why_it_works="Layering a washed denim jacket over a white oxford button-down adds textured contrast. Chinos and Chelsea boots frame a refined street silhouette.",
-                occasion="Casual Friday",
-                styling_tips=["Keep only the middle buttons of the denim jacket done."],
-                score=0.91,
-                generated_at=datetime.utcnow()
-            ),
-            LookCard(
-                id="mock-fit-3",
-                title="Monochrome Founder",
-                section="daily",
-                garment_ids=["mock-g6", "mock-g3", "mock-g8"],
-                why_it_works="All-black upper layered elements with cream chinos makes the black contrast pop. Chelsea boots add a solid foundation.",
-                occasion="Investor Coffee",
-                styling_tips=["Tuck in the black tee for clean waistband lines."],
-                score=0.85,
-                generated_at=datetime.utcnow()
-            )
-        ]
-        
-        one_item_three_ways = [
-            LookCard(
-                id="mock-oitw-1",
-                title="1. Creative Workplace",
-                section="one_item_three_ways",
-                garment_ids=["mock-g2", "mock-g3", "mock-g4"],
-                hero_item_id="mock-g2",
-                why_it_works="White oxford button-down styled with olive chinos and loafers. A smart, minimalist profile that commands room confidence.",
-                occasion="Gallery Opening",
-                score=0.94,
-                generated_at=datetime.utcnow()
-            ),
-            LookCard(
-                id="mock-oitw-2",
-                title="2. High-Street Layering",
-                section="one_item_three_ways",
-                garment_ids=["mock-g5", "mock-g2", "mock-g7", "mock-g8"],
-                hero_item_id="mock-g2",
-                why_it_works="A vintage denim jacket tones down the structure of the oxford shirt. Charcoal trousers and boots ground the look.",
-                occasion="Weekend Gallery Walk",
-                score=0.89,
-                generated_at=datetime.utcnow()
-            ),
-            LookCard(
-                id="mock-oitw-3",
-                title="3. Transition Evening",
-                section="one_item_three_ways",
-                garment_ids=["mock-g1", "mock-g2", "mock-g7", "mock-g4"],
-                hero_item_id="mock-g2",
-                why_it_works="Dressing up the white shirt with trousers and a trench. Refined loafers make it perfect for dinner dates.",
-                occasion="Cocktail Dinner",
-                score=0.95,
-                generated_at=datetime.utcnow()
-            )
-        ]
-        
-        underused_edit = LookCard(
-            id="mock-underused",
-            title="The Resurrection Fit",
-            section="underused",
-            garment_ids=["mock-g8", "mock-g6", "mock-g7", "mock-g1"],
-            hero_item_id="mock-g8",
-            why_it_works="These boots are too good to sit in the closet. We've paired them with charcoal trousers and a black tee, layered with the trenchcoat for a powerful city uniform.",
-            occasion="Late Night Coffee Run",
-            styling_tips=["Let the hem of the trousers rest slightly over the boot cuffs."],
-            score=0.90,
-            generated_at=datetime.utcnow()
-        )
-        
-        return MagazineFeed(
-            user_id=user_id,
-            date=today_str,
-            cover_look=cover_look,
-            daily_fits=daily_fits,
-            one_item_three_ways=one_item_three_ways,
-            underused_edit=underused_edit,
-            generated_at=datetime.utcnow()
-        )
-
-
-def _get_mock_items():
-    """Return the canonical list of mock garment definitions."""
-    return [
-        {
-            "garment_id": "mock-g1",
-            "category": "outerwear",
-            "front_url": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=500",
-            "ghost_mannequin_url": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=500",
-            "description": {"short": "Cream Trenchcoat", "detailed": "Cream Trenchcoat", "style_tags": ["classic", "work"]}
-        },
-        {
-            "garment_id": "mock-g2",
-            "category": "top",
-            "front_url": "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=500",
-            "ghost_mannequin_url": "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=500",
-            "description": {"short": "White Oxford Shirt", "detailed": "White Oxford Shirt", "style_tags": ["classic", "minimalist"]}
-        },
-        {
-            "garment_id": "mock-g3",
-            "category": "bottom",
-            "front_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=500",
-            "ghost_mannequin_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=500",
-            "description": {"short": "Relaxed Chinos", "detailed": "Relaxed Chinos", "style_tags": ["casual", "streetwear"]}
-        },
-        {
-            "garment_id": "mock-g4",
-            "category": "shoes",
-            "front_url": "https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=500",
-            "ghost_mannequin_url": "https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=500",
-            "description": {"short": "Leather Loafers", "detailed": "Leather Loafers", "style_tags": ["classic", "smart-casual"]}
-        },
-        {
-            "garment_id": "mock-g5",
-            "category": "outerwear",
-            "front_url": "https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=500",
-            "ghost_mannequin_url": "https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=500",
-            "description": {"short": "Denim Jacket", "detailed": "Denim Jacket", "style_tags": ["casual", "vintage"]}
-        },
-        {
-            "garment_id": "mock-g6",
-            "category": "top",
-            "front_url": "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=500",
-            "ghost_mannequin_url": "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=500",
-            "description": {"short": "Black Cotton Tee", "detailed": "Black Cotton Tee", "style_tags": ["casual", "minimalist"]}
-        },
-        {
-            "garment_id": "mock-g7",
-            "category": "bottom",
-            "front_url": "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=500",
-            "ghost_mannequin_url": "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=500",
-            "description": {"short": "Charcoal Trousers", "detailed": "Charcoal Trousers", "style_tags": ["formal", "classic"]}
-        },
-        {
-            "garment_id": "mock-g8",
-            "category": "shoes",
-            "front_url": "https://images.unsplash.com/photo-1638247025967-b4e38f787b76?w=500",
-            "ghost_mannequin_url": "https://images.unsplash.com/photo-1638247025967-b4e38f787b76?w=500",
-            "description": {"short": "Leather Chelsea Boots", "detailed": "Leather Chelsea Boots", "style_tags": ["classic", "streetwear"]}
-        }
-    ]
-
-
-def seed_mock_garments(user_id: str = "dev-admin-user-id"):
-    """Seed the mock wardrobe garments in the local in-memory storage dictionary.
-    Skips any mock IDs that the user has deleted during this session."""
-    from app.services.firestore import _memory_garments, _deleted_mock_ids
-    
-    # Check if there are already any mock garments for this user in memory
-    user_mocks = [
-        g for g in _memory_garments.values()
-        if g.get("user_id") == user_id and g.get("id", "").startswith("mock-")
-    ]
-    if user_mocks:
-        # Already seeded, don't overwrite (allows deletion)
-        return
-    
-    for item in _get_mock_items():
-        gid = item["garment_id"]
-        # Skip mocks that were deleted this session
-        if gid in _deleted_mock_ids:
-            continue
-        item_dict = {
-            "id": gid,
-            "url": item["front_url"],
-            "user_id": user_id,
-            **item
-        }
-        _memory_garments[gid] = item_dict
-
-
-async def async_seed_mock_garments(user_id: str = "dev-admin-user-id", firestore_service=None) -> None:
-    """Seed mock wardrobe garments. Uses a persistent 'seeded' flag so that
-    once mocks are seeded, deleted mocks are NOT re-created on cold starts."""
-    
-    has_firestore = (
-        firestore_service is not None
-        and firestore_service.client is not None
-        and not firestore_service._use_memory
-    )
-    
-    if has_firestore:
-        # Check persistent flag first
-        already_seeded = await firestore_service.is_mocks_seeded(user_id)
-        
-        if already_seeded:
-            # Mocks were seeded before. Load whatever STILL EXISTS in Firestore
-            # into memory (deleted ones will be absent — that's the whole point).
-            try:
-                db_garments = await firestore_service.list_garments_metadata(user_id=user_id)
-                db_mocks = [g for g in db_garments if g.garment_id.startswith("mock-")]
-                from app.services.firestore import _memory_garments
-                for g in db_mocks:
-                    if g.garment_id not in _memory_garments:
-                        _memory_garments[g.garment_id] = {
-                            "id": g.garment_id,
-                            "garment_id": g.garment_id,
-                            "category": g.category.value if hasattr(g.category, 'value') else g.category,
-                            "front_url": g.ghost_mannequin_url,
-                            "ghost_mannequin_url": g.ghost_mannequin_url,
-                            "url": g.ghost_mannequin_url,
-                            "user_id": user_id,
-                            "description": {
-                                "short": g.description.short if g.description else "",
-                                "detailed": g.description.detailed if g.description else "",
-                                "style_tags": g.description.style_tags if g.description else []
-                            }
-                        }
-            except Exception as e:
-                logger.warning(f"Failed to load existing mock garments from Firestore: {e}")
-            return
-        
-        # First-time seeding: write all mocks to Firestore and set the flag
-        from app.models.garment import GarmentMetadata, GarmentCategory, GarmentDescription, WeatherRange
-        
-        for item in _get_mock_items():
-            gid = item["garment_id"]
-            try:
-                existing = await firestore_service.get_garment_metadata(gid)
-                if not existing:
-                    metadata = GarmentMetadata(
-                        garment_id=gid,
-                        user_id=user_id,
-                        category=GarmentCategory(item["category"]),
-                        ghost_mannequin_url=item["front_url"],
-                        description=GarmentDescription(
-                            short=item["description"]["short"],
-                            detailed=item["description"]["detailed"],
-                            style_tags=item["description"]["style_tags"]
-                        ),
-                        weather_range=WeatherRange(min_temp=10, max_temp=30)
-                    )
-                    await firestore_service.save_garment_metadata(metadata)
-            except Exception as e:
-                logger.warning(f"Failed to save mock garment {gid} to Firestore: {e}")
-        
-        await firestore_service.mark_mocks_seeded(user_id)
-    
-    # Also seed in-memory for the current instance
-    seed_mock_garments(user_id)

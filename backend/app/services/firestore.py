@@ -71,8 +71,15 @@ _memory_magazine_feeds = PersistentDict()
 _memory_look_feedback = PersistentDict()
 _memory_tryon_cache = PersistentDict()
 
-# Track deleted mock garment IDs in-memory (best-effort; Firestore flag is the persistent source)
-_deleted_mock_ids: set = set()
+# These IDs belonged to the retired demo closet. Keep them quarantined while the
+# one-time production cleanup removes the old Firestore documents.
+LEGACY_DEMO_GARMENT_PREFIX = "mock-"
+
+
+def is_legacy_demo_garment_id(garment_id: Any) -> bool:
+    """Return whether an ID belongs to the retired static demo closet."""
+    return str(garment_id or "").startswith(LEGACY_DEMO_GARMENT_PREFIX)
+
 
 def load_local_db():
     if os.path.exists(DB_FILE):
@@ -106,8 +113,6 @@ class FirestoreService:
     MAGAZINE_FEED_COLLECTION = "magazine_feeds"
     LOOK_FEEDBACK_COLLECTION = "look_feedback"
     TRYON_CACHE_COLLECTION = "tryon_cache"
-    USER_SETTINGS_COLLECTION = "user_settings"
-    
     # Legacy user ID (for migration purposes)
     LEGACY_USER_ID = "default_user"
     
@@ -298,6 +303,9 @@ class FirestoreService:
         Returns:
             GarmentMetadata if exists, None otherwise
         """
+        if is_legacy_demo_garment_id(garment_id):
+            return None
+
         try:
             # Use in-memory fallback
             if self._use_memory or self.client is None:
@@ -330,6 +338,10 @@ class FirestoreService:
         Returns:
             True if successful
         """
+        if is_legacy_demo_garment_id(metadata.garment_id):
+            logger.warning(f"Rejected retired demo garment ID: {metadata.garment_id}")
+            return False
+
         try:
             metadata.updated_at = datetime.utcnow()
             data = metadata.model_dump()
@@ -387,10 +399,6 @@ class FirestoreService:
     async def delete_garment_metadata(self, garment_id: str) -> bool:
         """Delete garment metadata."""
         try:
-            # Track mock garment deletions so they don't get re-seeded
-            if garment_id.startswith("mock-"):
-                _deleted_mock_ids.add(garment_id)
-            
             # Always clean up from memory cache
             _memory_garments.pop(garment_id, None)
             
@@ -408,45 +416,15 @@ class FirestoreService:
             return False
             
     def get_memory_garments(self, user_id: str, category: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Get memory fallback garments (only for routing or dev bypass use)."""
+        """Get real garments from the local persistence fallback."""
         results = []
         for garment_id, data in _memory_garments.items():
+            if is_legacy_demo_garment_id(garment_id):
+                continue
             if data.get("user_id") == user_id:
                 if category is None or data.get("category") == category:
                     results.append(dict(data))
         return results
-    
-    async def mark_mocks_seeded(self, user_id: str) -> None:
-        """Persistently mark that mock garments have been seeded for this user.
-        After this flag is set, deleted mocks will NOT be re-created."""
-        try:
-            if self._use_memory or self.client is None:
-                # Use in-memory flag via a sentinel key
-                _memory_garments[f"_mock_seeded_{user_id}"] = {"seeded": True, "user_id": user_id}
-                return
-            doc_ref = self.client.collection(self.USER_SETTINGS_COLLECTION).document(user_id)
-            doc_ref.set({"mock_seeded": True}, merge=True)
-            logger.info(f"Marked mocks as seeded for user {user_id}")
-        except Exception as e:
-            logger.warning(f"Failed to mark mocks seeded for {user_id}: {e}")
-    
-    async def is_mocks_seeded(self, user_id: str) -> bool:
-        """Check if mock garments have already been seeded for this user."""
-        try:
-            if self._use_memory or self.client is None:
-                return f"_mock_seeded_{user_id}" in _memory_garments
-            doc_ref = self.client.collection(self.USER_SETTINGS_COLLECTION).document(user_id)
-            doc = doc_ref.get()
-            if doc.exists:
-                return doc.to_dict().get("mock_seeded", False)
-            return False
-        except Exception as e:
-            logger.warning(f"Failed to check mock seeded status for {user_id}: {e}")
-            return False
-    
-    def is_mock_deleted(self, garment_id: str) -> bool:
-        """Check if a mock garment was deleted in this session."""
-        return garment_id in _deleted_mock_ids
     
     async def list_garments_metadata(
         self, 
@@ -471,6 +449,8 @@ class FirestoreService:
                 results = []
                 for garment_id, data in list(_memory_garments.items())[:limit]:
                     try:
+                        if is_legacy_demo_garment_id(garment_id):
+                            continue
                         if data.get("user_id") != user_id:
                             continue
                         if category is None or data.get("category") == category:
@@ -495,6 +475,8 @@ class FirestoreService:
             for doc in docs:
                 try:
                     data = doc.to_dict()
+                    if is_legacy_demo_garment_id(data.get("garment_id", doc.id)):
+                        continue
                     results.append(GarmentMetadata(**data))
                 except Exception as e:
                     logger.warning(f"Failed to parse garment {doc.id}: {e}")
@@ -506,6 +488,8 @@ class FirestoreService:
             results = []
             for garment_id, data in list(_memory_garments.items())[:limit]:
                 try:
+                    if is_legacy_demo_garment_id(garment_id):
+                        continue
                     if data.get("user_id") != user_id:
                         continue
                     if category is None or data.get("category") == category:
@@ -538,6 +522,8 @@ class FirestoreService:
             if self._use_memory or self.client is None:
                 results = []
                 for garment_id, data in _memory_garments.items():
+                    if is_legacy_demo_garment_id(garment_id):
+                        continue
                     if data.get("user_id") == user_id:
                         scores = data.get("recommendation_scores")
                         overall = scores.get("overall", 0.0) if scores else 0.0
@@ -568,6 +554,8 @@ class FirestoreService:
             for doc in docs:
                 try:
                     data = doc.to_dict()
+                    if is_legacy_demo_garment_id(data.get("garment_id", doc.id)):
+                        continue
                     results.append(GarmentMetadata(**data))
                 except Exception as e:
                     logger.warning(f"Failed to parse garment {doc.id}: {e}")
@@ -656,13 +644,20 @@ class FirestoreService:
             else:
                 # For backfill jobs, get all garments across all users
                 if self._use_memory or self.client is None:
-                    all_garments = [GarmentMetadata(**data) for data in _memory_garments.values()]
+                    all_garments = [
+                        GarmentMetadata(**data)
+                        for garment_id, data in _memory_garments.items()
+                        if not is_legacy_demo_garment_id(garment_id)
+                    ]
                 else:
                     docs = self.client.collection(self.GARMENTS_COLLECTION).limit(500).stream()
                     all_garments = []
                     for doc in docs:
                         try:
-                            all_garments.append(GarmentMetadata(**doc.to_dict()))
+                            data = doc.to_dict()
+                            if is_legacy_demo_garment_id(data.get("garment_id", doc.id)):
+                                continue
+                            all_garments.append(GarmentMetadata(**data))
                         except:
                             pass
             
@@ -1234,6 +1229,8 @@ class FirestoreService:
         try:
             if self._use_memory or self.client is None:
                 for garment_id, data in list(_memory_garments.items()):
+                    if is_legacy_demo_garment_id(garment_id):
+                        continue
                     if not data.get("user_id"):
                         data["user_id"] = target_user_id
                         _memory_garments[garment_id] = data
@@ -1242,6 +1239,8 @@ class FirestoreService:
                 docs = self.client.collection(self.GARMENTS_COLLECTION).stream()
                 for doc in docs:
                     data = doc.to_dict()
+                    if is_legacy_demo_garment_id(data.get("garment_id", doc.id)):
+                        continue
                     if not data.get("user_id"):
                         data["user_id"] = target_user_id
                         doc.reference.set(data)
@@ -1347,4 +1346,3 @@ class FirestoreService:
                 "created_at": datetime.utcnow().isoformat()
             }
             return True
-

@@ -2,21 +2,19 @@
 
 from datetime import date
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, Depends
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 
 from app.services.firestore import FirestoreService
 from app.services.storage import StorageService
 from app.services.recommendation import RecommendationEngine
 from app.services.weather import WeatherService
 from app.services.auth import get_current_user
-from app.config import get_settings
 from app.logging_config import get_logger
 from app.models.outfit import Occasion, OutfitRequest
-from app.models.daily_looks import DailyLooks, DailyLook
 from app.jobs.daily_looks_generator import generate_daily_looks
 from app.jobs.scheduler import get_job_status
 from app.services.magazine_feed_service import MagazineFeedService
-from app.models import MagazineFeed, LookFeedback
+from app.models import LookFeedback
 import uuid
 from pydantic import BaseModel
 from datetime import datetime
@@ -26,7 +24,6 @@ firestore = FirestoreService()
 storage = StorageService()
 recommendation_engine = RecommendationEngine()
 weather_service = WeatherService()
-settings = get_settings()
 logger = get_logger("outfit")
 
 
@@ -520,54 +517,22 @@ class FeedbackRequest(BaseModel):
 
 @router.get("/magazine-feed")
 async def get_magazine_feed_endpoint(
-    mock: bool = Query(False, description="Force returning mock data for preview/testing"),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
     Get today's personalized magazine feed for the user.
-    If the user has fewer than 10 garments, returns onboarding status (unless dev-admin or mock parameter is set).
+    If the user has fewer than 10 garments, return onboarding status.
     """
     user_id = user["uid"]
-    email = user.get("email")
-    logger.info(f"Retrieving magazine feed for user {user_id} (mock={mock})")
+    logger.info(f"Retrieving magazine feed for user {user_id}")
     
     try:
-        is_dev = settings.is_dev_user(user_id, email)
-        
-        custom_count = 0
-        if is_dev or not mock:
-            try:
-                db_garments = await firestore.list_garments_metadata(user_id=user_id)
-                custom_count = len([g for g in db_garments if not g.garment_id.startswith("mock-")])
-            except:
-                pass
-            if custom_count == 0:
-                try:
-                    gcs_garments = await storage.list_garments(user_id=user_id)
-                    custom_count = len(gcs_garments) if gcs_garments else 0
-                except:
-                    pass
-
-        # Check if mock mode is forced, or if it is the dev admin bypass and wardrobe is underpopulated
-        if mock or (is_dev and custom_count < 10):
-            # Auto-seed garments so that the UI can lookup mock garments correctly
-            from app.services.magazine_feed_service import async_seed_mock_garments
-            await async_seed_mock_garments(user_id, firestore)
-            
-            feed = await magazine_service.generate_mock_magazine_feed(user_id)
-            return {
-                "status": "success",
-                "feed": feed.model_dump()
-            }
-            
         # Check garment onboarding gate
         garments = await firestore.list_garments_metadata(user_id=user_id)
-        # Exclude mock garments when counting for onboarding gate
-        real_garments = [g for g in garments if not g.garment_id.startswith("mock-")]
-        if len(real_garments) < 10:
+        if len(garments) < 10:
             return {
                 "status": "onboarding",
-                "count": len(real_garments),
+                "count": len(garments),
                 "required": 10,
                 "message": "Add at least 10 clothing items to compile your first magazine stylebook"
             }
@@ -588,47 +553,18 @@ async def get_magazine_feed_endpoint(
 
 @router.post("/magazine-feed/generate")
 async def regenerate_magazine_feed_endpoint(
-    mock: bool = Query(False, description="Force returning mock data for preview/testing"),
     user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
     Force regenerate today's magazine feed.
     """
     user_id = user["uid"]
-    email = user.get("email")
-    logger.info(f"Force regenerating magazine feed for user {user_id} (mock={mock})")
+    logger.info(f"Force regenerating magazine feed for user {user_id}")
     
     try:
-        is_dev = settings.is_dev_user(user_id, email)
-        
-        custom_count = 0
-        if is_dev or not mock:
-            try:
-                db_garments = await firestore.list_garments_metadata(user_id=user_id)
-                custom_count = len([g for g in db_garments if not g.garment_id.startswith("mock-")])
-            except:
-                pass
-            if custom_count == 0:
-                try:
-                    gcs_garments = await storage.list_garments(user_id=user_id)
-                    custom_count = len(gcs_garments) if gcs_garments else 0
-                except:
-                    pass
-
-        if mock or (is_dev and custom_count < 10):
-            from app.services.magazine_feed_service import async_seed_mock_garments
-            await async_seed_mock_garments(user_id, firestore)
-            
-            feed = await magazine_service.generate_mock_magazine_feed(user_id)
-            return {
-                "status": "success",
-                "feed": feed.model_dump()
-            }
-            
         # Check garment onboarding gate
         garments = await firestore.list_garments_metadata(user_id=user_id)
-        real_garments = [g for g in garments if not g.garment_id.startswith("mock-")]
-        if len(real_garments) < 10:
+        if len(garments) < 10:
             raise HTTPException(
                 status_code=400,
                 detail="Not enough garments to generate feed. Need at least 10."
@@ -642,6 +578,8 @@ async def regenerate_magazine_feed_endpoint(
             "status": "success",
             "feed": feed.model_dump()
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to regenerate magazine feed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
