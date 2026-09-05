@@ -21,7 +21,6 @@ export default function MagazineFeed() {
 
   const [feedData, setFeedData] = useState(null)
   const [isOnboarding, setIsOnboarding] = useState(false)
-  const [isMockMode, setIsMockMode] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [loadingMessage, setLoadingMessage] = useState('Opening Today\'s Issue...')
   const [error, setError] = useState(null)
@@ -45,8 +44,7 @@ export default function MagazineFeed() {
     return fetch(url, { ...options, headers })
   }, [getIdToken])
 
-  const fetchMagazineFeed = useCallback(async (force = false, useMock = false) => {
-    const activeMock = useMock || isMockMode
+  const fetchMagazineFeed = useCallback(async (force = false) => {
     if (force) {
       setGeneratingFeed(true)
       setLoadingMessage('Curating today\'s edits...')
@@ -56,17 +54,9 @@ export default function MagazineFeed() {
     setError(null)
     
     try {
-      let url = force 
-        ? `${API_URL}/api/magazine-feed/generate` 
+      const url = force
+        ? `${API_URL}/api/magazine-feed/generate`
         : `${API_URL}/api/magazine-feed`
-      
-      const queryParams = []
-      if (activeMock) {
-        queryParams.push('mock=true')
-      }
-      if (queryParams.length > 0) {
-        url += '?' + queryParams.join('&')
-      }
       
       const response = await authFetch(url, { method: force ? 'POST' : 'GET' })
       const data = await response.json()
@@ -76,9 +66,6 @@ export default function MagazineFeed() {
       } else if (data.status === 'success' && data.feed) {
         setIsOnboarding(false)
         setFeedData(data.feed)
-        if (activeMock) {
-          setIsMockMode(true)
-        }
         
         // Restore pre-rendered try-ons if they exist
         const restoredImages = {}
@@ -102,7 +89,7 @@ export default function MagazineFeed() {
       setIsLoading(false)
       setGeneratingFeed(false)
     }
-  }, [authFetch, isMockMode])
+  }, [authFetch])
 
   useEffect(() => {
     fetchMagazineFeed()
@@ -195,10 +182,7 @@ export default function MagazineFeed() {
   // Onboarding Page — uses OnboardingContext for unified progress
   if (isOnboarding && !isLoading) {
     return (
-      <MagazineOnboarding 
-        navigate={navigate} 
-        fetchMagazineFeed={fetchMagazineFeed}
-      />
+      <MagazineOnboarding navigate={navigate} />
     )
   }
 
@@ -406,35 +390,15 @@ export default function MagazineFeed() {
         {/* Editorial Masthead */}
         <header className="mx-4 mt-8 mb-6 border-b border-[var(--glass-border)] pb-5 text-center relative">
           <div className="flex justify-between items-center px-2 text-xs font-bold text-[var(--text-tertiary)] tracking-[0.2em] mb-2 uppercase">
-            <div className="flex items-center gap-2">
-              <span>ISSUE NO. 01</span>
-              {isMockMode && (
-                <span className="px-1.5 py-0.5 rounded text-xs font-extrabold text-amber-500 bg-amber-500/10 border border-amber-500/20 tracking-normal uppercase">
-                  DEMO CLOSET
-                </span>
-              )}
-            </div>
+            <span>ISSUE NO. 01</span>
             <span>{dateHeader}</span>
-            <div className="flex items-center gap-3">
-              {isMockMode && (
-                <button 
-                  onClick={() => {
-                    setIsMockMode(false)
-                    setIsOnboarding(true)
-                  }}
-                  className="flex items-center gap-1 text-rose-400 hover:text-rose-300 transition-colors uppercase tracking-[0.2em]"
-                >
-                  EXIT
-                </button>
-              )}
-              <button 
-                onClick={() => fetchMagazineFeed(true)}
-                className="flex items-center gap-1 hover:text-[var(--accent)] transition-colors uppercase tracking-[0.2em]"
-              >
-                <RefreshCw className="w-3 h-3" />
-                <span>REFRESH ISSUE</span>
-              </button>
-            </div>
+            <button
+              onClick={() => fetchMagazineFeed(true)}
+              className="flex items-center gap-1 hover:text-[var(--accent)] transition-colors uppercase tracking-[0.2em]"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>REFRESH ISSUE</span>
+            </button>
           </div>
           
           <h1 
@@ -941,7 +905,7 @@ export default function MagazineFeed() {
 }
 
 // Extracted onboarding component that uses OnboardingContext
-function MagazineOnboarding({ navigate, fetchMagazineFeed }) {
+function MagazineOnboarding({ navigate }) {
   const { milestones, overallProgress, GARMENT_GOAL } = useOnboarding()
 
   const iconMap = {
@@ -1057,21 +1021,13 @@ function MagazineOnboarding({ navigate, fetchMagazineFeed }) {
             />
           </div>
 
-          <div className="flex flex-col gap-3 mt-4">
+          <div className="mt-4">
             <button 
               onClick={() => navigate('/capture')}
               className="btn-primary btn-lg w-full flex items-center justify-center gap-2"
             >
               <Shirt className="w-4 h-4" />
               <span>Capture Clothes</span>
-            </button>
-            
-            <button 
-              onClick={() => fetchMagazineFeed(false, true)}
-              className="btn-secondary btn-lg w-full flex items-center justify-center gap-2"
-            >
-              <Sparkles className="w-4 h-4 text-[var(--accent)]" />
-              <span>Preview with Demo Closet</span>
             </button>
           </div>
         </div>
