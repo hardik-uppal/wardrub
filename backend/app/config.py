@@ -85,22 +85,8 @@ class Settings:
     GEMINI_MODEL: str = get_gemini_model()
     GEMINI_TEXT_MODEL: str = os.getenv("GEMINI_TEXT_MODEL", "gemini-2.0-flash-lite")
     
-    # Developer bypass accounts
+    # Local developer authentication bypass. This never enables demo content.
     ALLOW_DEV_AUTH_BYPASS: bool = os.getenv("ALLOW_DEV_AUTH_BYPASS", "false").lower() in ("1", "true", "yes")
-    DEV_USER_UIDS: list[str] = [uid.strip() for uid in os.getenv("DEV_USER_UIDS", "dev-admin-user-id").split(",") if uid.strip()]
-    DEV_EMAILS: list[str] = [email.strip() for email in os.getenv("DEV_EMAILS", "hardikuppal.hu@gmail.com,admin@wardrub.test").split(",") if email.strip()]
-
-    def is_dev_user(self, user_id: str, email: str = None) -> bool:
-        """Check if a user ID or email belongs to a developer account for bypass/seeding."""
-        if user_id in self.DEV_USER_UIDS:
-            return True
-        if email and email.lower() in [e.lower() for e in self.DEV_EMAILS]:
-            if user_id not in self.DEV_USER_UIDS:
-                self.DEV_USER_UIDS.append(user_id)
-            return True
-        return False
-
-
     
     # Fal.ai API (for SAM serverless)
     FAL_KEY: str = os.getenv("FAL_KEY", "")
