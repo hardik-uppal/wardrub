@@ -9,7 +9,10 @@ Last updated: 2026-09-11. Scope: progressive style analysis.
 - `merge_analysis` preserves usable results, other stages, and profile preferences.
 - `FirestoreService.apply_style_analysis` uses a transaction against the latest
   user document. Write failures propagate; local fallback requires explicit dev
-  auth bypass. Other older Firestore methods retain their existing fallback behavior.
+  auth bypass. `ensure_user_profile` atomically creates a non-inferred default,
+  preserves existing profiles, and is used by profile bootstrap and Magazine so
+  pre-profile accounts are not blocked. Other older Firestore methods retain their
+  existing fallback behavior.
 - No new raw photos are saved by Profile analysis. Existing avatar-source storage
   is separate. Never analyze a generated avatar as evidence of the user's body.
 - Uses existing `GEMINI_TEXT_MODEL` and Gemini credentials/Vertex configuration.

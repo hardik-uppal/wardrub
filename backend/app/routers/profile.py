@@ -39,15 +39,9 @@ async def get_profile(user: Dict[str, Any] = Depends(get_current_user)):
     """
     try:
         user_id = user["uid"]
-        profile = await firestore.get_user_profile(user_id)
-        
-        if not profile:
-            return {
-                "profile": None,
-                "status": "not_created",
-                "message": "Profile not created yet. Upload photos to analyze."
-            }
-        
+        # Reading the authenticated user's profile also initializes a safe,
+        # non-inferred profile for accounts created before profile onboarding.
+        profile = await firestore.ensure_user_profile(user_id)
         return {
             "profile": profile.model_dump(),
             "status": "exists"

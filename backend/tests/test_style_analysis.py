@@ -173,6 +173,47 @@ class StyleServiceTests(unittest.IsolatedAsyncioTestCase):
 
 
 class StylePersistenceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_ensure_profile_creates_non_inferred_default_once(self):
+        records = {}
+        service = firestore_module.FirestoreService()
+        service._use_memory = True
+        with (
+            patch.object(firestore_module, "_memory_profiles", records),
+            patch.object(firestore_module.settings, "ALLOW_DEV_AUTH_BYPASS", True),
+        ):
+            created = await service.ensure_user_profile("alice")
+            records["alice"]["style_preferences"] = ["minimal"]
+            existing = await service.ensure_user_profile("alice")
+
+        self.assertIsNone(created.skin_tone)
+        self.assertIsNone(created.body_type)
+        self.assertEqual(created.style_analysis.color.status, "not_started")
+        self.assertEqual(existing.style_preferences, ["minimal"])
+
+    async def test_ensure_profile_preserves_existing_cloud_profile(self):
+        existing = UserProfile(style_preferences=["classic"], skin_tone=SKIN)
+        snapshot = Mock(exists=True)
+        snapshot.to_dict.return_value = existing.model_dump()
+        document = Mock()
+        document.get.return_value = snapshot
+        client = Mock()
+        client.collection.return_value.document.return_value = document
+        service = firestore_module.FirestoreService()
+        service._client = client
+
+        result = await service.ensure_user_profile("alice")
+
+        self.assertEqual(result.style_preferences, ["classic"])
+        self.assertEqual(result.skin_tone, existing.skin_tone)
+        document.create.assert_not_called()
+
+    async def test_ensure_profile_does_not_fall_back_in_production(self):
+        service = firestore_module.FirestoreService()
+        service._use_memory = True
+        with patch.object(firestore_module.settings, "ALLOW_DEV_AUTH_BYPASS", False):
+            with self.assertRaisesRegex(RuntimeError, "storage is unavailable"):
+                await service.ensure_user_profile("alice")
+
     async def test_cloud_transaction_merges_into_latest_document(self):
         current = UserProfile(style_preferences=["recently edited"], skin_tone=SKIN)
         snapshot = Mock()
@@ -259,6 +300,16 @@ class StyleRouteTests(unittest.TestCase):
     def upload(self, stage="auto", content=None, count=1):
         return self.client.post("/api/profile/analyze", data={"stage": stage},
                                 files=[("files", ("photo.jpg", content if content is not None else photo_bytes(), "image/jpeg")) for _ in range(count)])
+
+    def test_get_initializes_default_profile_for_legacy_account(self):
+        response = self.client.get("/api/profile")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "exists")
+        self.assertEqual(data["profile"]["style_analysis"]["color"]["status"], "not_started")
+        self.assertIsNone(data["profile"]["skin_tone"])
+        self.assertEqual(set(self.records), {"alice"})
 
     def test_full_http_color_then_fit_journey_and_reload(self):
         first = self.upload().json()
