@@ -90,10 +90,8 @@ export default function OnboardingWidget() {
 
   // Hide completely after completion celebration ends
   useEffect(() => {
-    if (isOnboardingComplete && !showCompleteCelebration) {
-      const timer = setTimeout(() => setIsHidden(true), 500)
-      return () => clearTimeout(timer)
-    }
+    const timer = setTimeout(() => setIsHidden(isOnboardingComplete && !showCompleteCelebration), 500)
+    return () => clearTimeout(timer)
   }, [isOnboardingComplete, showCompleteCelebration])
 
   if (isHidden) return null
@@ -264,6 +262,11 @@ export default function OnboardingWidget() {
                   >
                     {milestone.label}
                   </p>
+                  {milestone.id === 'style' && !milestone.done && (
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                      {milestone.description}
+                    </p>
+                  )}
                   
                   {/* Progress bar for clothes */}
                   {milestone.id === 'clothes' && !milestone.done && (

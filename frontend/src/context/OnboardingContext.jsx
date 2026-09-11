@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
 import { useWardrobe } from './WardrobeContext'
+import { getStyleProgress } from '../utils/styleAnalysis'
 
 const OnboardingContext = createContext(null)
 
@@ -37,7 +38,8 @@ export function OnboardingProvider({ children }) {
   const garmentsCount = garments?.length || 0
   const garmentsDone = garmentsCount >= GARMENT_GOAL
   const garmentsProgress = Math.min(garmentsCount, GARMENT_GOAL)
-  const profileDone = !!(userProfile?.skin_tone || userProfile?.body_type)
+  const styleProgress = useMemo(() => getStyleProgress(userProfile), [userProfile])
+  const profileDone = styleProgress.done
   
   const isOnboardingComplete = avatarDone && garmentsDone && profileDone
 
@@ -75,13 +77,16 @@ export function OnboardingProvider({ children }) {
     },
     {
       id: 'style',
-      label: 'Analyze your style',
-      description: 'Discover your best colors and body type',
+      label: profileDone ? 'Your colors and fit are ready' : styleProgress.next?.status === 'failed'
+        ? 'Retry your style analysis' : styleProgress.next?.name === 'fit'
+          ? 'Add a full-length photo' : 'Discover your colors',
+      description: profileDone ? 'Your personalized recommendations are ready.'
+        : `${userProfile?.skin_tone ? 'Your color recommendations are available. ' : ''}${styleProgress.next?.message}`,
       done: profileDone,
-      route: '/profile',
+      route: `/profile?analysis=${styleProgress.next?.name || 'auto'}`,
       icon: 'Sparkles',
     },
-  ], [avatarDone, garmentsDone, garmentsProgress, profileDone])
+  ], [avatarDone, garmentsDone, garmentsProgress, profileDone, styleProgress, userProfile?.skin_tone])
 
   // Actions
   const toggleWidgetMinimized = useCallback(() => {

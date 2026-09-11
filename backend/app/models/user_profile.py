@@ -2,8 +2,8 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional, List
-from pydantic import BaseModel, Field
+from typing import Optional, List, Literal
+from pydantic import BaseModel, Field, model_validator
 
 
 class Undertone(str, Enum):
@@ -80,6 +80,28 @@ class AnalysisQuality(BaseModel):
     recommendation: Optional[str] = Field(None, description="Suggestion for better images")
 
 
+class PhotoRequest(BaseModel):
+    photo_type: Literal["face", "full_length"]
+    reason: str
+    instructions: str
+
+
+class AnalysisStage(BaseModel):
+    status: Literal["not_started", "needs_input", "ready", "failed"] = "not_started"
+    confidence: float = Field(0.0, ge=0.0, le=1.0)
+    evidence_assessment: str = ""
+    requested_input: Optional[PhotoRequest] = None
+    attempts: int = 0
+    updated_at: Optional[datetime] = None
+    result_updated_at: Optional[datetime] = None
+
+
+class StyleAnalysisProgress(BaseModel):
+    schema_version: int = 1
+    color: AnalysisStage = Field(default_factory=AnalysisStage)
+    fit: AnalysisStage = Field(default_factory=AnalysisStage)
+
+
 class UserProfile(BaseModel):
     """Complete user profile for recommendations."""
     # Core analysis
@@ -98,10 +120,35 @@ class UserProfile(BaseModel):
     
     # Quality metrics
     analysis_quality: AnalysisQuality = Field(default_factory=AnalysisQuality)
+    style_analysis: StyleAnalysisProgress = Field(default_factory=StyleAnalysisProgress)
     
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_analysis_progress(cls, data):
+        """Read older profiles without requiring an offline migration."""
+        if isinstance(data, dict) and not data.get("style_analysis"):
+            data = dict(data)
+            quality = data.get("analysis_quality") or {}
+            if isinstance(quality, AnalysisQuality):
+                quality = quality.model_dump()
+            progress = StyleAnalysisProgress()
+            for name, result, confidence_key in (
+                ("color", data.get("skin_tone"), "skin_tone_confidence"),
+                ("fit", data.get("body_type"), "body_type_confidence"),
+            ):
+                if result:
+                    setattr(progress, name, AnalysisStage(
+                        status="ready",
+                        confidence=quality.get(confidence_key, 0.0),
+                        evidence_assessment="Existing profile result; re-analyze to refine it.",
+                        result_updated_at=data.get("updated_at"),
+                    ))
+            data["style_analysis"] = progress
+        return data
     
     class Config:
         use_enum_values = True
@@ -111,4 +158,3 @@ class UserProfileUpdate(BaseModel):
     """Partial update model for user profile."""
     style_preferences: Optional[List[str]] = None
     location: Optional[Location] = None
-

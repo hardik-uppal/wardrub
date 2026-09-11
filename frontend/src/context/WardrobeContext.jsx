@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { useAuth } from './AuthContext'
 import { buildMultiTryOnGarments } from '../utils/tryOn'
 import { trackActivationEvent } from '../utils/analytics'
+import { validateStylePhotos } from '../utils/styleAnalysis'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -21,6 +22,7 @@ export function WardrobeProvider({ children }) {
   const [loadingMessage, setLoadingMessage] = useState('')
   const [error, setError] = useState(null)
   const [userProfile, setUserProfile] = useState(null)
+  const profileRevision = useRef(0)
   
   // Cache timestamps to prevent duplicate fetches
   const cacheTimestamps = useRef({
@@ -508,27 +510,35 @@ export function WardrobeProvider({ children }) {
   // Profile and Recommendation APIs
   // ============================================
   
-  const fetchProfile = async (force = false) => {
-    // Skip if cache is valid and not forced
-    if (!force && isCacheValid('profile') && userProfile) {
-      return { profile: userProfile }
-    }
-    
+  const applyProfile = useCallback((profile) => {
+    profileRevision.current += 1
+    setUserProfile(profile)
+    cacheTimestamps.current.profile = Date.now()
+  }, [])
+
+  const fetchProfile = useCallback(async () => {
+    const revision = profileRevision.current
     try {
       const response = await authFetch(`${API_URL}/api/profile`)
+      if (!response.ok) throw new Error('Failed to fetch profile')
       const data = await response.json()
-      if (data.profile) {
-        setUserProfile(data.profile)
-        cacheTimestamps.current.profile = Date.now()
-      }
+      // A slow initial read must not replace the result of a newer analysis.
+      if (revision !== profileRevision.current) return null
+      applyProfile(data.profile || null)
       return data
     } catch (err) {
       console.error('Failed to fetch profile:', err)
-      return null
+      return { error: 'Failed to load your profile. Please reload to retry.' }
     }
-  }
+  }, [authFetch, applyProfile])
 
-  const analyzeProfile = async (files) => {
+  useEffect(() => {
+    if (user) fetchProfile()
+  }, [user, fetchProfile])
+
+  const analyzeProfile = async (files, stage = 'auto') => {
+    const validationError = validateStylePhotos(files)
+    if (validationError) throw new Error(validationError)
     setIsLoading(true)
     setLoadingMessage('Analyzing your profile...')
     setError(null)
@@ -536,9 +546,7 @@ export function WardrobeProvider({ children }) {
     try {
       const formData = new FormData()
       files.forEach(file => formData.append('files', file))
-
-      setTimeout(() => setLoadingMessage('Detecting skin tone...'), 2000)
-      setTimeout(() => setLoadingMessage('Analyzing body type...'), 5000)
+      formData.append('stage', stage)
 
       const response = await authFetch(`${API_URL}/api/profile/analyze`, {
         method: 'POST',
@@ -552,7 +560,7 @@ export function WardrobeProvider({ children }) {
 
       const data = await response.json()
       if (data.profile) {
-        setUserProfile(data.profile)
+        applyProfile(data.profile)
       }
       return data
     } catch (err) {
@@ -730,7 +738,7 @@ export function WardrobeProvider({ children }) {
     }
   }
   
-  const checkLegacyData = async () => {
+  const checkLegacyData = useCallback(async () => {
     try {
       const response = await authFetch(`${API_URL}/api/check-legacy-data`)
       const data = await response.json()
@@ -739,7 +747,7 @@ export function WardrobeProvider({ children }) {
       console.error('Failed to check legacy data:', err)
       return false
     }
-  }
+  }, [authFetch])
 
   const value = {
     avatarUrl,
@@ -765,6 +773,7 @@ export function WardrobeProvider({ children }) {
     clearError,
     fetchProfile,
     analyzeProfile,
+    applyProfile,
     updateLocation,
     getDailyOutfit,
     migrateLegacyData,

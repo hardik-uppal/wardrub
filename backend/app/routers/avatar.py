@@ -11,7 +11,8 @@ from app.services.color_analysis import ColorAnalysisService
 from app.services.body_analysis import BodyAnalysisService
 from app.services.auth import get_current_user
 from app.logging_config import get_logger
-from app.models.user_profile import UserProfile, AnalysisQuality
+from app.models.user_profile import UserProfile
+from app.services.style_analysis import StyleAnalysisService, prepare_photo, select_stages
 
 router = APIRouter()
 storage = StorageService()
@@ -233,75 +234,25 @@ async def create_avatar_full(
         quality_feedback = None
         
         if analyze_profile:
-            logger.info("Analyzing profile from images...")
-            
-            # Skin tone analysis (use avatar or original)
-            skin_tone, skin_confidence = await color_service.analyze_skin_tone(
-                avatar_bytes if mode == "upload" else image_bytes
-            )
-            
-            # Body type analysis (use full body image if available)
-            body_type = None
-            body_measurements = None
-            body_confidence = 0.0
-            
-            if mode == "upload":
-                body_type, body_measurements, body_confidence = await body_service.analyze_body_type(
-                    image_bytes
-                )
-            
-            # Determine if more images needed
-            needs_more = (
-                (skin_confidence < 0.7 if skin_tone else True) or
-                (body_confidence < 0.7 if body_type else True) or
-                len(processed_images) < 2
-            )
-            
-            recommendation = None
-            if needs_more:
-                if not skin_tone or skin_confidence < 0.7:
-                    recommendation = "Add a well-lit face photo for better skin tone analysis"
-                elif not body_type or body_confidence < 0.7:
-                    recommendation = "Add a full-body photo for body type analysis"
-                else:
-                    recommendation = "Adding more photos can improve recommendations"
-            
-            # Get or update profile
-            existing_profile = await firestore.get_user_profile(user_id)
-            
-            profile = UserProfile(
-                skin_tone=skin_tone,
-                body_type=body_type,
-                body_measurements=body_measurements,
-                style_preferences=existing_profile.style_preferences if existing_profile else [],
-                location=existing_profile.location if existing_profile else None,
-                source_images=source_urls,  # Use actual uploaded source URLs
-                analysis_quality=AnalysisQuality(
-                    skin_tone_confidence=skin_confidence,
-                    body_type_confidence=body_confidence,
-                    needs_more_images=needs_more,
-                    recommendation=recommendation
-                )
-            )
-            
-            await firestore.save_user_profile(profile, user_id)
-            
-            profile_data = {
-                "skin_tone": skin_tone.model_dump() if skin_tone else None,
-                "body_type": body_type.value if body_type else None,
-                "analysis_quality": profile.analysis_quality.model_dump()
-            }
-            
-            if skin_tone:
-                color_recommendations = color_service.get_color_recommendations(skin_tone)
-            
-            if body_type:
-                fit_recommendations = body_service.get_fit_recommendations(body_type)
-            
+            # Use original photos, never the generated avatar's lighting or body.
+            existing = await firestore.get_user_profile(user_id) or UserProfile()
+            stages = select_stages(existing, "auto")
+            failed = False
+            try:
+                photos = [prepare_photo(image["bytes"]) for image in processed_images]
+                evidence = await StyleAnalysisService().analyze(photos)
+            except Exception:
+                logger.warning("Avatar style analysis unavailable", exc_info=True)
+                evidence, failed = None, True
+            profile = await firestore.apply_style_analysis(evidence, stages, user_id, failed=failed)
+            profile_data = profile.model_dump()
+            if profile.skin_tone:
+                color_recommendations = color_service.get_color_recommendations(profile.skin_tone)
+            if profile.body_type:
+                fit_recommendations = body_service.get_fit_recommendations(profile.body_type)
             quality_feedback = {
                 "images_processed": len(processed_images),
-                "needs_more_images": needs_more,
-                "recommendation": recommendation
+                **profile.analysis_quality.model_dump(),
             }
         
         return {
@@ -320,4 +271,3 @@ async def create_avatar_full(
     except Exception as e:
         logger.error(f"❌ Full avatar creation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create avatar: {str(e)}")
-
