@@ -1,6 +1,6 @@
 # Agent Memory — backend/app/routers
 
-Last updated: 2026-04-28
+Last updated: 2026-09-11
 
 ## Purpose
 
@@ -39,6 +39,14 @@ Routers are included from `backend/app/main.py` with `/api` prefix.
     - `has_avatar` (boolean)
 
 ### Existing Core Routes (high-impact)
+
+- `POST /api/profile/analyze`: authenticated multipart `files` (1–4) and
+  `stage=auto|color|fit`; persists independent progress through the style service.
+  Provider failure returns structured `status=failed` with saved retry state;
+  storage failure returns 503. Usable prior recommendations are retained.
+- `GET /api/profile`: includes additive `profile.style_analysis` stage progress.
+- `POST /api/create-avatar-full`: opt-in analysis shares the staged service;
+  evaluates originals, never a generated avatar. Standard avatar flow is unchanged.
 
 - `POST /api/process-garment`
 - `POST /api/process-uploaded-clothes`
@@ -79,6 +87,9 @@ Client request -> auth dependency -> parse request model/form-data -> call servi
 - Signed URL access can expire; clients should refresh via API calls rather than caching forever.
 
 ## Verification
+
+- `python -m unittest discover -s backend/tests` from the repo root in a backend
+  test environment; disable dotenv loading for credential-free mocked tests.
 
 - `python3 -m compileall backend/app`
 - For endpoint smoke tests, run backend and call route with Bearer token.

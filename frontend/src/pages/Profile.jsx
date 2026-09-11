@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { 
   ChevronLeft, User, LogOut, AlertCircle, Sparkles, Camera, MapPin
 } from 'lucide-react'
@@ -8,6 +8,8 @@ import { useAuth } from '../context/AuthContext'
 import LoadingOverlay from '../components/LoadingOverlay'
 import BottomNav from '../components/BottomNav'
 import ResilientImage from '../components/ResilientImage'
+import StyleAnalysisProgress from '../components/StyleAnalysisProgress'
+import { validateStylePhotos } from '../utils/styleAnalysis'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -31,6 +33,12 @@ const colorNameToHex = {
   'silver': '#C0C0C0', 'dark gray': '#A9A9A9', 'light gray': '#D3D3D3',
   'white': '#FFFFFF', 'off-white': '#FAF9F6',
   'muted colors': '#A9A9A9', 'muted': '#A9A9A9',
+  'rust': '#B7410E', 'burnt orange': '#CC5500', 'rose pink': '#FF66CC',
+  'soft white': '#F5F5F0', 'soft navy': '#3A4B66', 'pure white': '#FFFFFF',
+  'fuchsia': '#FF00FF', 'warm red': '#D94F3D', 'periwinkle': '#CCCCFF',
+  'moss green': '#8A9A5B', 'terracotta': '#E2725B', 'ice pink': '#F8E7EA',
+  'tomato red': '#FF6347', 'pastel pink': '#FFD1DC', 'icy blue': '#D6ECEF',
+  'muted earth tones': '#9B8B75',
 }
 
 const getColorHex = (colorName) => {
@@ -87,10 +95,12 @@ const popularCities = [
 
 export default function Profile() {
   const navigate = useNavigate()
-  const { avatarUrl, checkLegacyData, migrateLegacyData } = useWardrobe()
+  const { avatarUrl, userProfile, checkLegacyData, migrateLegacyData, analyzeProfile, fetchProfile: loadSharedProfile } = useWardrobe()
   const { getIdToken, signOut } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const analysisStage = ['color', 'fit'].includes(searchParams.get('analysis')) ? searchParams.get('analysis') : 'auto'
   
-  const [profile, setProfile] = useState(null)
+  const profile = userProfile
   const [colorRecs, setColorRecs] = useState(null)
   const [fitRecs, setFitRecs] = useState(null)
   const [error, setError] = useState(null)
@@ -117,44 +127,47 @@ export default function Profile() {
 
   const fetchProfile = useCallback(async () => {
     try {
-      const response = await authFetch(`${API_URL}/api/profile`)
-      const data = await response.json()
+      const data = await loadSharedProfile()
+      if (data?.error) setError(data.error)
       
-      if (data.profile) {
-        setProfile(data.profile)
+      if (data?.profile) {
         if (data.profile.location) {
           setLocation(data.profile.location)
-        }
-        
-        if (data.profile.skin_tone) {
-          try {
-            const colorRes = await authFetch(`${API_URL}/api/profile/color-recommendations`)
-            if (colorRes.ok) {
-              const colorData = await colorRes.json()
-              setColorRecs(colorData.recommendations)
-            }
-          } catch {
-            console.log('Color recommendations not available')
-          }
-        }
-        
-        if (data.profile.body_type) {
-          try {
-            const fitRes = await authFetch(`${API_URL}/api/profile/fit-recommendations`)
-            if (fitRes.ok) {
-              const fitData = await fitRes.json()
-              setFitRecs(fitData.recommendations)
-            }
-          } catch {
-            console.log('Fit recommendations not available')
-          }
         }
       }
     } catch (err) {
       console.error('Failed to fetch profile:', err)
       setError('Failed to load profile')
     }
-  }, [authFetch])
+  }, [loadSharedProfile])
+
+  // Also refresh results when an upload completes after navigating away and back.
+  useEffect(() => {
+    let active = true
+    const loadRecommendations = async () => {
+      const load = async (available, kind) => {
+        if (!available) return null
+        const response = await authFetch(`${API_URL}/api/profile/${kind}-recommendations`)
+        if (!response.ok) throw new Error('Could not load your recommendations. Please reload to retry.')
+        return (await response.json()).recommendations
+      }
+      try {
+        const [colors, fits] = await Promise.allSettled([
+          load(profile?.skin_tone, 'color'), load(profile?.body_type, 'fit'),
+        ])
+        if (active) {
+          if (colors.status === 'fulfilled') setColorRecs(colors.value)
+          if (fits.status === 'fulfilled') setFitRecs(fits.value)
+          const failure = [colors, fits].find(result => result.status === 'rejected')
+          if (failure) setError(failure.reason.message)
+        }
+      } catch (err) {
+        if (active) setError(err.message)
+      }
+    }
+    loadRecommendations()
+    return () => { active = false }
+  }, [authFetch, profile?.skin_tone, profile?.body_type])
 
   useEffect(() => {
     fetchProfile()
@@ -236,7 +249,11 @@ export default function Profile() {
 
   const handleFileChange = (e) => {
     if (e.target.files) {
-      setSelectedFiles(Array.from(e.target.files))
+      const files = Array.from(e.target.files)
+      const message = validateStylePhotos(files)
+      setError(message)
+      setSelectedFiles(message ? [] : files)
+      e.target.value = ''
     }
   }
 
@@ -247,27 +264,17 @@ export default function Profile() {
     setError(null)
     
     try {
-      const formData = new FormData()
-      selectedFiles.forEach(file => formData.append('files', file))
-      
-      const response = await authFetch(`${API_URL}/api/profile/analyze`, {
-        method: 'POST',
-        body: formData
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        setProfile(data.profile)
-        setColorRecs(data.color_recommendations)
-        setFitRecs(data.fit_recommendations)
-        setSelectedFiles([])
+      const data = await analyzeProfile(selectedFiles, analysisStage)
+      setColorRecs(data.color_recommendations)
+      setFitRecs(data.fit_recommendations)
+      if (data.status === 'failed') {
+        setError('Analysis is temporarily unavailable. Your photos are still selected so you can retry.')
       } else {
-        const errData = await response.json()
-        setError(errData.detail || 'Failed to analyze profile')
+        setSelectedFiles([])
       }
     } catch (err) {
       console.error('Profile analysis failed:', err)
-      setError('Failed to analyze profile')
+      setError(err.message || 'Failed to analyze profile')
     } finally {
       setIsAnalyzing(false)
     }
@@ -275,11 +282,9 @@ export default function Profile() {
 
   const skinTone = profile?.skin_tone
   const bodyType = profile?.body_type
-  const analysisQuality = profile?.analysis_quality
 
   return (
     <div className="min-h-screen safe-top safe-bottom" style={{ background: 'var(--bg-primary)' }}>
-      {isAnalyzing && <LoadingOverlay message="Analyzing your photos..." />}
       {isMigrating && <LoadingOverlay message="Migrating your previous data..." />}
       
       {/* Error Toast */}
@@ -439,6 +444,20 @@ export default function Profile() {
               
               {/* Action Buttons — stacked to avoid truncation */}
               <div className="flex flex-col gap-3">
+                <label className="text-sm text-left" style={{ color: 'var(--text-secondary)' }}>
+                  Analysis focus
+                  <select
+                    className="w-full mt-1 rounded-lg p-2"
+                    style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                    value={analysisStage}
+                    disabled={isAnalyzing}
+                    onChange={event => setSearchParams({ analysis: event.target.value }, { replace: true })}
+                  >
+                    <option value="auto">Continue my analysis</option>
+                    <option value="color">Refine my colors</option>
+                    <option value="fit">Analyze my fit</option>
+                  </select>
+                </label>
                 <label className="cursor-pointer">
                   <div className="btn-primary w-full">
                     <Sparkles className="w-4 h-4" />
@@ -446,12 +465,25 @@ export default function Profile() {
                   </div>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                     multiple
                     onChange={handleFileChange}
                     className="hidden"
+                    aria-label="Choose style analysis photos"
+                    disabled={isAnalyzing}
                   />
                 </label>
+                <p className="text-xs text-left" style={{ color: 'var(--text-secondary)' }}>
+                  Start with a face photo in natural light. Add a full-length photo for better fit guidance. Choose up to 4 JPEG, PNG, or WebP photos, 10 MB each.
+                </p>
+                <p className="text-xs text-left" style={{ color: 'var(--text-secondary)' }}>
+                  These photos are sent for AI analysis. Wardrub saves your results, not these uploads. You can continue using your wardrobe and come back later.
+                </p>
+                {isAnalyzing && (
+                  <p role="status" className="text-sm text-left" style={{ color: 'var(--text-secondary)' }}>
+                    Checking your photos. This can take up to a minute; your saved recommendations remain available below.
+                  </p>
+                )}
                 
                 <button
                   onClick={() => setShowLocationPicker(!showLocationPicker)}
@@ -505,15 +537,7 @@ export default function Profile() {
                 </div>
               )}
               
-              {/* Quality feedback */}
-              {analysisQuality?.needs_more_images && (
-                <div className="mt-4 p-3 rounded-xl flex items-center justify-center gap-2" style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.2)' }}>
-                  <AlertCircle className="w-4 h-4" style={{ color: '#fbbf24' }} />
-                  <p className="text-xs" style={{ color: '#fbbf24' }}>
-                    {analysisQuality.recommendation || 'Add more photos for better results'}
-                  </p>
-                </div>
-              )}
+              <StyleAnalysisProgress profile={profile} />
             </div>
           </div>
 

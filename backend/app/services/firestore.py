@@ -1,6 +1,8 @@
 """Firestore service for persistent storage of profiles and garment metadata."""
 
 from datetime import datetime
+import asyncio
+from threading import Lock
 from typing import Optional, List, Dict, Any
 
 from app.config import get_settings
@@ -12,6 +14,7 @@ from app.models.magazine_feed import MagazineFeed, LookFeedback
 
 settings = get_settings()
 logger = get_logger("firestore")
+_style_profile_lock = Lock()
 
 import json
 import os
@@ -196,6 +199,41 @@ class FirestoreService:
                 return UserProfile(**data)
             return None
     
+    async def apply_style_analysis(self, evidence, stages, user_id: str, failed=False) -> UserProfile:
+        """Atomically merge analysis into the latest profile; propagate write failures."""
+        from app.services.style_analysis import merge_analysis
+
+        def persist():
+            client = self.client
+            if client is None:
+                # Never report a successful production save to process-local storage.
+                if not settings.ALLOW_DEV_AUTH_BYPASS:
+                    raise RuntimeError("Profile storage is unavailable")
+                with _style_profile_lock:
+                    current = UserProfile(**(_memory_profiles.get(user_id) or {}))
+                    profile = merge_analysis(current, evidence, stages, failed)
+                    _memory_profiles[user_id] = profile.model_dump()
+                    return profile
+
+            from google.cloud import firestore as cloud_firestore
+            doc_ref = client.collection(self.PROFILES_COLLECTION).document(user_id)
+
+            @cloud_firestore.transactional
+            def update(transaction):
+                snapshot = doc_ref.get(transaction=transaction)
+                current = UserProfile(**(snapshot.to_dict() or {}))
+                profile = merge_analysis(current, evidence, stages, failed)
+                data = profile.model_dump()
+                # Preserve unknown fields and preference edits made during analysis.
+                fields = ("skin_tone", "body_type", "body_measurements", "style_analysis",
+                          "analysis_quality", "created_at", "updated_at")
+                transaction.set(doc_ref, {key: data[key] for key in fields}, merge=True)
+                return profile
+
+            return update(client.transaction())
+
+        return await asyncio.to_thread(persist)
+
     async def save_user_profile(
         self, 
         profile: UserProfile, 

@@ -1,6 +1,6 @@
 # Agent Memory — backend/app
 
-Last updated: 2026-04-28
+Last updated: 2026-09-11
 
 ## Purpose
 
@@ -67,6 +67,7 @@ HTTP request -> middleware (CORS, auth, request logging) -> router endpoint -> s
 
 | Date | Change | Files |
 |---|---|---|
+| 2026-09-11 | Added progressive color/fit analysis and atomic profile merging | `models/user_profile.py`, `services/style_analysis.py`, `services/firestore.py`, `routers/profile.py`, `routers/avatar.py` |
 | 2026-04-28 | Added extension router registration | `backend/app/main.py` |
 
 ## Open Questions

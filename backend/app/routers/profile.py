@@ -1,28 +1,28 @@
 """User profile router for analysis and management."""
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Body, Depends
-from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Body, Depends
+from typing import List, Optional, Dict, Any, Literal
+import asyncio
 
 from app.services.firestore import FirestoreService
 from app.services.color_analysis import ColorAnalysisService
 from app.services.body_analysis import BodyAnalysisService
-from app.services.quality_assessment import QualityAssessmentService
-from app.services.storage import StorageService
+from app.services.style_analysis import (
+    StyleAnalysisService, MAX_PHOTOS, MAX_PHOTO_BYTES, prepare_photo, select_stages,
+)
 from app.services.auth import get_current_user
 from app.logging_config import get_logger
 from app.models.user_profile import (
     UserProfile,
     UserProfileUpdate,
     Location,
-    AnalysisQuality,
 )
 
 router = APIRouter()
 firestore = FirestoreService()
 color_service = ColorAnalysisService()
 body_service = BodyAnalysisService()
-quality_service = QualityAssessmentService()
-storage = StorageService()
+style_service = StyleAnalysisService()
 logger = get_logger("profile")
 
 
@@ -59,146 +59,46 @@ async def get_profile(user: Dict[str, Any] = Depends(get_current_user)):
 
 @router.post("/profile/analyze")
 async def analyze_profile(
-    files: List[UploadFile] = File(..., description="One or more full-body photos"),
-    user: Dict[str, Any] = Depends(get_current_user)
+    files: List[UploadFile] = File(..., description="1–4 original face or full-length photos"),
+    user: Dict[str, Any] = Depends(get_current_user),
+    stage: Literal["auto", "color", "fit"] = Form("auto"),
 ):
-    """
-    Analyze uploaded photos to create/update user profile.
-    
-    Analyzes:
-    - Skin tone (undertone, depth, seasonal color type)
-    - Body type
-    - Best colors for the user
-    
-    Args:
-        files: List of user photos (full body preferred)
-        user: Authenticated user from token
-    
-    Returns:
-        Analyzed profile with quality metrics
-    """
+    """Refine independent analysis stages without discarding existing results."""
     user_id = user["uid"]
-    logger.info(f"Profile analysis - received {len(files)} files for user: {user_id}")
-    
-    if not files:
-        raise HTTPException(status_code=400, detail="Please upload at least one photo")
-    
+    if not files or len(files) > MAX_PHOTOS:
+        raise HTTPException(status_code=400, detail="Upload between 1 and 4 photos.")
+    photos = []
+    for file in files:
+        raw = await file.read(MAX_PHOTO_BYTES + 1)
+        if len(raw) > MAX_PHOTO_BYTES:
+            raise HTTPException(status_code=413, detail="Each photo must be no larger than 10 MB.")
+        try:
+            photos.append(await asyncio.to_thread(prepare_photo, raw))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     try:
-        # Process each image
-        analyzed_images = []
-        source_urls = []
-        
-        for i, file in enumerate(files):
-            image_bytes = await file.read()
-            if not image_bytes:
-                continue
-            
-            logger.info(f"Processing image {i+1}/{len(files)}: {len(image_bytes)} bytes")
-            
-            # Check image quality
-            quality = await quality_service.assess_image_quality(image_bytes)
-            
-            if not quality["is_acceptable"]:
-                logger.warning(f"Image {i+1} quality too low: {quality['issues']}")
-                continue
-            
-            # Store source image
-            import uuid
-            source_id = str(uuid.uuid4())
-            # Note: We'll upload to a sources folder for reference
-            source_url = f"avatars/sources/{source_id}.png"
-            
-            analyzed_images.append({
-                "bytes": image_bytes,
-                "quality": quality,
-                "source_url": source_url
-            })
-            source_urls.append(source_url)
-        
-        if not analyzed_images:
-            raise HTTPException(
-                status_code=400,
-                detail="None of the uploaded images were acceptable quality. Please try better lighting."
-            )
-        
-        # Use best quality image for analysis
-        best_image = max(analyzed_images, key=lambda x: x["quality"]["score"])
-        image_bytes = best_image["bytes"]
-        
-        # Analyze skin tone
-        logger.info("Analyzing skin tone...")
-        skin_tone, skin_confidence = await color_service.analyze_skin_tone(image_bytes)
-        
-        # Analyze body type
-        logger.info("Analyzing body type...")
-        body_type, measurements, body_confidence = await body_service.analyze_body_type(image_bytes)
-        
-        # Determine if more images would help
-        needs_more = (
-            (skin_confidence < 0.7 if skin_tone else True) or
-            (body_confidence < 0.7 if body_type else True) or
-            len(analyzed_images) < 2
-        )
-        
-        recommendation = None
-        if needs_more:
-            if not skin_tone or skin_confidence < 0.7:
-                recommendation = "Add a well-lit face photo for better skin tone analysis"
-            elif not body_type or body_confidence < 0.7:
-                recommendation = "Add a full-body photo for better body type analysis"
-            else:
-                recommendation = "Adding more photos can improve recommendation accuracy"
-        
-        # Get or create profile
-        existing_profile = await firestore.get_user_profile(user_id)
-        
-        profile = UserProfile(
-            skin_tone=skin_tone,
-            body_type=body_type,
-            body_measurements=measurements,
-            style_preferences=existing_profile.style_preferences if existing_profile else [],
-            location=existing_profile.location if existing_profile else None,
-            source_images=source_urls,
-            analysis_quality=AnalysisQuality(
-                skin_tone_confidence=skin_confidence,
-                body_type_confidence=body_confidence,
-                needs_more_images=needs_more,
-                recommendation=recommendation
-            )
-        )
-        
-        # Save profile
-        await firestore.save_user_profile(profile, user_id)
-        
-        # Get color recommendations
-        color_recommendations = None
-        if skin_tone:
-            color_recommendations = color_service.get_color_recommendations(skin_tone)
-        
-        # Get fit recommendations
-        fit_recommendations = None
-        if body_type:
-            fit_recommendations = body_service.get_fit_recommendations(body_type)
-        
-        logger.info(f"Profile analysis complete - skin: {skin_tone}, body: {body_type}")
-        
-        return {
-            "profile": profile.model_dump(),
-            "color_recommendations": color_recommendations,
-            "fit_recommendations": fit_recommendations,
-            "quality": {
-                "images_analyzed": len(analyzed_images),
-                "needs_more_images": needs_more,
-                "recommendation": recommendation
-            },
-            "status": "analyzed"
-        }
-        
-    except HTTPException:
-        raise
+        existing = await firestore.get_user_profile(user_id) or UserProfile()
+        stages = select_stages(existing, stage)
+        failed = False
+        try:
+            evidence = await style_service.analyze(photos)
+        except Exception:
+            logger.warning("Style analysis provider failed", exc_info=True)
+            evidence, failed = None, True
+        profile = await firestore.apply_style_analysis(evidence, stages, user_id, failed=failed)
     except Exception as e:
-        logger.error(f"Profile analysis failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Profile analysis failed: {str(e)}")
+        logger.error("Failed to persist style analysis", exc_info=True)
+        raise HTTPException(status_code=503, detail="Could not save your analysis. Please retry.") from e
+
+    # Return persisted stage failures as structured state so clients can offer retry.
+    return {
+        "profile": profile.model_dump(),
+        "color_recommendations": color_service.get_color_recommendations(profile.skin_tone) if profile.skin_tone else None,
+        "fit_recommendations": body_service.get_fit_recommendations(profile.body_type) if profile.body_type else None,
+        "quality": {"images_analyzed": len(photos), **profile.analysis_quality.model_dump()},
+        "status": "failed" if failed else "analyzed",
+    }
 
 
 @router.put("/profile")
@@ -458,4 +358,3 @@ async def migrate_legacy_data(user: Dict[str, Any] = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Migration failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
-
