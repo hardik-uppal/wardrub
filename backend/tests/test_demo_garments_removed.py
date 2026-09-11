@@ -3,7 +3,7 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from fastapi import HTTPException
 
@@ -12,6 +12,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.models.garment import GarmentMetadata
+from app.models.user_profile import UserProfile
 from app.routers import garment as garment_router
 from app.routers import outfit as outfit_router
 from app.services import firestore as firestore_module
@@ -130,12 +131,63 @@ class DemoGarmentRemovalTests(unittest.IsolatedAsyncioTestCase):
         )
         service = MagazineFeedService()
         service.firestore.get_magazine_feed = AsyncMock(return_value=cached_demo_feed)
-        service.firestore.get_user_profile = AsyncMock(return_value=None)
+        service.firestore.ensure_user_profile = AsyncMock(return_value=UserProfile())
+        service.firestore.list_garments_metadata = AsyncMock(return_value=[])
 
         result = await service.generate_magazine_feed("user-1")
 
         self.assertIsNone(result)
-        service.firestore.get_user_profile.assert_awaited_once_with("user-1")
+        service.firestore.ensure_user_profile.assert_awaited_once_with("user-1")
+
+    async def test_profileless_legacy_user_gets_neutral_feed(self):
+        service = MagazineFeedService()
+        garments = [
+            make_garment(f"garment-{i}")
+            for i in range(10)
+        ]
+        service.firestore.get_magazine_feed = AsyncMock(return_value=None)
+        service.firestore.ensure_user_profile = AsyncMock(return_value=UserProfile())
+        service.firestore.list_garments_metadata = AsyncMock(return_value=garments)
+        service.firestore.list_user_feedback = AsyncMock(return_value=[])
+        service.firestore.save_magazine_feed = AsyncMock(return_value=True)
+        service.scorer.generate_top_outfits = Mock(return_value=[SimpleNamespace(
+            garment_ids=["garment-0", "garment-1"],
+            overall_score=0.9,
+            items=[SimpleNamespace(description="top"), SimpleNamespace(description="bottom")],
+        )])
+        editorial = {
+            "cover_look": {
+                "title": "Neutral Layers",
+                "garment_ids": ["garment-0", "garment-1"],
+                "hero_item_id": "garment-0",
+                "why_it_works": "Balanced essentials.",
+                "score": 0.9,
+            },
+            "daily_fits": [],
+            "one_item_three_ways": [],
+            "underused_edit": {
+                "title": "Fresh Rotation",
+                "garment_ids": ["garment-2", "garment-3"],
+                "hero_item_id": "garment-2",
+                "why_it_works": "A useful new pairing.",
+                "score": 0.85,
+            },
+        }
+        generate = Mock(return_value=SimpleNamespace(candidates=[SimpleNamespace(
+            content=SimpleNamespace(parts=[SimpleNamespace(text=__import__("json").dumps(editorial))])
+        )]))
+        client = SimpleNamespace(models=SimpleNamespace(generate_content=generate))
+
+        with patch.object(service, "_get_gemini_client", return_value=client):
+            result = await service.generate_magazine_feed("legacy-user")
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.user_id, "legacy-user")
+        service.firestore.ensure_user_profile.assert_awaited_once_with("legacy-user")
+        service.firestore.save_magazine_feed.assert_awaited_once()
+        prompt = generate.call_args.kwargs["contents"][0]
+        self.assertIn("Undertone: neutral", prompt)
+        self.assertNotIn("named Hardik", prompt)
 
     async def test_regenerate_rejects_underfilled_real_wardrobe(self):
         with patch.object(

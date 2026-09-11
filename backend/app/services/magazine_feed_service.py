@@ -88,10 +88,9 @@ class MagazineFeedService:
         logger.info(f"Starting magazine feed generation for user {user_id}...")
 
         # 1. Fetch dependencies
-        user_profile = await self.firestore.get_user_profile(user_id)
-        if not user_profile:
-            logger.warning(f"No user profile found for {user_id}")
-            return None
+        # Older accounts may predate profile onboarding. Initialize a neutral,
+        # non-inferred profile so a complete wardrobe can still receive a feed.
+        user_profile = await self.firestore.ensure_user_profile(user_id)
 
         # Fetch garments
         garments = await self.firestore.list_garments_metadata(user_id=user_id)
@@ -184,7 +183,7 @@ class MagazineFeedService:
         profile_desc = f"Undertone: {user_profile.skin_tone.undertone if user_profile.skin_tone else 'neutral'}. Season: {user_profile.skin_tone.season if user_profile.skin_tone else 'all-season'}."
         weather_desc = f"{weather_dict['temperature']}°C, {weather_dict['description']} in {location_str}."
 
-        prompt = f"""You are a high-end fashion editor at Vogue. Your task is to compile a highly personalized daily style magazine feed for a user named Hardik.
+        prompt = f"""You are a high-end fashion editor at Vogue. Your task is to compile a highly personalized daily style magazine feed for this user.
 
 Context:
 - User Profile: {profile_desc}

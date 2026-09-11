@@ -166,6 +166,38 @@ class FirestoreService:
     # User Profile Operations
     # =========================================================================
     
+    async def ensure_user_profile(self, user_id: str) -> UserProfile:
+        """Return the user's profile, creating a non-inferred default if absent."""
+        try:
+            if self._use_memory or self.client is None:
+                if not settings.ALLOW_DEV_AUTH_BYPASS:
+                    raise RuntimeError("Profile storage is unavailable")
+                data = _memory_profiles.get(user_id)
+                if data:
+                    return UserProfile(**data)
+                profile = UserProfile()
+                _memory_profiles[user_id] = profile.model_dump()
+                return profile
+
+            doc_ref = self.client.collection(self.PROFILES_COLLECTION).document(user_id)
+            snapshot = doc_ref.get()
+            if snapshot.exists:
+                return UserProfile(**snapshot.to_dict())
+
+            profile = UserProfile()
+            try:
+                # create() is atomic and will not overwrite a profile created concurrently.
+                doc_ref.create(profile.model_dump())
+                return profile
+            except Exception:
+                snapshot = doc_ref.get()
+                if snapshot.exists:
+                    return UserProfile(**snapshot.to_dict())
+                raise
+        except Exception:
+            logger.error("Failed to ensure user profile for %s", user_id, exc_info=True)
+            raise
+
     async def get_user_profile(self, user_id: str = LEGACY_USER_ID) -> Optional[UserProfile]:
         """
         Get user profile from Firestore or memory.

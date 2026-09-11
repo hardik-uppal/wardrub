@@ -44,7 +44,8 @@ Routers are included from `backend/app/main.py` with `/api` prefix.
   `stage=auto|color|fit`; persists independent progress through the style service.
   Provider failure returns structured `status=failed` with saved retry state;
   storage failure returns 503. Usable prior recommendations are retained.
-- `GET /api/profile`: includes additive `profile.style_analysis` stage progress.
+- `GET /api/profile`: includes additive `profile.style_analysis` stage progress and
+  idempotently initializes a non-inferred default profile for legacy/new accounts.
 - `POST /api/create-avatar-full`: opt-in analysis shares the staged service;
   evaluates originals, never a generated avatar. Standard avatar flow is unchanged.
 
