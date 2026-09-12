@@ -9,4 +9,6 @@ Last updated: 2026-09-11. Scope: Profile style analysis.
 - Original analysis photos are sent to AI but not retained by this upload endpoint.
 - Recommendation fetch effects cancel stale UI updates when profile data changes.
 - `analysis` query parameter is the focus used by onboarding widget links.
+- Profile mount uses the shared cached bootstrap read; successful location edits or
+  legacy migration request an explicit fresh read that supersedes older requests.
 - Verify `Profile.test.jsx` plus mobile/desktop `e2e/style-analysis.spec.js`.

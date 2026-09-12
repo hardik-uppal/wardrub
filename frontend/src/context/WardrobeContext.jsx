@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext'
 import { buildMultiTryOnGarments } from '../utils/tryOn'
 import { trackActivationEvent } from '../utils/analytics'
 import { validateStylePhotos } from '../utils/styleAnalysis'
+import { createReadCache } from '../utils/readCache'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -13,6 +14,12 @@ const CACHE_TTL = 5 * 60 * 1000
 const WardrobeContext = createContext(null)
 
 export function WardrobeProvider({ children }) {
+  const { user } = useAuth()
+  // Remount all private data/cache on identity changes, including direct account switches.
+  return <WardrobeSession key={user?.uid || 'signed-out'}>{children}</WardrobeSession>
+}
+
+function WardrobeSession({ children }) {
   const { getIdToken, user } = useAuth()
   
   const [avatarUrl, setAvatarUrl] = useState(null)
@@ -24,23 +31,9 @@ export function WardrobeProvider({ children }) {
   const [userProfile, setUserProfile] = useState(null)
   const profileRevision = useRef(0)
   
-  // Cache timestamps to prevent duplicate fetches
-  const cacheTimestamps = useRef({
-    avatar: 0,
-    garments: 0,
-    looks: 0,
-    profile: 0
-  })
-  
-  // Check if cache is still valid
-  const isCacheValid = (key) => {
-    return Date.now() - cacheTimestamps.current[key] < CACHE_TTL
-  }
-  
-  // Invalidate specific cache
-  const invalidateCache = (key) => {
-    cacheTimestamps.current[key] = 0
-  }
+  const readCache = useRef(createReadCache(CACHE_TTL))
+  const garmentSelection = useRef(0)
+  const invalidateCache = (key) => readCache.current.invalidate(key)
 
   // Helper to make authenticated fetch requests
   const authFetch = useCallback(async (url, options = {}) => {
@@ -65,23 +58,27 @@ export function WardrobeProvider({ children }) {
     return response
   }, [getIdToken])
 
-  const fetchAvatar = useCallback(async (force = false) => {
-    // Skip if cache is valid and not forced
-    if (!force && isCacheValid('avatar') && avatarUrl) {
-      return
-    }
-    
+  const readJson = useCallback(async (url) => {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30000)
     try {
-      const response = await authFetch(`${API_URL}/api/avatar`)
-      const data = await response.json()
-      if (data.avatar_url) {
-        setAvatarUrl(data.avatar_url)
-        cacheTimestamps.current.avatar = Date.now()
-      }
+      const response = await authFetch(url, { signal: controller.signal })
+      if (!response.ok) throw new Error('Could not load data. Please retry.')
+      return await response.json()
+    } finally {
+      clearTimeout(timeout)
+    }
+  }, [authFetch])
+
+  const fetchAvatar = useCallback(async (force = false) => {
+    if (!user) return
+    try {
+      const result = await readCache.current.read('avatar', () => readJson(`${API_URL}/api/avatar`), force)
+      if (result.isCurrent()) setAvatarUrl(result.value.avatar_url || null)
     } catch (err) {
       console.error('Failed to fetch avatar:', err)
     }
-  }, [authFetch, avatarUrl])
+  }, [readJson, user])
 
   // Fetch avatar when user changes
   useEffect(() => {
@@ -93,53 +90,42 @@ export function WardrobeProvider({ children }) {
       setGarments([])
       setLooks([])
       setUserProfile(null)
-      // Reset all cache timestamps
-      cacheTimestamps.current = {
-        avatar: 0,
-        garments: 0,
-        looks: 0,
-        profile: 0
-      }
+      readCache.current = createReadCache(CACHE_TTL)
     }
   }, [user, fetchAvatar])
 
   const fetchGarments = useCallback(async (category = null, force = false) => {
-    // Skip if cache is valid and not forced (only for "all" category)
-    if (!force && !category && isCacheValid('garments') && garments.length > 0) {
-      return
-    }
-    
+    if (!user) return
+    const selection = ++garmentSelection.current
     try {
-      const url = category 
-        ? `${API_URL}/api/wardrobe?category=${category}`
+      const url = category
+        ? `${API_URL}/api/wardrobe?category=${encodeURIComponent(category)}`
         : `${API_URL}/api/wardrobe`
-      const response = await authFetch(url)
-      const data = await response.json()
-      setGarments(data.garments || [])
-      if (!category) {
-        cacheTimestamps.current.garments = Date.now()
-      }
+      const result = await readCache.current.read(`garments:${category || 'all'}`, async () => {
+        const data = await readJson(url)
+        if (!Array.isArray(data.garments)) throw new Error('Invalid wardrobe response')
+        return data
+      }, force)
+      if (result.isCurrent() && selection === garmentSelection.current) setGarments(result.value.garments)
     } catch (err) {
       console.error('Failed to fetch garments:', err)
-      setError('Failed to load wardrobe')
+      if (selection === garmentSelection.current) setError('Failed to load wardrobe')
     }
-  }, [authFetch, garments.length])
+  }, [readJson, user])
 
   const fetchLooks = useCallback(async (force = false) => {
-    // Skip if cache is valid and not forced
-    if (!force && isCacheValid('looks') && looks.length > 0) {
-      return
-    }
-    
+    if (!user) return
     try {
-      const response = await authFetch(`${API_URL}/api/try-on/history`)
-      const data = await response.json()
-      setLooks(data.results || [])
-      cacheTimestamps.current.looks = Date.now()
+      const result = await readCache.current.read('looks', async () => {
+        const data = await readJson(`${API_URL}/api/try-on/history`)
+        if (!Array.isArray(data.results)) throw new Error('Invalid history response')
+        return data
+      }, force)
+      if (result.isCurrent()) setLooks(result.value.results)
     } catch (err) {
       console.error('Failed to fetch looks:', err)
     }
-  }, [authFetch, looks.length])
+  }, [readJson, user])
 
   const processGarment = async (frontFile, backFile, category, ghostMannequin = true) => {
     setIsLoading(true)
@@ -230,6 +216,7 @@ export function WardrobeProvider({ children }) {
       
       // Add all detected garments to local state
       if (data.garments && data.garments.length > 0) {
+        invalidateCache('garments')
         setGarments(prev => [...prev, ...data.garments.map(g => ({
           id: g.id,
           url: g.front_url,
@@ -336,6 +323,7 @@ export function WardrobeProvider({ children }) {
       
       // Add to looks
       if (data.result_url) {
+        invalidateCache('looks')
         setLooks(prev => [{
           id: data.id || Date.now().toString(),
           url: data.result_url,
@@ -401,6 +389,7 @@ export function WardrobeProvider({ children }) {
       
       // Add to looks
       if (data.result_url) {
+        invalidateCache('looks')
         setLooks(prev => [{
           id: data.id || Date.now().toString(),
           url: data.result_url,
@@ -494,6 +483,7 @@ export function WardrobeProvider({ children }) {
       }
 
       const data = await response.json()
+      invalidateCache('looks')
       setLooks(prev => prev.map(look => (
         look.id === lookId ? { ...look, ...data } : look
       )))
@@ -513,27 +503,27 @@ export function WardrobeProvider({ children }) {
   const applyProfile = useCallback((profile) => {
     profileRevision.current += 1
     setUserProfile(profile)
-    cacheTimestamps.current.profile = Date.now()
+    readCache.current.invalidate('profile')
   }, [])
 
-  const fetchProfile = useCallback(async () => {
+  const fetchProfile = useCallback(async (force = true) => {
+    if (!user) return
+    if (force) readCache.current.invalidate('profile')
     const revision = profileRevision.current
     try {
-      const response = await authFetch(`${API_URL}/api/profile`)
-      if (!response.ok) throw new Error('Failed to fetch profile')
-      const data = await response.json()
-      // A slow initial read must not replace the result of a newer analysis.
-      if (revision !== profileRevision.current) return null
-      applyProfile(data.profile || null)
-      return data
+      // Explicit Profile reloads supersede reads started before direct location edits.
+      const result = await readCache.current.read('profile', () => readJson(`${API_URL}/api/profile`), force)
+      if (!result.isCurrent() || revision !== profileRevision.current) return null
+      setUserProfile(result.value.profile || null)
+      return result.value
     } catch (err) {
       console.error('Failed to fetch profile:', err)
       return { error: 'Failed to load your profile. Please reload to retry.' }
     }
-  }, [authFetch, applyProfile])
+  }, [readJson, user])
 
   useEffect(() => {
-    if (user) fetchProfile()
+    if (user) fetchProfile(false)
   }, [user, fetchProfile])
 
   const analyzeProfile = async (files, stage = 'auto') => {
@@ -584,6 +574,8 @@ export function WardrobeProvider({ children }) {
         throw new Error('Failed to update location')
       }
 
+      profileRevision.current += 1
+      invalidateCache('profile')
       setUserProfile(prev => prev ? {
         ...prev,
         location: { lat, lon, city }
@@ -638,6 +630,7 @@ export function WardrobeProvider({ children }) {
 
       const data = await response.json()
       
+      invalidateCache('garments')
       setGarments(prev => [...prev, {
         id: data.id,
         url: data.front_url,
@@ -691,10 +684,11 @@ export function WardrobeProvider({ children }) {
       }
 
       const data = await response.json()
+      invalidateCache('avatar')
       setAvatarUrl(data.avatar_url)
       
       if (data.profile) {
-        setUserProfile(data.profile)
+        applyProfile(data.profile)
       }
       void trackActivationEvent('avatar_created', getIdToken, { mode })
 
@@ -726,10 +720,12 @@ export function WardrobeProvider({ children }) {
       const data = await response.json()
       
       // Refresh data after migration
-      await fetchAvatar()
-      await fetchGarments()
-      await fetchLooks()
-      await fetchProfile()
+      await Promise.all([
+        fetchAvatar(true),
+        fetchGarments(null, true),
+        fetchLooks(true),
+        fetchProfile(true),
+      ])
       
       return data
     } catch (err) {
