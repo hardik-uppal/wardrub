@@ -10,6 +10,7 @@ from app.services.recommendation import RecommendationEngine
 from app.services.weather import WeatherService
 from app.services.auth import get_current_user
 from app.logging_config import get_logger
+from app.product_events import emit_event
 from app.models.outfit import Occasion, OutfitRequest
 from app.jobs.daily_looks_generator import generate_daily_looks
 from app.jobs.scheduler import get_job_status
@@ -524,12 +525,14 @@ async def get_magazine_feed_endpoint(
     If the user has fewer than 10 garments, return onboarding status.
     """
     user_id = user["uid"]
+    emit_event("magazine_requested", user_id)
     logger.info(f"Retrieving magazine feed for user {user_id}")
     
     try:
         # Check garment onboarding gate
         garments = await firestore.list_garments_metadata(user_id=user_id)
         if len(garments) < 10:
+            emit_event("magazine_onboarding", user_id, garment_count=len(garments))
             return {
                 "status": "onboarding",
                 "count": len(garments),
@@ -547,6 +550,7 @@ async def get_magazine_feed_endpoint(
             "feed": feed.model_dump()
         }
     except Exception as e:
+        emit_event("magazine_failed", user_id)
         logger.error(f"Failed to fetch magazine feed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -559,12 +563,14 @@ async def regenerate_magazine_feed_endpoint(
     Force regenerate today's magazine feed.
     """
     user_id = user["uid"]
+    emit_event("magazine_requested", user_id)
     logger.info(f"Force regenerating magazine feed for user {user_id}")
     
     try:
         # Check garment onboarding gate
         garments = await firestore.list_garments_metadata(user_id=user_id)
         if len(garments) < 10:
+            emit_event("magazine_onboarding", user_id, garment_count=len(garments))
             raise HTTPException(
                 status_code=400,
                 detail="Not enough garments to generate feed. Need at least 10."
@@ -578,9 +584,12 @@ async def regenerate_magazine_feed_endpoint(
             "status": "success",
             "feed": feed.model_dump()
         }
-    except HTTPException:
+    except HTTPException as e:
+        if e.status_code >= 500:
+            emit_event("magazine_failed", user_id)
         raise
     except Exception as e:
+        emit_event("magazine_failed", user_id)
         logger.error(f"Failed to regenerate magazine feed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
