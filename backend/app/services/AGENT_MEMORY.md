@@ -1,6 +1,13 @@
 # Agent Memory — backend/app/services
 
-Last updated: 2026-09-11. Scope: progressive style analysis.
+Last updated: 2026-09-12. Scope: progressive style analysis and storage listing.
+
+- `StorageService.list_garments` and `list_tryon_results` never generate missing
+  thumbnails, in cloud or local mode. Missing derivative URLs stay null; existing
+  frontend consumers fall back to originals. Upload-time thumbnail creation is
+  unchanged. A separately bounded legacy backfill remains follow-up work.
+- Listing regression tests: `python -m unittest discover -s backend/tests -p test_storage_listing.py`.
+  This removes request-time derivative work, not signed-URL generation or blob listing.
 
 - `style_analysis.py` validates/normalizes original photos, asks Gemini for
   structured evidence across all photos in a submission, and merges stage state.
