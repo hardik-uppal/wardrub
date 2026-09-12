@@ -71,6 +71,22 @@ journeys use deterministic API fixtures; API/storage tests use mocked cloud
 transactions and isolated development records. No live Firestore, live weather,
 real-user data, or paid generation was used. No deployment or remote push occurred.
 
+## Deployment attempt — 2026-09-13
+
+User authorized deployment after passing checks. Origin main is still `d754dda`.
+The configured GitHub credentials report `pull=true`, `push=false`; the release
+branch cannot be pushed and the existing main-triggered deployment cannot run.
+No deployment was triggered and no cloud resources were changed.
+
+The exact CI command exposed a missing test import-path bootstrap that the earlier
+PYTHONPATH-based local invocation masked. Fixed `test_closet_ranker.py` to initialize
+the backend import root, consistent with the other repository tests. Re-ran
+`python -m unittest discover -s backend/tests`: all72 passed without PYTHONPATH.
+Frontend production source is unchanged since the passing62 tests/12 browser
+journeys/build. Resume release by obtaining GitHub write access, pushing the branch,
+running PR CI, and merging only on green checks; the deployment workflow validates
+again, then deploys Cloud Run followed by GitHub Pages. Verify both live endpoints.
+
 ## Next task
 
 Add durable decision/exposure/action records and reason-aware feedback, with

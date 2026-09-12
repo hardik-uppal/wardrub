@@ -1,4 +1,9 @@
 import unittest
+import sys
+from pathlib import Path
+
+# Match the repository CI invocation from the root, without PYTHONPATH setup.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock, patch
 from fastapi import FastAPI
