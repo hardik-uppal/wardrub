@@ -1,3 +1,5 @@
+import { isPhotoFile, PHOTO_FORMAT_MESSAGE } from './imageUploads'
+
 export const MAX_STYLE_PHOTOS = 4
 export const MAX_STYLE_PHOTO_BYTES = 10 * 1024 * 1024
 
@@ -28,8 +30,8 @@ export function validateStylePhotos(files) {
   if (files.some(file => file.size === 0 || file.size > MAX_STYLE_PHOTO_BYTES)) {
     return 'Each photo must be non-empty and no larger than 10 MB.'
   }
-  if (files.some(file => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type))) {
-    return 'Use JPEG, PNG, or WebP photos.'
+  if (files.some(file => !isPhotoFile(file))) {
+    return PHOTO_FORMAT_MESSAGE
   }
   return null
 }

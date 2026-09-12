@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useWardrobe } from '../context/WardrobeContext'
+import { isPhotoFile, PHOTO_ACCEPT } from '../utils/imageUploads'
+import UploadPreview from './UploadPreview'
 
 const MAX_PHOTOS = 5
 const MAX_BYTES = 10 * 1024 * 1024
@@ -32,8 +34,8 @@ export default function GalleryUpload() {
       setError(`Choose up to ${MAX_PHOTOS} photos per batch. Remove a photo or start a new batch.`)
       return
     }
-    if (files.some(file => file.size === 0 || file.size > MAX_BYTES || !file.type.startsWith('image/'))) {
-      setError('Choose image files between 1 byte and 10 MB each.')
+    if (files.some(file => file.size === 0 || file.size > MAX_BYTES || !isPhotoFile(file))) {
+      setError('Choose JPEG, PNG, WebP, HEIC, or HEIF files between 1 byte and 10 MB each.')
       return
     }
     setError('')
@@ -80,7 +82,7 @@ export default function GalleryUpload() {
   const failed = items.filter(item => item.status === 'failed')
   return <section className="px-5 py-4 space-y-4" aria-label="Gallery upload">
     <p>Up to 5 photos per batch, 10 MB each. Photos are processed one at a time.</p>
-    <input ref={input} type="file" accept="image/*" multiple onChange={select} disabled={busy} className="hidden" aria-label="Clothing photos" />
+    <input ref={input} type="file" accept={PHOTO_ACCEPT} multiple onChange={select} disabled={busy} className="hidden" aria-label="Clothing photos" />
     <button className="btn-primary" onClick={() => input.current?.click()} disabled={busy || items.length >= MAX_PHOTOS}>Select from Gallery</button>
     {error && <p role="alert">{error}</p>}
     <p>{items.length} photo(s) selected</p>
@@ -90,7 +92,7 @@ export default function GalleryUpload() {
     </div>
     <ul className="space-y-4">
       {items.map(item => <li key={item.id} className="rounded-xl border p-3">
-        <img src={item.preview} alt={`Preview of ${item.file.name}`} className="h-32 w-full object-contain" />
+        <UploadPreview src={item.preview} alt={`Preview of ${item.file.name}`} className="h-32 w-full object-contain" />
         <p className="break-all">{item.file.name}</p>
         <p role="status">{item.message}</p>
         <button disabled={busy} onClick={() => remove(item.id)} aria-label={`Remove ${item.file.name}`}>Remove</button>

@@ -80,7 +80,7 @@ describe('Profile style analysis', () => {
     render(<MemoryRouter><Profile /></MemoryRouter>)
     await screen.findByText('Coral')
     fireEvent.change(screen.getByLabelText('Choose style analysis photos'), { target: { files: [new File(['fake'], 'document.pdf', { type: 'application/pdf' })] } })
-    expect(screen.getByText('Use JPEG, PNG, or WebP photos.')).toBeInTheDocument()
+    expect(screen.getByText('Use JPEG, PNG, WebP, HEIC, or HEIF photos.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Analyze My Style' })).not.toBeInTheDocument()
     expect(mocks.analyzeProfile).not.toHaveBeenCalled()
   })

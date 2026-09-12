@@ -4,6 +4,8 @@ import { ArrowLeft, Camera, User, X, Sparkles, Upload, Image } from 'lucide-reac
 import { useWardrobe } from '../context/WardrobeContext'
 import LoadingOverlay from '../components/LoadingOverlay'
 import BottomNav from '../components/BottomNav'
+import UploadPreview from '../components/UploadPreview'
+import { PHOTO_ACCEPT } from '../utils/imageUploads'
 
 export default function CreateAvatar() {
   const navigate = useNavigate()
@@ -131,7 +133,7 @@ export default function CreateAvatar() {
       <input
         ref={uploadInputRef}
         type="file"
-        accept="image/*"
+        accept={PHOTO_ACCEPT}
         onChange={(e) => handleImageSelect(e, 'upload')}
         className="hidden"
       />
@@ -205,7 +207,7 @@ export default function CreateAvatar() {
           {previewUrl ? (
             <div className="flex flex-col items-center mb-8">
               <div className="relative w-52 rounded-md overflow-hidden bg-[var(--glass-bg)] border border-[var(--glass-border)] shadow-sm animate-fade-in">
-                <img
+                <UploadPreview
                   src={previewUrl}
                   alt="Selected avatar preview"
                   className="w-full h-auto object-contain"

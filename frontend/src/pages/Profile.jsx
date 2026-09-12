@@ -465,7 +465,7 @@ export default function Profile() {
                   </div>
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                     multiple
                     onChange={handleFileChange}
                     className="hidden"
@@ -474,7 +474,7 @@ export default function Profile() {
                   />
                 </label>
                 <p className="text-xs text-left" style={{ color: 'var(--text-secondary)' }}>
-                  Start with a face photo in natural light. Add a full-length photo for better fit guidance. Choose up to 4 JPEG, PNG, or WebP photos, 10 MB each.
+                  Start with a face photo in natural light. Add a full-length photo for better fit guidance. Choose up to 4 JPEG, PNG, WebP, HEIC, or HEIF photos, 10 MB each (up to 20 megapixels).
                 </p>
                 <p className="text-xs text-left" style={{ color: 'var(--text-secondary)' }}>
                   These photos are sent for AI analysis. Wardrub saves your results, not these uploads. You can continue using your wardrobe and come back later.

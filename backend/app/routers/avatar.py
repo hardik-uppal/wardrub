@@ -1,6 +1,7 @@
 """Avatar generation router - creates full-body avatar with analysis."""
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+from app.services.image_input import read_photo
 from typing import List, Optional, Dict, Any
 
 from app.services.storage import StorageService
@@ -53,7 +54,7 @@ async def create_avatar(
         raise HTTPException(status_code=400, detail="Please upload an image")
     
     # Read the first image
-    image_bytes = await files[0].read()
+    image_bytes = await read_photo(files[0])
     if not image_bytes:
         logger.warning("Empty file uploaded")
         raise HTTPException(status_code=400, detail="Empty file uploaded")
@@ -67,7 +68,7 @@ async def create_avatar(
             image_bytes=image_bytes,
             user_id=user_id,
             source_type=source_type,
-            content_type=files[0].content_type or "image/jpeg"
+            content_type="image/jpeg"
         )
         logger.info(f"📷 Source image saved: {source_url[:50]}...")
         
@@ -175,7 +176,7 @@ async def create_avatar_full(
         source_urls = []
         
         for i, file in enumerate(files):
-            image_bytes = await file.read()
+            image_bytes = await read_photo(file)
             if not image_bytes:
                 continue
             
@@ -191,7 +192,7 @@ async def create_avatar_full(
                     image_bytes=image_bytes,
                     user_id=user_id,
                     source_type=source_type,
-                    content_type=file.content_type or "image/jpeg"
+                    content_type="image/jpeg"
                 )
                 source_urls.append(source_url)
                 logger.info(f"  Source image saved: {source_url[:50]}...")
