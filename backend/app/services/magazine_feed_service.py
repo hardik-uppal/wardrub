@@ -4,7 +4,7 @@ import json
 import os
 import random
 import uuid
-from datetime import date, datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from app.config import get_settings
@@ -72,7 +72,7 @@ class MagazineFeedService:
         5. Invoke Gemini 2.0 to write Vogue-style copy and structure the final looks.
         6. Save the resulting MagazineFeed to Firestore.
         """
-        today_str = date.today().isoformat()
+        today_str = datetime.now(timezone.utc).date().isoformat()
         
         # Check cache unless force requested
         if not force_regenerate:
