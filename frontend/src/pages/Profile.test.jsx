@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -49,18 +49,31 @@ describe('Profile style analysis', () => {
   })
 
   it('retains selected files and available colors on provider failure', async () => {
-    mocks.analyzeProfile.mockImplementation(async () => {
+    let finishAnalysis
+    mocks.analyzeProfile.mockImplementationOnce(() => {
       mocks.userProfile = { ...profile, style_analysis: { ...profile.style_analysis, fit: { status: 'failed' } } }
-      return { profile: mocks.userProfile, color_recommendations: colors, fit_recommendations: null, status: 'failed' }
+      // Shared profile progress may render before the caller's await/finally finishes.
+      return new Promise(resolve => {
+        finishAnalysis = () => resolve({ profile: mocks.userProfile, color_recommendations: colors, fit_recommendations: null, status: 'failed' })
+      })
     })
     render(<MemoryRouter><Profile /></MemoryRouter>)
     await screen.findByText('Coral')
-    fireEvent.change(screen.getByLabelText('Choose style analysis photos'), { target: { files: [new File(['photo'], 'face.png', { type: 'image/png' })] } })
+    const file = new File(['photo'], 'face.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('Choose style analysis photos'), { target: { files: [file] } })
     fireEvent.click(screen.getByRole('button', { name: 'Analyze My Style' }))
     expect(await screen.findByText('Your fit · Retry available')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Analyze My Style' })).toBeDisabled()
+    await act(async () => { finishAnalysis() })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Analyze My Style' })).toBeEnabled())
     expect(screen.getByText('1 selected')).toBeInTheDocument()
     expect(screen.getByText('Coral')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Analyze My Style' })).toBeEnabled()
+
+    mocks.analyzeProfile.mockResolvedValueOnce({ profile: mocks.userProfile, color_recommendations: colors, fit_recommendations: null, status: 'failed' })
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze My Style' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Analyze My Style' })).toBeEnabled())
+    expect(mocks.analyzeProfile).toHaveBeenCalledTimes(2)
+    expect(mocks.analyzeProfile.mock.calls[1][0]).toEqual([file])
   })
 
   it('rejects unsupported uploads before making an analysis request', async () => {
