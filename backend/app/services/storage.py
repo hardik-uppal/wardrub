@@ -381,7 +381,8 @@ class StorageService:
     
     async def list_garments(self, user_id: str, category: Optional[str] = None) -> List[dict]:
         """
-        List all garments in a user's wardrobe, grouped by garment ID.
+        List all garments without generating derivatives on the request path.
+        Missing thumbnails stay null; clients fall back to the original image.
         """
         if self.bucket is None:
             prefix = f"users/{user_id}/garments/{category}/" if category else f"users/{user_id}/garments/"
@@ -420,12 +421,6 @@ class StorageService:
                             garment_map[base_id]["url"] = url
                             thumbnail_name = self._thumbnail_path(name)
                             thumbnail_url = _memory_signed_urls.get(thumbnail_name)
-                            if not thumbnail_url:
-                                thumbnail_bytes = self._create_thumbnail(val)
-                                if thumbnail_bytes:
-                                    _memory_files[thumbnail_name] = thumbnail_bytes
-                                    thumbnail_url = f"/api/mock-gcs/{thumbnail_name}"
-                                    _memory_signed_urls[thumbnail_name] = thumbnail_url
                             garment_map[base_id]["thumbnail_url"] = thumbnail_url
                         else:
                             garment_map[base_id]["back_url"] = url
@@ -480,10 +475,6 @@ class StorageService:
                             garment_map[base_id]["thumbnail_url"] = self._generate_signed_url(
                                 thumbnail_name
                             )
-                        else:
-                            garment_map[base_id]["thumbnail_url"] = self._backfill_gcs_thumbnail(
-                                blob.name
-                            )
                     else:
                         garment_map[base_id]["back_url"] = url
                         thumbnail_name = self._thumbnail_path(blob.name)
@@ -496,7 +487,7 @@ class StorageService:
     
     async def list_tryon_results(self, user_id: str, limit: int = 50) -> List[dict]:
         """
-        List recent try-on results (looks) for a user.
+        List recent looks without generating derivatives on the request path.
         """
         if self.bucket is None:
             prefix = f"users/{user_id}/tryon-results/"
@@ -506,12 +497,6 @@ class StorageService:
                     result_id = name.split("/")[-1].replace(".png", "")
                     thumbnail_name = self._thumbnail_path(name)
                     thumbnail_url = _memory_signed_urls.get(thumbnail_name)
-                    if not thumbnail_url:
-                        thumbnail_bytes = self._create_thumbnail(val)
-                        if thumbnail_bytes:
-                            _memory_files[thumbnail_name] = thumbnail_bytes
-                            thumbnail_url = f"/api/mock-gcs/{thumbnail_name}"
-                            _memory_signed_urls[thumbnail_name] = thumbnail_url
                     results.append({
                         "id": result_id,
                         "url": _memory_signed_urls.get(name, f"/api/mock-gcs/{name}"),
@@ -538,7 +523,7 @@ class StorageService:
                     "thumbnail_url": (
                         self._generate_signed_url(self._thumbnail_path(blob.name))
                         if self._thumbnail_path(blob.name) in blob_names
-                        else self._backfill_gcs_thumbnail(blob.name)
+                        else None  # Never download/transform/upload images during a list read.
                     ),
                     **self._format_look_metadata({
                         **blob_metadata,
