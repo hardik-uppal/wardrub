@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Camera, X, Check, RotateCcw, Plus, Sparkles, Upload, Image } from 'lucide-react'
+import { ArrowLeft, Camera, X, Check, RotateCcw, Plus, Sparkles, Upload } from 'lucide-react'
 import { useWardrobe } from '../context/WardrobeContext'
 import LoadingOverlay from '../components/LoadingOverlay'
 import BottomNav from '../components/BottomNav'
+import GalleryUpload from '../components/GalleryUpload'
 
 const categories = [
   { id: 'top', label: 'Top', icon: '👕' },
@@ -87,21 +88,18 @@ const categoryLabels = {
 
 export default function Capture() {
   const navigate = useNavigate()
-  const { processGarment, processUploadedClothes, isLoading, loadingMessage, error, clearError } = useWardrobe()
+  const { processGarment, isLoading, loadingMessage, error, clearError } = useWardrobe()
   
   const [inputMode, setInputMode] = useState(INPUT_MODES.SELECT) // 'select', 'upload', 'capture'
   const [frontImage, setFrontImage] = useState(null)
   const [frontFile, setFrontFile] = useState(null)
   const [backImage, setBackImage] = useState(null)
   const [backFile, setBackFile] = useState(null)
-  const [uploadedImage, setUploadedImage] = useState(null)
-  const [uploadedFile, setUploadedFile] = useState(null)
   const [selectedCategory, setSelectedCategory] = useState('top')
   const [captureMode, setCaptureMode] = useState('front') // 'front', 'back', 'preview'
   const [useGhostMannequin, setUseGhostMannequin] = useState(true)
   
   const fileInputRef = useRef(null)
-  const uploadInputRef = useRef(null)
 
   // Webcam capture states/refs
   const [showWebcam, setShowWebcam] = useState(false)
@@ -196,38 +194,6 @@ export default function Capture() {
     }
   }
 
-  const handleUploadSelect = (e) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        setUploadedImage(event.target?.result)
-        setUploadedFile(file)
-      }
-      reader.readAsDataURL(file)
-    }
-    // Reset input
-    if (uploadInputRef.current) {
-      uploadInputRef.current.value = ''
-    }
-  }
-
-  const handleUploadProcess = async () => {
-    if (!uploadedFile) return
-    
-    try {
-      await processUploadedClothes(uploadedFile)
-      navigate('/')
-    } catch (err) {
-      console.error('Failed to process upload:', err)
-    }
-  }
-
-  const handleResetUpload = () => {
-    setUploadedImage(null)
-    setUploadedFile(null)
-  }
-
   const handleRetakeFront = () => {
     setFrontImage(null)
     setFrontFile(null)
@@ -264,10 +230,6 @@ export default function Capture() {
     startWebcam()
   }
   
-  const triggerUpload = () => {
-    uploadInputRef.current?.click()
-  }
-  
   const startCaptureMode = () => {
     setInputMode(INPUT_MODES.CAPTURE)
     setCaptureMode('front')
@@ -284,8 +246,6 @@ export default function Capture() {
     setFrontFile(null)
     setBackImage(null)
     setBackFile(null)
-    setUploadedImage(null)
-    setUploadedFile(null)
     setCaptureMode('front')
   }
 
@@ -331,59 +291,6 @@ export default function Capture() {
     </div>
   )
   
-  // Upload mode view
-  const renderUploadView = () => (
-    <div className="flex-1 flex flex-col px-5 py-4">
-      {uploadedImage ? (
-        <div className="flex-1 flex flex-col">
-          {/* Image preview */}
-          <div className="flex-1 relative rounded-2xl overflow-hidden bg-black/50">
-            <img
-              src={uploadedImage}
-              alt="Uploaded clothes"
-              className="w-full h-full object-contain"
-            />
-            <button
-              onClick={handleResetUpload}
-              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center"
-            >
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
-          
-          {/* Info */}
-          <div className="mt-4 rounded-xl p-4" style={{ background: 'rgba(17,17,17,0.05)' }}>
-            <div className="flex items-start gap-3">
-              <Sparkles className="w-5 h-5 mt-0.5" style={{ color: 'var(--accent)' }} />
-              <div>
-                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>AI Detection</p>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                  Gemini will analyze this image, detect all clothing items, and create ghost mannequin versions for each.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="flex-1 flex items-center justify-center">
-          <button
-            onClick={triggerUpload}
-            className="w-52 h-60 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-4 transition-colors hover:bg-gray-50"
-            style={{ borderColor: 'var(--glass-border)' }}
-          >
-            <div className="w-18 h-18 rounded-full flex items-center justify-center" style={{ background: 'var(--bg-secondary)' }}>
-              <Image className="w-10 h-10" style={{ color: 'var(--text-tertiary)' }} />
-            </div>
-            <span className="text-base font-medium" style={{ color: 'var(--text-primary)' }}>Select from Gallery</span>
-            <span className="text-xs text-center px-5" style={{ color: 'var(--text-secondary)' }}>
-              Works best with photos of clothes worn or laid flat
-            </span>
-          </button>
-        </div>
-      )}
-    </div>
-  )
-
   const renderCaptureView = () => {
     if (captureMode === 'preview' && frontImage) {
       return (
@@ -495,7 +402,7 @@ export default function Capture() {
 
   return (
     <div className="min-h-screen flex flex-col safe-top safe-bottom overflow-y-auto" style={{ background: 'var(--bg-primary)' }}>
-      {isLoading && <LoadingOverlay message={loadingMessage} />}
+      {isLoading && inputMode !== INPUT_MODES.UPLOAD && <LoadingOverlay message={loadingMessage} />}
 
       {/* Hidden file inputs */}
       <input
@@ -504,13 +411,6 @@ export default function Capture() {
         accept="image/*"
         capture="environment"
         onChange={handleCapture}
-        className="hidden"
-      />
-      <input
-        ref={uploadInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleUploadSelect}
         className="hidden"
       />
 
@@ -534,7 +434,7 @@ export default function Capture() {
         </header>
 
         {/* Error Toast */}
-        {error && (
+        {error && inputMode !== INPUT_MODES.UPLOAD && (
           <button
             type="button"
             className="mx-4 mb-3 bg-[var(--accent)] text-white px-3 py-2 rounded-xl animate-fade-in"
@@ -547,7 +447,7 @@ export default function Capture() {
 
         {/* Mode Selection / Camera / Upload View */}
         {inputMode === INPUT_MODES.SELECT && renderModeSelect()}
-        {inputMode === INPUT_MODES.UPLOAD && renderUploadView()}
+        {inputMode === INPUT_MODES.UPLOAD && <GalleryUpload />}
         {inputMode === INPUT_MODES.CAPTURE && renderCaptureView()}
 
         {/* Category Selection - only for capture mode */}
@@ -578,27 +478,6 @@ export default function Capture() {
 
         {/* Action Buttons */}
         <div className="px-5 nav-bottom-spacing">
-          {/* Upload mode buttons */}
-          {inputMode === INPUT_MODES.UPLOAD && uploadedImage && (
-            <div className="flex gap-2">
-              <button
-                onClick={handleResetUpload}
-                className="flex-1 flex items-center justify-center gap-2 py-3 bg-[var(--glass-bg)]/10 text-white rounded-xl font-medium text-sm"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Change
-              </button>
-              <button
-                onClick={handleUploadProcess}
-                disabled={isLoading}
-                className="flex-1 flex items-center justify-center gap-2 py-3 bg-[var(--accent)] text-white rounded-xl font-medium text-sm disabled:opacity-50"
-              >
-                <Sparkles className="w-4 h-4" />
-                Detect & Add
-              </button>
-            </div>
-          )}
-          
           {/* Capture mode buttons */}
           {inputMode === INPUT_MODES.CAPTURE && (
             <>
