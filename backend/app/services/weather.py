@@ -324,8 +324,8 @@ class WeatherService:
             
             temp = main.get("temp", 20)
             condition_id = weather.get("id")
-        if not isinstance(condition_id, int):
-            raise ValueError("Weather observation is missing a condition")
+            if not isinstance(condition_id, int):
+                raise ValueError("Weather observation is missing a condition")
             description = weather.get("description", "")
             wind_speed = wind.get("speed", 0)
             
@@ -353,8 +353,8 @@ class WeatherService:
             wind = first_forecast.get("wind", {})
             default_temp = main.get("temp", 20)
             condition_id = weather.get("id")
-        if not isinstance(condition_id, int):
-            raise ValueError("Weather observation is missing a condition")
+            if not isinstance(condition_id, int):
+                raise ValueError("Weather observation is missing a condition")
             wind_speed = wind.get("speed", 0)
             default_condition = self._get_condition_name(condition_id, default_temp, wind_speed)
             default_icon = self._get_weather_icon(condition_id, default_temp, wind_speed)

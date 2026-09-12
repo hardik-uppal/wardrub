@@ -2,10 +2,11 @@
 
 Last updated: 2026-09-12. Scope: progressive style analysis and storage listing.
 
-- Magazine daily cache keys are explicitly UTC (`datetime.now(timezone.utc)`).
-  `test_magazine_freshness.py` verifies same-day reuse, next-day generation with
-  unchanged garments, forced refresh and user isolation against a mocked provider.
-  New editions need not contain wholly different outfits; no live diversity claim.
+- The former dated editorial cache is bypassed by the grounded recommender below.
+  UTC dates remain display context; refreshing does not call a generation model.
+- Release review corrected forecast-parser validation indentation; period parsing,
+  fallback, empty forecasts and missing-condition rejection have regression tests
+  in `test_weather_forecast.py`.
 - `StorageService.list_garments` and `list_tryon_results` never generate missing
   thumbnails, in cloud or local mode. Missing derivative URLs stay null; existing
   frontend consumers fall back to originals. Upload-time thumbnail creation is

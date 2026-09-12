@@ -457,6 +457,10 @@ export default function MagazineFeed() {
     <div className="min-h-screen safe-top safe-bottom flex flex-col" style={{ background: 'var(--bg-primary)' }}>
       {generatingFeed && <LoadingOverlay message={loadingMessage} />}
       <p role="status" aria-live="polite" className="mx-4 mt-2">{actionMessage}</p>
+      {error && feedData && <div role="alert" className="mx-4 mt-2">
+        Could not refresh outfits. Any displayed suggestions may be out of date.
+        <button type="button" className="btn-secondary ml-2" disabled={isLoading || readinessPending || swapPending} onClick={() => fetchMagazineFeed()}>Retry outfits</button>
+      </div>}
       
       {/* Scrollable Container */}
       <div className="flex-1 overflow-y-auto page-container nav-bottom-spacing">
