@@ -1,0 +1,297 @@
+{
+  "manifest": "training/benchmarks/recommender/v1/small.jsonl",
+  "cases": 24,
+  "results": [
+    {
+      "id": "empty",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.0
+    },
+    {
+      "id": "only-top",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.01
+    },
+    {
+      "id": "only-bottom",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.01
+    },
+    {
+      "id": "many-tops",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.07
+    },
+    {
+      "id": "small-pair",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.06
+    },
+    {
+      "id": "dress-only",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.02
+    },
+    {
+      "id": "pair-laundry-top",
+      "legacy_scorer": {
+        "violations": 1,
+        "passes": false
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.01
+    },
+    {
+      "id": "pair-laundry-bottom",
+      "legacy_scorer": {
+        "violations": 1,
+        "passes": false
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.0
+    },
+    {
+      "id": "dress-laundry",
+      "legacy_scorer": {
+        "violations": 1,
+        "passes": false
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.0
+    },
+    {
+      "id": "lent-top",
+      "legacy_scorer": {
+        "violations": 1,
+        "passes": false
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.0
+    },
+    {
+      "id": "retired-dress",
+      "legacy_scorer": {
+        "violations": 1,
+        "passes": false
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.0
+    },
+    {
+      "id": "unknown-readiness",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.02
+    },
+    {
+      "id": "ready-pair",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.02
+    },
+    {
+      "id": "laundry-alternative",
+      "legacy_scorer": {
+        "violations": 1,
+        "passes": false
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.02
+    },
+    {
+      "id": "dress-with-lent-layer",
+      "legacy_scorer": {
+        "violations": 1,
+        "passes": false
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.02
+    },
+    {
+      "id": "pair-with-laundry-shoes",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.02
+    },
+    {
+      "id": "outerwear-only",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.01
+    },
+    {
+      "id": "shoes-only",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.01
+    },
+    {
+      "id": "dress-no-weather",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.03
+    },
+    {
+      "id": "pair-cold-layer",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": false
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.09
+    },
+    {
+      "id": "pair-hot-avoid-layer",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.04
+    },
+    {
+      "id": "late-suitable-top",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": false
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.26
+    },
+    {
+      "id": "dress-and-separates",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.04
+    },
+    {
+      "id": "laundry-dress-use-pair",
+      "legacy_scorer": {
+        "violations": 1,
+        "passes": false
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.02
+    }
+  ],
+  "legacy_passed": 14,
+  "candidate_passed": 24,
+  "max_ranking_ms": 0.26
+}

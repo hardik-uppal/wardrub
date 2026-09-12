@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { 
   Sparkles, RefreshCw, Shirt, User, Heart, Bookmark, Eye, CheckCircle2,
   ChevronRight, Wand2, ArrowRight,
-  HelpCircle, ChevronLeft, Check, Camera
+  ChevronLeft
 } from 'lucide-react'
 import { useWardrobe } from '../context/WardrobeContext'
 import { useAuth } from '../context/AuthContext'
-import { useOnboarding } from '../context/OnboardingContext'
+import ClosetReadiness from '../components/ClosetReadiness'
 import LoadingOverlay from '../components/LoadingOverlay'
 import BottomNav from '../components/BottomNav'
 import ResilientImage from '../components/ResilientImage'
@@ -32,6 +32,9 @@ export default function MagazineFeed() {
   // Track try-on operations by look card ID
   const [tryOnLoading, setTryOnLoading] = useState({})
   const [tryOnImages, setTryOnImages] = useState({}) // key: lookId, value: tryonUrl
+  const [swapPending, setSwapPending] = useState(false)
+  const [readinessPending, setReadinessPending] = useState(false)
+  const [actionMessage, setActionMessage] = useState('')
   const [detailLook, setDetailLook] = useState(null) // Active look modal
 
   // Helper to make authenticated fetch requests
@@ -65,6 +68,7 @@ export default function MagazineFeed() {
       
       const response = await authFetch(url, { method: force ? 'POST' : 'GET' })
       const data = await response.json()
+      if (response.ok === false) throw new Error(data.detail || 'Could not load outfits')
       
       if (data.status === 'onboarding') {
         setIsOnboarding(true)
@@ -83,7 +87,7 @@ export default function MagazineFeed() {
         extractTryon(data.feed.underused_edit)
         data.feed.daily_fits?.forEach(extractTryon)
         data.feed.one_item_three_ways?.forEach(extractTryon)
-        setTryOnImages(restoredImages)
+        setTryOnImages(previous => ({ ...previous, ...restoredImages }))
       } else {
         setError('failed')
       }
@@ -108,21 +112,29 @@ export default function MagazineFeed() {
     if (editionLabel(feedData?.date) === 'EDITION DATE UNAVAILABLE') return
     const checkEdition = () => {
       const today = new Date().toISOString().slice(0, 10)
-      if (document.visibilityState !== 'visible' || feedRequestPending.current) return
+      if (document.visibilityState !== 'visible' || feedRequestPending.current || readinessPending || swapPending) return
       if (feedData.date < today && lastAutomaticRefresh.current !== today) {
         lastAutomaticRefresh.current = today
         fetchMagazineFeed()
       }
     }
+    const checkContext = () => {
+      if (readinessPending || swapPending) return
+      if (feedData?.policy_version && document.visibilityState === 'visible' && !feedRequestPending.current) {
+        fetchMagazineFeed()
+      } else {
+        checkEdition()
+      }
+    }
     const timer = setInterval(checkEdition, 60000)
-    window.addEventListener('focus', checkEdition)
-    document.addEventListener('visibilitychange', checkEdition)
+    window.addEventListener('focus', checkContext)
+    document.addEventListener('visibilitychange', checkContext)
     return () => {
       clearInterval(timer)
-      window.removeEventListener('focus', checkEdition)
-      document.removeEventListener('visibilitychange', checkEdition)
+      window.removeEventListener('focus', checkContext)
+      document.removeEventListener('visibilitychange', checkContext)
     }
-  }, [feedData?.date, fetchMagazineFeed])
+  }, [feedData?.date, feedData?.policy_version, readinessPending, swapPending, fetchMagazineFeed])
 
   // Map garment ID to full object
   const getGarment = (id) => garments.find(g => g.id === id)
@@ -133,12 +145,7 @@ export default function MagazineFeed() {
     return cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase()
   }
 
-  const getMatchLabel = (score) => {
-    if (score >= 0.9) return 'Excellent match'
-    if (score >= 0.8) return 'Strong match'
-    if (score >= 0.7) return 'Good match'
-    return 'Worth trying'
-  }
+  const getMatchLabel = () => 'Suggested combination'
 
   // Handle like/dislike/save feedback actions
   const handleFeedback = async (lookId, action) => {
@@ -148,15 +155,51 @@ export default function MagazineFeed() {
         // Hide or dim card
       }
       
-      await authFetch(`${API_URL}/api/magazine-feed/feedback`, {
+      const response = await authFetch(`${API_URL}/api/magazine-feed/feedback`, {
         method: 'POST',
         body: JSON.stringify({ look_id: lookId, action })
       })
       
-      // Let user know it succeeded
-      // We can show a subtle micro-animation or message later
+      if (!response.ok) throw new Error('Feedback was not saved. Please retry.')
+      setActionMessage(action === 'wore_this' ? 'Wear feedback recorded.' : 'Feedback recorded.')
     } catch (err) {
-      console.error(`Failed to register ${action} feedback:`, err)
+      setActionMessage(err.message)
+    }
+  }
+
+  const refreshAfterReadiness = async () => {
+    setActionMessage('')
+    setFeedData(previous => previous ? { ...previous, cover_look: null, daily_fits: [] } : previous)
+    setDetailLook(null)
+    await fetchMagazineFeed()
+  }
+
+  const handleSwap = async (look, replaceId, withId) => {
+    if (swapPending) return
+    setSwapPending(true)
+    setActionMessage('')
+    try {
+      const response = await authFetch(`${API_URL}/api/outfits/swap`, {
+        method: 'POST',
+        body: JSON.stringify({ garment_ids: look.garment_ids, replace_item_id: replaceId, with_item_id: withId }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.detail || 'Could not change this piece. Please retry.')
+      if (data.status === 'no_alternative') {
+        setActionMessage('No available alternative for this piece. Your outfit is unchanged.')
+        return
+      }
+      const replacement = { ...data.look, section: look.section }
+      setFeedData(previous => ({ ...previous,
+        cover_look: previous.cover_look?.id === look.id ? replacement : previous.cover_look,
+        daily_fits: previous.daily_fits?.map(item => item.id === look.id ? replacement : item),
+      }))
+      setDetailLook(replacement)
+      setActionMessage('Piece changed. The other pieces stayed the same.')
+    } catch (err) {
+      setActionMessage(err.message)
+    } finally {
+      setSwapPending(false)
     }
   }
 
@@ -171,9 +214,12 @@ export default function MagazineFeed() {
     setTryOnLoading(prev => ({ ...prev, [lookId]: true }))
     
     try {
+      if (look.garment_ids.some(id => getGarment(id)?.category === 'shoes')) {
+        setActionMessage('Shoes stay in your outfit but are not included in the try-on preview.')
+      }
       const garmentsToTry = look.garment_ids
         .map(id => getGarment(id))
-        .filter(Boolean)
+        .filter(g => g && ['top', 'bottom', 'dress', 'outerwear'].includes(g.category))
         .map(g => ({
           url: g.front_url || g.url,
           category: g.category
@@ -410,6 +456,7 @@ export default function MagazineFeed() {
   return (
     <div className="min-h-screen safe-top safe-bottom flex flex-col" style={{ background: 'var(--bg-primary)' }}>
       {generatingFeed && <LoadingOverlay message={loadingMessage} />}
+      <p role="status" aria-live="polite" className="mx-4 mt-2">{actionMessage}</p>
       
       {/* Scrollable Container */}
       <div className="flex-1 overflow-y-auto page-container nav-bottom-spacing">
@@ -421,7 +468,7 @@ export default function MagazineFeed() {
             <span>{dateHeader}</span>
             <button
               onClick={() => fetchMagazineFeed(true)}
-              disabled={isLoading || generatingFeed}
+              disabled={isLoading || generatingFeed || readinessPending || swapPending}
               className="flex items-center gap-1 hover:text-[var(--accent)] transition-colors uppercase tracking-[0.2em]"
             >
               <RefreshCw className="w-3 h-3" />
@@ -442,6 +489,22 @@ export default function MagazineFeed() {
             THE MAGAZINE OF YOUR CLOSET
           </span>
         </header>
+
+        {feedData?.policy_version && <>
+          <p className="mx-4 mb-4 text-sm">
+            {feedData.weather_status === 'available'
+              ? `${feedData.weather.feels_like ?? feedData.weather.temperature}°C feels like · ${feedData.weather.description} · ${feedData.weather.city || 'Saved location'}`
+              : feedData.weather_status === 'no_location'
+                ? 'No location set. These suggestions do not use weather.'
+                : 'Weather unavailable. These suggestions do not use weather.'}
+          </p>
+          <ClosetReadiness authFetch={authFetch} apiUrl={API_URL} onChanged={refreshAfterReadiness} onBusyChange={setReadinessPending} disabled={isLoading || generatingFeed || swapPending} />
+          {!coverLook && <section className="mx-4 mb-6 p-6 glass-card-static">
+            <h2 className="text-lg font-bold">No outfit available yet</h2>
+            <p className="my-3">Add a top and bottom, or a dress. If your clothes are in laundry, mark them ready when they return.</p>
+            <button className="btn-primary" onClick={() => navigate('/capture')}>Capture Clothes</button>
+          </section>}
+        </>}
 
         {/* 1. Today's Cover Look */}
         {coverLook && (
@@ -545,12 +608,14 @@ export default function MagazineFeed() {
                     <div className="pt-2">
                       <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] block mb-1">Swap Options</span>
                       {coverLook.swaps.map((s, index) => (
-                        <div key={index} className="text-xs text-[var(--text-secondary)] leading-relaxed flex items-start gap-2 bg-[var(--glass-bg)] p-3 rounded-lg border border-[var(--glass-border)]">
+                        <button type="button" key={index} disabled={swapPending || readinessPending || isLoading || generatingFeed}
+                          onClick={() => handleSwap(coverLook, s.replace_item_id, s.with_item_id)}
+                          className="text-left text-xs text-[var(--text-secondary)] leading-relaxed flex items-start gap-2 bg-[var(--glass-bg)] p-3 rounded-lg border border-[var(--glass-border)]">
                           <Shirt className="w-4 h-4 text-[var(--accent)] flex-shrink-0 mt-0.5" />
                           <p>
                             Replace <strong>{cleanCategory(getGarment(s.replace_item_id)?.category)}</strong> with your <strong>{getGarment(s.with_item_id)?.colors?.color_family} {cleanCategory(getGarment(s.with_item_id)?.category)}</strong>: {s.reason}
                           </p>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -872,6 +937,17 @@ export default function MagazineFeed() {
                   </div>
                 </div>
 
+                {detailLook.policy_version && <div className="space-y-2">
+                  <h4 className="font-semibold">Change one piece</h4>
+                  <p className="text-xs">Other pieces stay selected. Availability is checked again.</p>
+                  {detailLook.garment_ids.map(id => <button
+                    type="button" key={id} className="btn-secondary btn-sm block"
+                    disabled={swapPending || readinessPending || isLoading || generatingFeed}
+                    onClick={() => handleSwap(detailLook, id)}
+                  >Swap {cleanCategory(getGarment(id)?.category || 'piece')}</button>)}
+                  <p role="status" aria-live="polite" className="text-sm">{actionMessage}</p>
+                </div>}
+
                 {/* Styling tips list */}
                 {detailLook.styling_tips?.length > 0 && (
                   <div className="space-y-1">
@@ -934,133 +1010,10 @@ export default function MagazineFeed() {
 
 // Extracted onboarding component that uses OnboardingContext
 function MagazineOnboarding({ navigate }) {
-  const { milestones, overallProgress, GARMENT_GOAL } = useOnboarding()
-
-  const iconMap = {
-    User: User,
-    Shirt: Shirt,
-    Sparkles: Sparkles,
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col justify-between" style={{ background: 'var(--bg-primary)' }}>
-      <div className="page-container p-6 flex flex-col justify-center flex-1 max-w-lg mx-auto">
-        
-        {/* Logo / Header */}
-        <div className="text-center mb-10">
-          <span 
-            className="text-[42px] font-bold tracking-tight block leading-none"
-            style={{ fontFamily: "'Playfair Display', Georgia, serif", color: 'var(--text-primary)' }}
-          >
-            The Looker
-          </span>
-          <span 
-            className="text-xs tracking-[0.25em] font-semibold text-center uppercase block mt-2"
-            style={{ fontFamily: "'Inter', sans-serif", color: 'var(--accent)' }}
-          >
-            Your Closet, Curated.
-          </span>
-        </div>
-
-        {/* Premium Glass card onboarding */}
-        <div className="glass-card-elevated p-8 border border-[var(--glass-border-hover)] space-y-6">
-          <h2 
-            className="text-xl font-bold tracking-tight text-center" 
-            style={{ color: 'var(--text-primary)' }}
-          >
-            Assembling Your Lookbook
-          </h2>
-          
-          <p className="text-sm leading-relaxed text-center" style={{ color: 'var(--text-secondary)' }}>
-            Complete these steps to unlock your personalized daily magazine with outfit recommendations and styling tips.
-          </p>
-
-          {/* Milestone Checklist */}
-          <div className="space-y-3 pt-2">
-            {milestones.map((milestone) => {
-              const Icon = iconMap[milestone.icon]
-              return (
-                <div 
-                  key={milestone.id} 
-                  className="flex items-center gap-3 p-4 rounded-xl glass-card-static relative overflow-hidden"
-                >
-                  {/* Progress fill for clothes milestone */}
-                  {milestone.id === 'clothes' && !milestone.done && (
-                    <div 
-                      className="absolute left-0 top-0 bottom-0 opacity-10 transition-all duration-500" 
-                      style={{ background: 'var(--accent)', width: `${(milestone.progress / GARMENT_GOAL) * 100}%` }}
-                    />
-                  )}
-                  
-                  {/* Status icon */}
-                  <div 
-                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{
-                      background: milestone.done ? 'var(--accent)' : 'var(--bg-secondary)',
-                      border: milestone.done ? 'none' : '1px solid var(--glass-border)',
-                    }}
-                  >
-                    {milestone.done ? (
-                      <Check className="w-3.5 h-3.5 text-white" />
-                    ) : (
-                      <Icon className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
-                    )}
-                  </div>
-                  
-                  {/* Label */}
-                  <div className="flex-1">
-                    <span 
-                      className="text-sm font-medium"
-                      style={{ 
-                        color: milestone.done ? 'var(--text-tertiary)' : 'var(--text-primary)',
-                        textDecoration: milestone.done ? 'line-through' : 'none',
-                      }}
-                    >
-                      {milestone.label}
-                    </span>
-                    {milestone.id === 'clothes' && !milestone.done && (
-                      <span className="text-xs ml-2" style={{ color: 'var(--text-tertiary)' }}>
-                        {milestone.progress}/{GARMENT_GOAL}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* CTA arrow */}
-                  {!milestone.done && (
-                    <button
-                      onClick={() => navigate(milestone.route)}
-                      className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ background: 'var(--accent-glow)' }}
-                      aria-label={`Go to ${milestone.label}`}
-                    >
-                      <ArrowRight className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Overall Progress bar */}
-          <div className="w-full bg-[var(--glass-bg)] h-1.5 rounded-full overflow-hidden">
-            <div 
-              className="h-full rounded-full transition-all duration-500"
-              style={{ background: 'var(--accent)', width: `${overallProgress * 100}%` }}
-            />
-          </div>
-
-          <div className="mt-4">
-            <button 
-              onClick={() => navigate('/capture')}
-              className="btn-primary btn-lg w-full flex items-center justify-center gap-2"
-            >
-              <Shirt className="w-4 h-4" />
-              <span>Capture Clothes</span>
-            </button>
-          </div>
-        </div>
-      </div>
-      <BottomNav />
-    </div>
-  )
+  return <div className="min-h-screen p-6 flex flex-col justify-center items-center gap-4">
+    <h1 className="text-2xl font-bold">Start with an outfit you own</h1>
+    <p>Add a top and bottom, or a dress. Avatar and style analysis are optional.</p>
+    <button className="btn-primary" onClick={() => navigate('/capture')}>Capture Clothes</button>
+    <BottomNav />
+  </div>
 }

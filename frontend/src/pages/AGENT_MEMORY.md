@@ -23,3 +23,21 @@ Last updated: 2026-09-11. Scope: Profile style analysis.
   at most one automatic GET per new day, no forced generation or automatic failure
   retry. In-flight reads/refreshes are guarded; listeners/timer cleaned up on unmount.
   Tests: `MagazineFeed.test.jsx`, `magazineEdition.test.js`, core browser journey.
+
+## Recommender foundation — 2026-09-13
+
+- Magazine keeps its routes/layout and UTC edition handling. Foundation feeds may
+  have no cover; show an actionable no-outfit state and keep readiness controls.
+  Weather unavailable/no-location is explicit. Scores say Suggested combination,
+  never calibrated match labels. Returning to a foundation tab refreshes context.
+- Cover suggestions and modal Swap buttons call authenticated `/outfits/swap`.
+  Replace only the selected outfit on success; keep it on no-alternative/conflict.
+  A new ID separates prior try-on output from the changed garment set.
+- Readiness mutation refresh clears current suggestions but retains the panel so
+  its versioned Undo remains reachable. Refresh/swap and readiness writes cannot
+  overlap through the UI. Feedback failures now display instead of only logging.
+- Existing try-on routes/history retained. Shoes remain outfit items but are
+  explicitly excluded from the unsupported renderer; current generated previews
+  survive same-outfit feed refresh in component memory.
+- Browser: `e2e/recommender.spec.js` covers swap/laundry/undo/empty state at mobile
+  and desktop sizes with API fixtures, accessibility and overflow checks.

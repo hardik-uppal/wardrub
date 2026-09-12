@@ -2,7 +2,7 @@
 
 from datetime import date
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, Depends
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Literal, List
 
 from app.services.firestore import FirestoreService
 from app.services.storage import StorageService
@@ -16,7 +16,7 @@ from app.jobs.scheduler import get_job_status
 from app.services.magazine_feed_service import MagazineFeedService
 from app.models import LookFeedback
 import uuid
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 
 router = APIRouter()
@@ -73,15 +73,8 @@ async def get_daily_outfit(
                 logger.warning(f"Invalid occasion: {occasion}")
         
         # Get user profile
-        profile = await firestore.get_user_profile(user_id)
-        
-        if not profile:
-            return {
-                "outfit": None,
-                "status": "no_profile",
-                "message": "Create your profile first to get personalized recommendations"
-            }
-        
+        profile = await firestore.ensure_user_profile(user_id)
+
         # Get daily outfit
         outfit = await recommendation_engine.get_daily_outfit(
             user_id=user_id,
@@ -97,14 +90,9 @@ async def get_daily_outfit(
                 "message": "Add clothes to your wardrobe to get recommendations"
             }
         
-        # Get weather info for display
-        weather_info = None
-        if profile.location and use_weather:
-            weather_info = await weather_service.get_weather_by_coords(
-                profile.location.lat,
-                profile.location.lon
-            )
-        
+        # Display the same observation used for ranking.
+        weather_info = outfit.weather
+
         return {
             "outfit": outfit.model_dump(),
             "weather": weather_info.model_dump() if weather_info else None,
@@ -516,73 +504,72 @@ class FeedbackRequest(BaseModel):
 
 
 @router.get("/magazine-feed")
-async def get_magazine_feed_endpoint(
-    user: Dict[str, Any] = Depends(get_current_user)
-):
-    """
-    Get today's personalized magazine feed for the user.
-    If the user has fewer than 10 garments, return onboarding status.
-    """
-    user_id = user["uid"]
-    logger.info(f"Retrieving magazine feed for user {user_id}")
-    
+async def get_magazine_feed_endpoint(user: Dict[str, Any] = Depends(get_current_user)):
     try:
-        # Check garment onboarding gate
-        garments = await firestore.list_garments_metadata(user_id=user_id)
-        if len(garments) < 10:
-            return {
-                "status": "onboarding",
-                "count": len(garments),
-                "required": 10,
-                "message": "Add at least 10 clothing items to compile your first magazine stylebook"
-            }
-            
-        # Get or generate feed
-        feed = await magazine_service.generate_magazine_feed(user_id)
-        if not feed:
-            raise HTTPException(status_code=500, detail="Failed to compile stylebook feed")
-            
-        return {
-            "status": "success",
-            "feed": feed.model_dump()
-        }
-    except Exception as e:
-        logger.error(f"Failed to fetch magazine feed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        feed = await magazine_service.generate_magazine_feed(user["uid"])
+        return {"status": "success", "feed": feed.model_dump()}
+    except Exception:
+        logger.exception("Failed to load grounded outfits")
+        raise HTTPException(status_code=503, detail="Could not read your wardrobe. Please retry")
 
 
 @router.post("/magazine-feed/generate")
-async def regenerate_magazine_feed_endpoint(
-    user: Dict[str, Any] = Depends(get_current_user)
-):
-    """
-    Force regenerate today's magazine feed.
-    """
-    user_id = user["uid"]
-    logger.info(f"Force regenerating magazine feed for user {user_id}")
-    
+async def regenerate_magazine_feed_endpoint(user: Dict[str, Any] = Depends(get_current_user)):
+    # Same grounded policy and identity, even on explicit refresh; no generation call.
+    return await get_magazine_feed_endpoint(user)
+
+
+class SwapRequest(BaseModel):
+    garment_ids: List[str] = Field(min_length=1, max_length=5)
+    replace_item_id: str = Field(min_length=1, max_length=200)
+    with_item_id: Optional[str] = Field(None, min_length=1, max_length=200)
+
+
+@router.post("/outfits/swap")
+async def swap_outfit(request: SwapRequest, user: Dict[str, Any] = Depends(get_current_user)):
     try:
-        # Check garment onboarding gate
-        garments = await firestore.list_garments_metadata(user_id=user_id)
-        if len(garments) < 10:
-            raise HTTPException(
-                status_code=400,
-                detail="Not enough garments to generate feed. Need at least 10."
-            )
-            
-        feed = await magazine_service.generate_magazine_feed(user_id, force_regenerate=True)
-        if not feed:
-            raise HTTPException(status_code=500, detail="Failed to regenerate feed")
-            
-        return {
-            "status": "success",
-            "feed": feed.model_dump()
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to regenerate magazine feed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        look = await magazine_service.swap(user["uid"], request)
+        return {"status": "success" if look else "no_alternative", "look": look.model_dump() if look else None}
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+    except Exception:
+        logger.exception("Failed to swap outfit")
+        raise HTTPException(status_code=503, detail="Could not check your wardrobe. Please retry")
+
+
+class ReadinessRequest(BaseModel):
+    readiness: Literal["unknown", "ready", "laundry"]
+    expected_version: int = Field(ge=0)
+
+
+def readiness_record(garment):
+    return {"id": garment.garment_id, "category": garment.category,
+            "name": garment.description.short if garment.description else garment.category.capitalize(),
+            "readiness": garment.readiness, "version": garment.readiness_version}
+
+
+@router.get("/closet-state")
+async def get_closet_state(user: Dict[str, Any] = Depends(get_current_user)):
+    try:
+        garments = await firestore.list_garments_metadata(user_id=user["uid"], limit=None, strict=True)
+        return {"garments": [readiness_record(g) for g in garments if g.user_id == user["uid"] and g.ownership == "owned"]}
+    except Exception:
+        raise HTTPException(status_code=503, detail="Could not read clothing readiness")
+
+
+@router.put("/closet-state/{garment_id}")
+async def set_closet_state(garment_id: str, request: ReadinessRequest,
+                          user: Dict[str, Any] = Depends(get_current_user)):
+    try:
+        garment = await firestore.set_garment_readiness(user["uid"], garment_id,
+                                                       request.readiness, request.expected_version)
+        return {"garment": readiness_record(garment)}
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Garment not found")
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+    except Exception:
+        raise HTTPException(status_code=503, detail="Readiness was not confirmed. Refresh before retrying")
 
 
 @router.post("/magazine-feed/feedback")

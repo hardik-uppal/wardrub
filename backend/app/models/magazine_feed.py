@@ -25,6 +25,8 @@ class LookCard(BaseModel):
     styling_tips: List[str] = Field(default_factory=list, description="List of styling tips")
     swaps: List[SwapSuggestion] = Field(default_factory=list, description="Alternative garments list")
     score: float = Field(..., description="Scoring match percentage (0.0 to 1.0)")
+    unknown_readiness_ids: List[str] = Field(default_factory=list)
+    policy_version: Optional[str] = None
     tryon_image_url: Optional[str] = Field(None, description="Pre-rendered tryon image URL if ran")
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -33,10 +35,14 @@ class MagazineFeed(BaseModel):
     """Today's personalized magazine feed for a user."""
     user_id: str = Field(..., description="Owner ID")
     date: str = Field(..., description="Date in YYYY-MM-DD format")
-    cover_look: LookCard = Field(..., description="The main featured look of the day")
+    cover_look: Optional[LookCard] = None
     daily_fits: List[LookCard] = Field(default_factory=list, description="3 fits for the day")
     one_item_three_ways: List[LookCard] = Field(default_factory=list, description="3 fits styling one garment")
-    underused_edit: LookCard = Field(..., description="Outfit showcasing a rarely worn garment")
+    underused_edit: Optional[LookCard] = None
+    weather: Optional[dict] = None
+    weather_status: str = "unknown"
+    policy_version: Optional[str] = None
+    wardrobe_version: Optional[str] = None
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:

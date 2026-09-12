@@ -28,13 +28,17 @@ class WeatherCondition(str, Enum):
 
 class WeatherInfo(BaseModel):
     """Current weather information."""
-    temperature: float = Field(..., description="Temperature in Celsius")
-    feels_like: float = Field(..., description="Feels like temperature")
+    temperature: float = Field(..., allow_inf_nan=False, description="Temperature in Celsius")
+    feels_like: float = Field(..., allow_inf_nan=False, description="Feels like temperature")
     condition: WeatherCondition = Field(..., description="Weather condition")
     description: str = Field("", description="Weather description")
     humidity: int = Field(0, description="Humidity percentage")
     city: str = Field("", description="City name")
     
+    observed_at: Optional[datetime] = None
+    fetched_at: Optional[datetime] = None
+    source: Optional[str] = None
+
     class Config:
         use_enum_values = True
 

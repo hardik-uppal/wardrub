@@ -11,7 +11,7 @@ const STORAGE_KEYS = {
   CELEBRATION_SEEN: 'wardrub_celebration_seen',
 }
 
-const GARMENT_GOAL = 10
+const GARMENT_GOAL = 2
 
 export function OnboardingProvider({ children }) {
   const { avatarUrl, garments, userProfile } = useWardrobe()
@@ -36,8 +36,9 @@ export function OnboardingProvider({ children }) {
   // Derived milestone states
   const avatarDone = !!avatarUrl
   const garmentsCount = garments?.length || 0
-  const garmentsDone = garmentsCount >= GARMENT_GOAL
-  const garmentsProgress = Math.min(garmentsCount, GARMENT_GOAL)
+  const garmentCategories = new Set((garments || []).map(g => g.category))
+  const garmentsDone = garmentCategories.has('dress') || (garmentCategories.has('top') && garmentCategories.has('bottom'))
+  const garmentsProgress = garmentsDone ? GARMENT_GOAL : Number(garmentCategories.has('top')) + Number(garmentCategories.has('bottom'))
   const styleProgress = useMemo(() => getStyleProgress(userProfile), [userProfile])
   const profileDone = styleProgress.done
   
@@ -60,15 +61,15 @@ export function OnboardingProvider({ children }) {
     {
       id: 'avatar',
       label: 'Create your avatar',
-      description: 'Upload a photo so we can dress you virtually',
+      description: 'Optional: upload a photo for virtual try-on',
       done: avatarDone,
       route: '/create-avatar',
       icon: 'User',
     },
     {
       id: 'clothes',
-      label: 'Add 10 clothes',
-      description: 'Build your wardrobe for personalized outfits',
+      label: 'Add a starting outfit',
+      description: 'Add a top and bottom, or a dress',
       done: garmentsDone,
       progress: garmentsProgress,
       goal: GARMENT_GOAL,
@@ -80,7 +81,7 @@ export function OnboardingProvider({ children }) {
       label: profileDone ? 'Your colors and fit are ready' : styleProgress.next?.status === 'failed'
         ? 'Retry your style analysis' : styleProgress.next?.name === 'fit'
           ? 'Add a full-length photo' : 'Discover your colors',
-      description: profileDone ? 'Your personalized recommendations are ready.'
+      description: profileDone ? 'Your optional color and fit analysis is ready.'
         : `${userProfile?.skin_tone ? 'Your color recommendations are available. ' : ''}${styleProgress.next?.message}`,
       done: profileDone,
       route: `/profile?analysis=${styleProgress.next?.name || 'auto'}`,

@@ -119,3 +119,8 @@ When implementing product plans, use both skills:
 
 - Update `docs/progress/*-PROGRESS.md` for plan execution state.
 - Update module `AGENT_MEMORY.md` files for durable codebase context.
+
+## Active product implementation
+
+- `docs/progress/recommender-PROGRESS.md` tracks the grounded recommender foundation,
+  verification, and next decision-event/feedback phase. Social imports are deferred.
