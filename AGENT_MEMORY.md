@@ -124,3 +124,7 @@ When implementing product plans, use both skills:
 
 - `docs/progress/recommender-PROGRESS.md` tracks the grounded recommender foundation,
   verification, and next decision-event/feedback phase. Social imports are deferred.
+- `docs/product/USER_FLOWS_CURRENT_AND_PROPOSED.md` inventories the eight active
+  screens and current/proposed journeys, including avatar/try-on preservation.
+  `docs/progress/design-migration-PROGRESS.md` tracks this completed audit and the
+  still-pending screen migration. The audit baseline is local commit `40961a8`.
