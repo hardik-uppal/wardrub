@@ -11,4 +11,8 @@ Last updated: 2026-09-11. Scope: Profile style analysis.
 - `analysis` query parameter is the focus used by onboarding widget links.
 - Profile mount uses the shared cached bootstrap read; successful location edits or
   legacy migration request an explicit fresh read that supersedes older requests.
+- Profile retry tests must await the button becoming enabled, not just the shared
+  “Retry available” label: shared state can update before the request promise and
+  caller's finally complete. A deferred mock covers pending/settled states and
+  confirms the retained file can actually be resubmitted (post-merge CI race).
 - Verify `Profile.test.jsx` plus mobile/desktop `e2e/style-analysis.spec.js`.
