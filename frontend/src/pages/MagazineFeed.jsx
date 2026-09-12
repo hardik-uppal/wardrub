@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   Sparkles, RefreshCw, Shirt, User, Heart, Bookmark, Eye, CheckCircle2,
@@ -11,6 +11,7 @@ import { useOnboarding } from '../context/OnboardingContext'
 import LoadingOverlay from '../components/LoadingOverlay'
 import BottomNav from '../components/BottomNav'
 import ResilientImage from '../components/ResilientImage'
+import { editionLabel } from '../utils/magazineEdition'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -25,6 +26,8 @@ export default function MagazineFeed() {
   const [loadingMessage, setLoadingMessage] = useState('Opening Today\'s Issue...')
   const [error, setError] = useState(null)
   const [generatingFeed, setGeneratingFeed] = useState(false)
+  const feedRequestPending = useRef(false)
+  const lastAutomaticRefresh = useRef(null)
   
   // Track try-on operations by look card ID
   const [tryOnLoading, setTryOnLoading] = useState({})
@@ -45,6 +48,8 @@ export default function MagazineFeed() {
   }, [getIdToken])
 
   const fetchMagazineFeed = useCallback(async (force = false) => {
+    if (feedRequestPending.current) return
+    feedRequestPending.current = true
     if (force) {
       setGeneratingFeed(true)
       setLoadingMessage('Curating today\'s edits...')
@@ -86,6 +91,7 @@ export default function MagazineFeed() {
       console.error('Failed to load magazine feed:', err)
       setError('failed')
     } finally {
+      feedRequestPending.current = false
       setIsLoading(false)
       setGeneratingFeed(false)
     }
@@ -95,6 +101,28 @@ export default function MagazineFeed() {
     fetchMagazineFeed()
     fetchGarments()
   }, [fetchMagazineFeed, fetchGarments])
+
+  // Recheck the server's daily cache after UTC rollover, including tabs returning
+  // from background. No forced inference or repeated automatic retry on failure.
+  useEffect(() => {
+    if (editionLabel(feedData?.date) === 'EDITION DATE UNAVAILABLE') return
+    const checkEdition = () => {
+      const today = new Date().toISOString().slice(0, 10)
+      if (document.visibilityState !== 'visible' || feedRequestPending.current) return
+      if (feedData.date < today && lastAutomaticRefresh.current !== today) {
+        lastAutomaticRefresh.current = today
+        fetchMagazineFeed()
+      }
+    }
+    const timer = setInterval(checkEdition, 60000)
+    window.addEventListener('focus', checkEdition)
+    document.addEventListener('visibilitychange', checkEdition)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', checkEdition)
+      document.removeEventListener('visibilitychange', checkEdition)
+    }
+  }, [feedData?.date, fetchMagazineFeed])
 
   // Map garment ID to full object
   const getGarment = (id) => garments.find(g => g.id === id)
@@ -230,8 +258,7 @@ export default function MagazineFeed() {
     )
   }
 
-  const today = new Date()
-  const dateHeader = today.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }).toUpperCase()
+  const dateHeader = editionLabel(feedData?.date)
   const coverLook = feedData?.cover_look
   const dailyFits = feedData?.daily_fits || []
   const oneItemFits = feedData?.one_item_three_ways || []
@@ -390,10 +417,11 @@ export default function MagazineFeed() {
         {/* Editorial Masthead */}
         <header className="mx-4 mt-8 mb-6 border-b border-[var(--glass-border)] pb-5 text-center relative">
           <div className="flex justify-between items-center px-2 text-xs font-bold text-[var(--text-tertiary)] tracking-[0.2em] mb-2 uppercase">
-            <span>ISSUE NO. 01</span>
+            <span>DAILY EDITION</span>
             <span>{dateHeader}</span>
             <button
               onClick={() => fetchMagazineFeed(true)}
+              disabled={isLoading || generatingFeed}
               className="flex items-center gap-1 hover:text-[var(--accent)] transition-colors uppercase tracking-[0.2em]"
             >
               <RefreshCw className="w-3 h-3" />
