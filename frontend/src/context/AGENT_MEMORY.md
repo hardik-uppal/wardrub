@@ -19,3 +19,10 @@ Last updated: 2026-09-11. Scope: style analysis state and onboarding.
   analysis focus via `/profile?analysis=color|fit`.
 - Keep callbacks used by Profile effects stable to avoid repeated fetch loops.
 - Verification: `npm test`, `npm run lint`, and `npm run test:e2e` in frontend.
+
+## Recommendation readiness — 2026-09-13
+
+- Onboarding clothes milestone now checks an indexed top+bottom or dress instead
+  of ten arbitrary garments. Avatar/style milestones remain optional setup tools;
+  the recommendation API/page do not gate on them. Current laundry eligibility is
+  server-owned and distinct from having enough categories indexed.

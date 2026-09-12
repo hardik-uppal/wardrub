@@ -1,0 +1,2 @@
+{"id": "empty", "garments": [], "expect_outfit": false, "weather": null, "top_must_include": null}
+{"id": "small-pair", "garments": [{"garment_id": "a", "category": "top"}, {"garment_id": "b", "category": "bottom"}], "expect_outfit": true, "weather": null, "top_must_include": null}

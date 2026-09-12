@@ -414,22 +414,23 @@ class FirestoreService:
 
         try:
             metadata.updated_at = datetime.utcnow()
-            data = metadata.model_dump()
+            # Analysis writes must not overwrite concurrent, user-confirmed closet state.
+            data = metadata.model_dump(exclude={"readiness", "readiness_version", "ownership"})
             
             # Use in-memory fallback
             if self._use_memory or self.client is None:
-                _memory_garments[metadata.garment_id] = data
+                _memory_garments[metadata.garment_id] = {**_memory_garments.get(metadata.garment_id, {}), **data}
                 logger.info(f"Saved garment metadata for {metadata.garment_id} (in-memory)")
                 return True
             
             doc_ref = self.client.collection(self.GARMENTS_COLLECTION).document(metadata.garment_id)
-            doc_ref.set(data)
+            doc_ref.set(data, merge=True)
             logger.info(f"Saved garment metadata for {metadata.garment_id}")
             return True
         except Exception as e:
             logger.error(f"Failed to save garment metadata: {e}")
             # Fallback to in-memory
-            _memory_garments[metadata.garment_id] = metadata.model_dump()
+            _memory_garments[metadata.garment_id] = {**_memory_garments.get(metadata.garment_id, {}), **data}
             return True
     
     async def update_garment_metadata(
@@ -500,7 +501,8 @@ class FirestoreService:
         self, 
         user_id: str,
         category: Optional[str] = None,
-        limit: int = 100
+        limit: Optional[int] = 100,
+        strict: bool = False
     ) -> List[GarmentMetadata]:
         """
         List all garment metadata for a user, optionally filtered by category.
@@ -514,10 +516,12 @@ class FirestoreService:
             List of GarmentMetadata objects
         """
         try:
+            if strict and (self._use_memory or self.client is None) and not settings.ALLOW_DEV_AUTH_BYPASS:
+                raise RuntimeError("Wardrobe storage is unavailable")
             # Use in-memory fallback
             if self._use_memory or self.client is None:
                 results = []
-                for garment_id, data in list(_memory_garments.items())[:limit]:
+                for garment_id, data in list(_memory_garments.items()):
                     try:
                         if is_legacy_demo_garment_id(garment_id):
                             continue
@@ -527,7 +531,7 @@ class FirestoreService:
                             results.append(GarmentMetadata(**data))
                     except Exception as e:
                         logger.warning(f"Failed to parse garment {garment_id}: {e}")
-                return results
+                return results[:limit]
             
             collection_ref = self.client.collection(self.GARMENTS_COLLECTION)
             
@@ -537,7 +541,8 @@ class FirestoreService:
             if category:
                 query = query.where("category", "==", category)
             
-            query = query.limit(limit)
+            if limit is not None:
+                query = query.limit(limit)
             
             docs = query.stream()
             results = []
@@ -551,12 +556,14 @@ class FirestoreService:
                 except Exception as e:
                     logger.warning(f"Failed to parse garment {doc.id}: {e}")
             
-            return results
+            return results[:limit]
         except Exception as e:
             logger.error(f"Failed to list garments metadata: {e}")
+            if strict:
+                raise
             # Return in-memory as fallback
             results = []
-            for garment_id, data in list(_memory_garments.items())[:limit]:
+            for garment_id, data in list(_memory_garments.items()):
                 try:
                     if is_legacy_demo_garment_id(garment_id):
                         continue
@@ -566,8 +573,47 @@ class FirestoreService:
                         results.append(GarmentMetadata(**data))
                 except:
                     pass
-            return results
+            return results[:limit]
     
+    async def set_garment_readiness(self, user_id, garment_id, readiness, expected_version):
+        """Compare-and-set, user-scoped readiness. Fail closed on storage failure."""
+        def apply(data):
+            if not data or data.get("user_id") != user_id or is_legacy_demo_garment_id(garment_id):
+                raise LookupError("Garment not found")
+            current = GarmentMetadata(**data)
+            # An exact request replay is safe, but an intervening update is a conflict.
+            if current.readiness_version == expected_version + 1 and current.readiness == readiness:
+                return current, None
+            if current.readiness_version != expected_version:
+                raise ValueError("Readiness changed. Refresh before updating it again")
+            changes = {"readiness": readiness, "readiness_version": expected_version + 1,
+                       "updated_at": datetime.utcnow()}
+            return GarmentMetadata(**{**data, **changes}), changes
+
+        def persist():
+            if self._use_memory or self.client is None:
+                if not settings.ALLOW_DEV_AUTH_BYPASS:
+                    raise RuntimeError("Wardrobe storage is unavailable")
+                with _style_profile_lock:
+                    result, changes = apply(_memory_garments.get(garment_id))
+                    if changes:
+                        _memory_garments[garment_id] = result.model_dump()
+                    return result
+            from google.cloud import firestore
+            ref = self.client.collection(self.GARMENTS_COLLECTION).document(garment_id)
+
+            @firestore.transactional
+            def update(transaction):
+                snapshot = ref.get(transaction=transaction)
+                result, changes = apply(snapshot.to_dict() if snapshot.exists else None)
+                if changes:
+                    transaction.update(ref, changes)
+                return result
+
+            return update(self.client.transaction())
+
+        return await asyncio.to_thread(persist)
+
     async def get_garments_with_scores(
         self,
         user_id: str,
@@ -1048,8 +1094,8 @@ class FirestoreService:
                     card["generated_at"] = card["generated_at"].isoformat()
                 return card
 
-            data["cover_look"] = serialize_look_card(data["cover_look"])
-            data["underused_edit"] = serialize_look_card(data["underused_edit"])
+            data["cover_look"] = serialize_look_card(data["cover_look"]) if data["cover_look"] else None
+            data["underused_edit"] = serialize_look_card(data["underused_edit"]) if data["underused_edit"] else None
             data["daily_fits"] = [serialize_look_card(lc) for lc in data["daily_fits"]]
             data["one_item_three_ways"] = [serialize_look_card(lc) for lc in data["one_item_three_ways"]]
             

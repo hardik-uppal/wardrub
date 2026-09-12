@@ -2,10 +2,11 @@
 
 Last updated: 2026-09-12. Scope: progressive style analysis and storage listing.
 
-- Magazine daily cache keys are explicitly UTC (`datetime.now(timezone.utc)`).
-  `test_magazine_freshness.py` verifies same-day reuse, next-day generation with
-  unchanged garments, forced refresh and user isolation against a mocked provider.
-  New editions need not contain wholly different outfits; no live diversity claim.
+- The former dated editorial cache is bypassed by the grounded recommender below.
+  UTC dates remain display context; refreshing does not call a generation model.
+- Release review corrected forecast-parser validation indentation; period parsing,
+  fallback, empty forecasts and missing-condition rejection have regression tests
+  in `test_weather_forecast.py`.
 - `StorageService.list_garments` and `list_tryon_results` never generate missing
   thumbnails, in cloud or local mode. Missing derivative URLs stay null; existing
   frontend consumers fall back to originals. Upload-time thumbnail creation is
@@ -35,3 +36,30 @@ Last updated: 2026-09-12. Scope: progressive style analysis and storage listing.
 - Uses existing `GEMINI_TEXT_MODEL` and Gemini credentials/Vertex configuration.
 - Tests: `python -m unittest discover -s backend/tests -p test_style_analysis.py`.
   Mocked functional tests do not establish live model accuracy.
+
+## Grounded recommender — 2026-09-13
+
+- `closet_ranker.py` owns pure bounded candidate generation, eligibility and swaps.
+  Valid core: top+bottom or dress; optional outerwear/shoes. Only owned garments,
+  current user, no retired demo IDs, no known laundry. Unknown readiness is allowed
+  but disclosed. Category shortlists rank all input items before pruning to 12;
+  beam width 96; identity/ties use canonical user-scoped garment/category keys.
+- `magazine_feed_service.py` now builds rule-grounded LookCards without Gemini or
+  cached editorial selection. Every read loads strict current wardrobe/profile;
+  no ten-item gate or random underused claim. Null cover means no viable outfit.
+  Logical IDs survive UTC dates and refresh, change on swaps, and are not event IDs.
+- `weather.py` caches successful coordinate observations for 600 seconds (max128).
+  Location changes use a different key; failures remain unknown, malformed missing
+  temperatures/conditions are rejected. Actual and feels-like values stay distinct.
+- `FirestoreService.list_garments_metadata(limit=None, strict=True)` reads all user
+  records and propagates storage failure. Production cannot fall back to stale
+  development memory. Memory filtering precedes the limit.
+- `set_garment_readiness` uses transaction/CAS with ownership validation, versions,
+  exact replay, and conflict detection. Undo is a new versioned change. Metadata
+  analysis saves merge and exclude readiness/ownership to preserve confirmations.
+- `RecommendationEngine.get_recommendations` also delegates selection to the
+  grounded ranker; daily reasoning no longer needs generation. Legacy private
+  helpers/dated generated history remain. No implicit-feedback learning yet.
+- Verify backend tests and `backend/benchmarks/evaluate_recommender.py` with the
+  versioned `training/benchmarks/recommender/v1` fixtures. See progress ledger for
+  scope and measured results; synthetic correctness is not taste validation.

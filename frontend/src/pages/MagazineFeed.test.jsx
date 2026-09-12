@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  garments: [],
   fetchGarments: vi.fn(),
   getIdToken: vi.fn(),
   navigate: vi.fn(),
@@ -14,7 +15,7 @@ vi.mock('react-router-dom', () => ({
 vi.mock('../context/WardrobeContext', () => ({
   useWardrobe: () => ({
     avatarUrl: null,
-    garments: [],
+    garments: mocks.garments,
     fetchGarments: mocks.fetchGarments,
   }),
 }))
@@ -123,6 +124,18 @@ describe('MagazineFeed onboarding', () => {
     await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/magazine-feed/generate', expect.objectContaining({ method: 'POST' })))
   })
 
+  it('discloses failed refreshes instead of silently displaying stale suggestions', async () => {
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'success', feed: { date: '2026-09-12' } }) })
+    await act(async () => { render(<MagazineFeed />) })
+    fetch.mockResolvedValueOnce({ ok: false, json: async () => ({ detail: 'Storage unavailable' }) })
+    fireEvent.click(screen.getByRole('button', { name: 'REFRESH ISSUE' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('may be out of date')
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'success', feed: { date: '2026-09-13' } }) })
+    fireEvent.click(screen.getByRole('button', { name: 'Retry outfits' }))
+    await screen.findByText('SEP 13, 2026 · UTC')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('offers only the real wardrobe flow and never requests demo data', async () => {
     render(<MagazineFeed />)
 
@@ -138,5 +151,63 @@ describe('MagazineFeed onboarding', () => {
       expect.objectContaining({ method: 'GET' }),
     )
     expect(fetch.mock.calls.flat().join(' ')).not.toContain('mock=true')
+  })
+})
+
+
+describe('grounded outfit actions', () => {
+  const look = { id: 'original', title: 'Starting outfit', garment_ids: ['a', 'b'], score: 0.8,
+    policy_version: 'closet-rules-v1', why_it_works: 'Check readiness.', swaps: [], styling_tips: [] }
+  const feed = { date: '2026-09-13', policy_version: 'closet-rules-v1', weather_status: 'no_location', cover_look: look, daily_fits: [] }
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.getIdToken.mockResolvedValue('token')
+    mocks.garments = [{ id: 'a', category: 'top' }, { id: 'b', category: 'bottom' }, { id: 'c', category: 'top' }]
+    vi.stubGlobal('fetch', vi.fn(async (url) => ({ ok: true, json: async () =>
+      url.endsWith('/closet-state') ? { garments: [] } : { status: 'success', feed } })))
+  })
+  afterEach(() => { mocks.garments = []; vi.unstubAllGlobals(); vi.restoreAllMocks() })
+
+  it('shows unknown weather and makes a server-validated one-piece swap', async () => {
+    render(<MagazineFeed />)
+    expect(await screen.findByText('No location set. These suggestions do not use weather.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'View details for Starting outfit' }))
+    fetch.mockImplementation(async (url) => ({ ok: true, json: async () => url.endsWith('/outfits/swap')
+      ? { status: 'success', look: { ...look, id: 'changed', title: 'Changed outfit', garment_ids: ['c', 'b'] } }
+      : { garments: [] } }))
+    fireEvent.click(screen.getByRole('button', { name: 'Swap Top' }))
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/outfits/swap', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ garment_ids: ['a', 'b'], replace_item_id: 'a' }),
+    })))
+    expect((await screen.findAllByText('Changed outfit')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Swap Bottom' })).toBeInTheDocument()
+    expect(screen.queryByText('Strong match')).not.toBeInTheDocument()
+  })
+
+  it('keeps the original outfit when no replacement exists', async () => {
+    render(<MagazineFeed />)
+    fireEvent.click(await screen.findByRole('button', { name: 'View details for Starting outfit' }))
+    fetch.mockResolvedValue({ ok: true, json: async () => ({ status: 'no_alternative', look: null }) })
+    fireEvent.click(screen.getByRole('button', { name: 'Swap Top' }))
+    expect((await screen.findAllByText('No available alternative for this piece. Your outfit is unchanged.')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'View details for Starting outfit' })).toBeInTheDocument()
+  })
+
+  it('shows server conflict and never displays an unavailable replacement', async () => {
+    render(<MagazineFeed />)
+    fireEvent.click(await screen.findByRole('button', { name: 'View details for Starting outfit' }))
+    fetch.mockResolvedValue({ ok: false, json: async () => ({ detail: 'Another piece is unavailable. Refresh your outfit first' }) })
+    fireEvent.click(screen.getByRole('button', { name: 'Swap Top' }))
+    expect((await screen.findAllByText('Another piece is unavailable. Refresh your outfit first')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'View details for Starting outfit' })).toBeInTheDocument()
+  })
+
+  it('keeps laundry controls reachable when no viable outfit exists', async () => {
+    fetch.mockImplementation(async url => ({ ok: true, json: async () => url.endsWith('/closet-state')
+      ? { garments: [] } : { status: 'success', feed: { ...feed, cover_look: null } } }))
+    render(<MagazineFeed />)
+    expect(await screen.findByText('No outfit available yet')).toBeInTheDocument()
+    expect(screen.getByText('Clothing readiness · 0 in laundry')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Capture Clothes' })).toBeInTheDocument()
   })
 })

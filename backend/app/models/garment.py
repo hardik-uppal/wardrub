@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional, List
+from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
 
 
@@ -93,6 +93,11 @@ class GarmentMetadata(BaseModel):
     user_id: str = Field(..., description="Owner user ID")
     category: GarmentCategory = Field(..., description="Garment category")
     
+    # Additive closet state. Legacy records are owned, with unconfirmed readiness.
+    ownership: Literal["owned", "lent", "retired"] = "owned"
+    readiness: Literal["unknown", "ready", "laundry"] = "unknown"
+    readiness_version: int = Field(0, ge=0)
+
     # Source images (kept for reference/re-analysis)
     source_images: List[SourceImage] = Field(default_factory=list)
     

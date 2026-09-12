@@ -19,3 +19,13 @@ Last updated: 2026-09-11. Scope: style analysis guidance.
   No automatic retries: a lost response may follow successful backend writes.
 - Verification: component/context tests and mobile/desktop browser journey,
   including automated accessibility checks.
+
+## Clothing readiness — 2026-09-13
+
+- `ClosetReadiness.jsx` reads authenticated `/closet-state`, provides searchable
+  per-item unknown/ready/laundry controls and versioned Undo. It waits for server
+  confirmation; uncertain writes trigger a read and outfit refresh, never a
+  blind automatic replay. API409 prompts refresh; no taste inference.
+- The component remains mounted during parent outfit refresh so undo survives.
+  An expanded panel is optional; initial capture and avatar access are unchanged.
+- Tests: `ClosetReadiness.test.jsx` and `e2e/recommender.spec.js`.

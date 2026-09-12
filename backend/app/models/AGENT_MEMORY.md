@@ -12,3 +12,14 @@ Last updated: 2026-09-11. Scope: style analysis additions.
 - A before-validator adds progress to legacy profiles on read. Existing results
   imply ready stages; no destructive migration is needed.
 - Verify with `python -m unittest discover -s backend/tests -p test_style_analysis.py`.
+
+## Recommender foundation — 2026-09-13
+
+- `GarmentMetadata` adds ownership (owned/lent/retired), readiness
+  (unknown/ready/laundry), and readiness_version. Legacy defaults owned/unknown/0.
+  Do not derive laundry from wear or treat unknown as clean.
+- `MagazineFeed.cover_look` and `underused_edit` are nullable. Additive fields:
+  weather, weather_status, policy_version, wardrobe_version. LookCard adds policy
+  and unknown_readiness_ids; score is a heuristic, not a match probability.
+- `WeatherInfo` preserves actual/feels-like temperature, optional observation/fetch
+  timestamps and source. Non-finite temperatures are invalid.

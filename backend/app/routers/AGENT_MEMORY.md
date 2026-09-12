@@ -109,3 +109,18 @@ Client request -> auth dependency -> parse request model/form-data -> call servi
 
 - Should `/api/extension/bootstrap` include display name / profile completion fields for side-panel UX states?
 - Should extension endpoints live under `/api/extension/*` (current) or be split by domain for reuse?
+
+## Recommender foundation — 2026-09-13
+
+- `GET /api/magazine-feed` and POST `.../generate` use the grounded ranker. Both
+  return success with a nullable cover; no ten-garment gate. Dependency failure503.
+- `POST /api/outfits/swap`: garment_ids (1–5), replace_item_id, optional with_item_id.
+  Fresh ownership/readiness check, locked remainder, same-category replacement.
+  Returns success+look or no_alternative+null; invalid/stale selection409.
+- `GET /api/closet-state`: current owned garment IDs/names/categories/readiness/version.
+- `PUT /api/closet-state/{id}`: readiness and expected_version; returns updated
+  garment/version. Cross-user/missing404, conflict409, unconfirmed storage write503.
+  All new routes require Firebase auth. No automatic mutation retry.
+- Daily outfit no longer requires analysis; its displayed weather is the same
+  observation used by its recommendation. Existing feedback API remains separate;
+  this phase does not implement preference learning or durable saved outfits.

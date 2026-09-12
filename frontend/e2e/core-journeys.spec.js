@@ -96,7 +96,7 @@ test('core wardrobe journeys remain usable', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'The Looker', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: /Refresh issue/i })).toBeVisible()
-  await expect(page.getByText('Strong match')).toBeVisible()
+  await expect(page.getByText('Suggested combination')).toBeVisible()
   await expect(page.getByText('SEP 12, 2026 · UTC')).toBeVisible()
   await expect(page.getByText('ISSUE NO. 01')).toHaveCount(0)
 })

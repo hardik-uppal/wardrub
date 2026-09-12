@@ -3,6 +3,9 @@
 from typing import Optional, List, Dict
 from datetime import datetime, timezone
 import httpx
+import math
+import time
+from collections import OrderedDict
 
 from app.config import get_settings
 from app.logging_config import get_logger
@@ -42,7 +45,23 @@ class WeatherService:
     def __init__(self):
         """Initialize weather service."""
         self.api_key = settings.OPENWEATHER_API_KEY
+        self._cache = OrderedDict()
     
+    async def get_cached_weather_by_coords(self, lat, lon):
+        """Successful observations only, bounded to 128 locations and ten minutes."""
+        key = (lat, lon)
+        cached = self._cache.get(key)
+        if cached and time.monotonic() - cached[0] < 600:
+            self._cache.move_to_end(key)
+            return cached[1]
+        self._cache.pop(key, None)
+        weather = await self.get_weather_by_coords(lat, lon)
+        if weather:
+            self._cache[key] = (time.monotonic(), weather)
+            if len(self._cache) > 128:
+                self._cache.popitem(last=False)
+        return weather
+
     async def get_weather_by_coords(
         self, 
         lat: float, 
@@ -126,12 +145,16 @@ class WeatherService:
         main = data.get("main", {})
         weather = data.get("weather", [{}])[0]
         
-        temperature = main.get("temp", 20)
+        temperature = main.get("temp")
+        if isinstance(temperature, bool) or not isinstance(temperature, (int, float)) or not math.isfinite(temperature):
+            raise ValueError("Weather observation is missing a valid temperature")
         feels_like = main.get("feels_like", temperature)
         humidity = main.get("humidity", 50)
         
         # Map OpenWeatherMap condition to our enum
-        condition_id = weather.get("id", 800)
+        condition_id = weather.get("id")
+        if not isinstance(condition_id, int):
+            raise ValueError("Weather observation is missing a condition")
         condition = self._map_condition(condition_id, temperature)
         
         description = weather.get("description", "").capitalize()
@@ -145,7 +168,10 @@ class WeatherService:
             condition=condition,
             description=description,
             humidity=humidity,
-            city=city
+            city=city,
+            observed_at=datetime.fromtimestamp(data["dt"], timezone.utc) if data.get("dt") else None,
+            fetched_at=datetime.now(timezone.utc),
+            source="OpenWeatherMap",
         )
     
     def _map_condition(self, condition_id: int, temperature: float) -> WeatherCondition:
@@ -297,7 +323,9 @@ class WeatherService:
             wind = forecast.get("wind", {})
             
             temp = main.get("temp", 20)
-            condition_id = weather.get("id", 800)
+            condition_id = weather.get("id")
+            if not isinstance(condition_id, int):
+                raise ValueError("Weather observation is missing a condition")
             description = weather.get("description", "")
             wind_speed = wind.get("speed", 0)
             
@@ -324,7 +352,9 @@ class WeatherService:
             weather = first_forecast.get("weather", [{}])[0]
             wind = first_forecast.get("wind", {})
             default_temp = main.get("temp", 20)
-            condition_id = weather.get("id", 800)
+            condition_id = weather.get("id")
+            if not isinstance(condition_id, int):
+                raise ValueError("Weather observation is missing a condition")
             wind_speed = wind.get("speed", 0)
             default_condition = self._get_condition_name(condition_id, default_temp, wind_speed)
             default_icon = self._get_weather_icon(condition_id, default_temp, wind_speed)

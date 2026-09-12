@@ -15,6 +15,7 @@ from app.models.outfit import (
     WeatherInfo,
     Occasion,
 )
+from app.services.closet_ranker import ClosetRanker, outfit_key
 from app.services.firestore import FirestoreService
 from app.services.weather import WeatherService
 from app.services.color_analysis import ColorAnalysisService
@@ -54,31 +55,25 @@ class RecommendationEngine:
         Returns:
             List of OutfitSuggestion objects
         """
-        logger.info(f"Generating recommendations (weather: {weather is not None}, occasion: {occasion})")
-        
-        # Get user profile if not provided
-        if user_profile is None:
-            user_profile = await self.firestore.get_user_profile(user_id)
-        
-        # Get all garments with metadata
-        garments = await self.firestore.list_garments_metadata(user_id=user_id)
-        
-        if not garments:
-            logger.warning("No garments found for recommendations")
-            return []
-        
-        # Score all garments
-        scored_garments = await self._score_garments(
-            garments, user_profile, weather
-        )
-        
-        # Generate outfit combinations
-        outfits = await self._generate_outfits(
-            scored_garments, user_profile, weather, occasion, limit
-        )
-        
+        garments = await self.firestore.list_garments_metadata(user_id=user_id, limit=None, strict=True)
+        ranker = ClosetRanker()
+        context = weather.model_dump() if weather else None
+        outfits = []
+        for items in ranker.rank(garments, user_id, user_profile, context, limit):
+            score = ranker.score(items, user_profile, context)
+            outfits.append(OutfitSuggestion(
+                id=outfit_key(user_id, items),
+                items=[OutfitItem(garment_id=g.garment_id, category=g.category,
+                                  url=g.ghost_mannequin_url or "") for g in items],
+                overall_score=score.overall_score,
+                color_harmony_score=score.color_harmony_score,
+                weather_score=score.weather_score if weather else 0.0,
+                weather=weather, occasion=occasion,
+                reasoning=OutfitReasoning(summary="A combination from your available wardrobe; confirm unknown readiness.",
+                    weather_suitability=score.weather_reasoning if weather else "Weather unknown; check conditions before dressing."),
+            ))
         return outfits
-    
+
     async def _score_garments(
         self,
         garments: List[GarmentMetadata],
@@ -433,8 +428,5 @@ Be encouraging and helpful. Return ONLY JSON."""
             return None
         
         outfit = outfits[0]
-        
-        # Generate reasoning
-        outfit.reasoning = await self.generate_outfit_reasoning(outfit, user_profile)
         
         return outfit
