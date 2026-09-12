@@ -125,9 +125,9 @@ export default function Profile() {
     return fetch(url, { ...options, headers })
   }, [getIdToken])
 
-  const fetchProfile = useCallback(async () => {
+  const fetchProfile = useCallback(async (force = false) => {
     try {
-      const data = await loadSharedProfile()
+      const data = await loadSharedProfile(force)
       if (data?.error) setError(data.error)
       
       if (data?.profile) {
@@ -190,7 +190,7 @@ export default function Profile() {
       await migrateLegacyData()
       setMigrationSuccess(true)
       setHasLegacyData(false)
-      await fetchProfile()
+      await fetchProfile(true)
     } catch (err) {
       console.error('Migration failed:', err)
       setError(err.message || 'Failed to migrate old data')
@@ -212,7 +212,7 @@ export default function Profile() {
       
       if (response.ok) {
         setLocation(selectedLocation)
-        await fetchProfile()
+        await fetchProfile(true)
       } else {
         setError('Failed to update location')
       }
