@@ -9,6 +9,7 @@ from typing import Optional
 
 from app.config import get_settings
 from app.logging_config import get_logger
+from app.product_events import emit_event
 from app.models.magazine_feed import LookCard, MagazineFeed, SwapSuggestion
 from app.services.firestore import FirestoreService, is_legacy_demo_garment_id
 from app.services.outfit_scorer import OutfitScorerService
@@ -78,6 +79,7 @@ class MagazineFeedService:
         if not force_regenerate:
             cached_feed = await self.firestore.get_magazine_feed(user_id, today_str)
             if cached_feed and not _contains_legacy_demo_garments(cached_feed):
+                emit_event("magazine_cache_hit", user_id)
                 logger.info(f"Returning cached magazine feed for {user_id} on {today_str}")
                 return cached_feed
             if cached_feed:
@@ -310,6 +312,7 @@ Return ONLY the raw JSON string."""
 
                                 # Save to Firestore
                                 await self.firestore.save_magazine_feed(feed)
+                                emit_event("magazine_generated", user_id, garment_count=len(garments))
                                 logger.info(f"Successfully generated and saved magazine feed for {user_id}")
                                 return feed
                                 

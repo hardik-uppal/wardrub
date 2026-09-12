@@ -2,13 +2,22 @@ const API_URL = import.meta.env.VITE_API_URL || ''
 const ACTIVATION_STORAGE_PREFIX = 'wardrub_activation_'
 
 export async function trackActivationEvent(name, getToken, properties = {}) {
-  const storageKey = `${ACTIVATION_STORAGE_PREFIX}${name}`
-
   try {
-    if (window.localStorage.getItem(storageKey) === 'true') return
-
     const token = await getToken()
     if (!token) return
+
+    // Decode only to namespace this browser preference, never for authorization.
+    // The backend verifies the token and derives the real UID independently.
+    let uid
+    try {
+      const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+      uid = JSON.parse(atob(payload)).sub
+    } catch {
+      // Local dev tokens aren't JWTs: deliver without cross-user suppression.
+    }
+    const storageKey = typeof uid === 'string' && uid
+      ? `${ACTIVATION_STORAGE_PREFIX}${uid}:${name}` : null
+    if (storageKey && window.localStorage.getItem(storageKey) === 'true') return
 
     const response = await fetch(`${API_URL}/api/analytics/events`, {
       method: 'POST',
@@ -20,7 +29,7 @@ export async function trackActivationEvent(name, getToken, properties = {}) {
       keepalive: true,
     })
 
-    if (response.ok) {
+    if (response.ok && storageKey) {
       window.localStorage.setItem(storageKey, 'true')
     }
   } catch (error) {

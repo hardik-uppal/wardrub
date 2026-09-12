@@ -12,6 +12,7 @@ from app.services.style_analysis import (
 )
 from app.services.auth import get_current_user
 from app.logging_config import get_logger
+from app.product_events import emit_event
 from app.models.user_profile import (
     UserProfile,
     UserProfileUpdate,
@@ -42,6 +43,7 @@ async def get_profile(user: Dict[str, Any] = Depends(get_current_user)):
         # Reading the authenticated user's profile also initializes a safe,
         # non-inferred profile for accounts created before profile onboarding.
         profile = await firestore.ensure_user_profile(user_id)
+        emit_event("profile_loaded", user_id)
         return {
             "profile": profile.model_dump(),
             "status": "exists"

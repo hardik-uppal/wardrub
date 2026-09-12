@@ -29,6 +29,12 @@ Owns the FastAPI application runtime: app bootstrap, middleware, API router regi
   - starts background description backfill task
   - starts scheduler
 - Request logging middleware emits request id, method/path, status, and duration.
+- `product_events.py` emits a separate allowlisted JSON stdout stream tagged
+  `wardrub_product_v1`; no images, free-text properties, tokens or emails. The
+  analytics route derives UID from authenticated claims. Profile bootstrap and
+  Magazine paths emit observed activity, not complete session or billing records.
+- `infra/observability/` owns private BigQuery views, Monitoring and aggregate
+  user snapshots. See its README for deployment/browser steps and current blockers.
 
 ## Dependencies
 
