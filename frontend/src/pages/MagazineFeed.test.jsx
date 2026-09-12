@@ -65,7 +65,9 @@ describe('MagazineFeed onboarding', () => {
     vi.setSystemTime(new Date('2026-09-12T23:59:00Z'))
     let day = '2026-09-12'
     fetch.mockImplementation(async () => ({ json: async () => ({ status: 'success', feed: { date: day } }) }))
-    render(<MagazineFeed />)
+    // Flush the successful read and passive listener effect before sending focus.
+    // Seeing the masthead alone does not prove the focus listener is installed.
+    await act(async () => { render(<MagazineFeed />) })
     await screen.findByText('SEP 12, 2026 · UTC')
     fireEvent.focus(window)
     expect(fetch).toHaveBeenCalledTimes(1)
@@ -84,7 +86,7 @@ describe('MagazineFeed onboarding', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-09-12T23:59:00Z'))
     fetch.mockResolvedValueOnce({ json: async () => ({ status: 'success', feed: { date: '2026-09-12' } }) })
-    render(<MagazineFeed />)
+    await act(async () => { render(<MagazineFeed />) })
     await screen.findByText('SEP 12, 2026 · UTC')
     vi.setSystemTime(new Date('2026-09-13T00:01:00Z'))
     const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
@@ -102,12 +104,13 @@ describe('MagazineFeed onboarding', () => {
     vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
     vi.setSystemTime(new Date('2026-09-12T23:59:30Z'))
     fetch.mockImplementation(async () => ({ json: async () => ({ status: 'success', feed: { date: new Date().toISOString().slice(0, 10) } }) }))
-    const { unmount } = render(<MagazineFeed />)
+    let view
+    await act(async () => { view = render(<MagazineFeed />) })
     await screen.findByText('SEP 12, 2026 · UTC')
     await act(async () => { await vi.advanceTimersByTimeAsync(60000) })
     expect(await screen.findByText('SEP 13, 2026 · UTC')).toBeInTheDocument()
     expect(fetch).toHaveBeenCalledTimes(2)
-    unmount()
+    view.unmount()
     await act(async () => { await vi.advanceTimersByTimeAsync(86400000) })
     expect(fetch).toHaveBeenCalledTimes(2)
   })
