@@ -79,6 +79,10 @@ Client request -> auth dependency -> parse request model/form-data -> call servi
 ## Safe Modification Rules
 
 - Keep endpoint auth consistent with user-scoped data access.
+- All avatar/garment multipart photos pass through `read_photo` before model calls
+  or source storage. It returns normalized JPEG and actionable HTTP 400 errors.
+  Store its bytes with image/jpeg, not the original upload's declared MIME.
+  Profile analysis uses the same decoder via its stricter `prepare_photo` wrapper.
 - Preserve category constraints (`top`, `bottom`, `dress`, `outerwear`) where applicable.
 - If route contracts change, update frontend/extension clients and this memory file.
 

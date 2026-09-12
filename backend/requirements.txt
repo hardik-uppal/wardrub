@@ -3,6 +3,7 @@ uvicorn[standard]==0.30.0
 python-multipart==0.0.9
 rembg==2.0.57
 pillow==10.4.0
+pillow-heif==0.18.0
 google-cloud-storage==2.18.0
 google-cloud-aiplatform==1.60.0
 google-cloud-firestore==2.16.0

@@ -5,6 +5,7 @@ import { useWardrobe } from '../context/WardrobeContext'
 import LoadingOverlay from '../components/LoadingOverlay'
 import BottomNav from '../components/BottomNav'
 import GalleryUpload from '../components/GalleryUpload'
+import UploadPreview from '../components/UploadPreview'
 
 const categories = [
   { id: 'top', label: 'Top', icon: '👕' },
@@ -299,7 +300,7 @@ export default function Capture() {
           <div className="flex-1 flex gap-3 p-3">
             {/* Front preview */}
             <div className="flex-1 relative rounded-xl overflow-hidden bg-[var(--bg-primary)]">
-              <img
+              <UploadPreview
                 src={frontImage}
                 alt="Front view"
                 className="w-full h-full object-contain"
@@ -318,7 +319,7 @@ export default function Capture() {
             {/* Back preview or add button */}
             {backImage ? (
               <div className="flex-1 relative rounded-xl overflow-hidden bg-[var(--bg-primary)]">
-                <img
+                <UploadPreview
                   src={backImage}
                   alt="Back view"
                   className="w-full h-full object-contain"

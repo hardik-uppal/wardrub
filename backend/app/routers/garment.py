@@ -1,6 +1,7 @@
 """Garment processing router - background removal, ghost mannequin, and storage."""
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+from app.services.image_input import read_photo
 from typing import Optional, List, Dict, Any
 import uuid
 
@@ -66,14 +67,14 @@ async def process_garment(
         raise HTTPException(status_code=400, detail="Invalid category. Must be: top, bottom, dress, outerwear")
     
     # Read front image
-    front_bytes = await front.read()
+    front_bytes = await read_photo(front)
     if not front_bytes:
         raise HTTPException(status_code=400, detail="Empty front image uploaded")
     
     # Read back image if provided
     back_bytes = None
     if back:
-        back_bytes = await back.read()
+        back_bytes = await read_photo(back)
     
     try:
         # Generate unique ID for this garment
@@ -264,10 +265,7 @@ async def process_uploaded_clothes(
     user_id = user["uid"]
     logger.info(f"👕 Process uploaded clothes - filename: {file.filename}, user: {user_id}")
     
-    image_bytes = await file.read()
-    if not image_bytes:
-        logger.warning("Empty file uploaded")
-        raise HTTPException(status_code=400, detail="Empty image uploaded")
+    image_bytes = await read_photo(file)
     
     logger.info(f"📦 Received image: {len(image_bytes)} bytes")
     
@@ -313,7 +311,7 @@ async def process_uploaded_clothes(
                 user_id=user_id,
                 garment_id=garment_id,
                 view="original",
-                content_type=file.content_type or "image/jpeg"
+                content_type="image/jpeg"
             )
             logger.info(f"  Source image saved: {source_url[:50]}...")
             
@@ -422,7 +420,7 @@ async def process_garment_full(
         source_images = []
         
         for i, file in enumerate(files):
-            image_bytes = await file.read()
+            image_bytes = await read_photo(file)
             if not image_bytes:
                 continue
             
@@ -469,7 +467,7 @@ async def process_garment_full(
                 "quality": quality,
                 "visibility": visibility,
                 "mask": mask,
-                "content_type": file.content_type or "image/jpeg"
+                "content_type": "image/jpeg"
             })
             
             # Upload source image and store reference
@@ -478,7 +476,7 @@ async def process_garment_full(
                 user_id=user_id,
                 garment_id=garment_id,
                 view=view,
-                content_type=file.content_type or "image/jpeg"
+                content_type="image/jpeg"
             )
             logger.info(f"  Source image uploaded: {source_url[:50]}...")
             
@@ -789,9 +787,7 @@ async def find_similar_products(
     """
     logger.info(f"🔍 Finding similar products for user: {user['uid']}")
     
-    image_bytes = await file.read()
-    if not image_bytes:
-        raise HTTPException(status_code=400, detail="Empty image uploaded")
+    image_bytes = await read_photo(file)
     
     try:
         result = await product_matcher.find_similar_products(image_bytes)
@@ -1010,9 +1006,7 @@ async def extract_product_info(
     if category not in ["top", "bottom", "dress", "outerwear"]:
         raise HTTPException(status_code=400, detail="Invalid category")
     
-    image_bytes = await file.read()
-    if not image_bytes:
-        raise HTTPException(status_code=400, detail="Empty image uploaded")
+    image_bytes = await read_photo(file)
     
     try:
         result = await product_matcher.get_enhanced_garment_info(image_bytes, category)

@@ -9,6 +9,12 @@ Last updated: 2026-09-12. Scope: progressive style analysis and storage listing.
 - Listing regression tests: `python -m unittest discover -s backend/tests -p test_storage_listing.py`.
   This removes request-time derivative work, not signed-URL generation or blob listing.
 
+- `image_input.py` is the shared JPEG/PNG/WebP/HEIC/HEIF ingress decoder.
+  Byte-sniffed content, 10 MB / 20 MP limits, off-thread decoding, EXIF orientation,
+  ICC-to-sRGB conversion and alpha-on-white; outputs metadata-free JPEG up to
+  2048 px. Raw-upload sources stored by avatar/garment routes are now normalized
+  JPEG, not byte-identical originals. Style retains its 256 px minimum / 1536 px cap.
+  `pillow-heif` is required; tests encode/decode real synthetic HEIF, not renamed JPEG.
 - `style_analysis.py` validates/normalizes original photos, asks Gemini for
   structured evidence across all photos in a submission, and merges stage state.
 - Blocking issues override confidence. Threshold 0.7 is an engineering gate,

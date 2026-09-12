@@ -2,10 +2,8 @@
 
 import asyncio
 from datetime import datetime
-from io import BytesIO
 from typing import Literal, Optional
 
-from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field
 
 from app.config import get_settings
@@ -14,10 +12,9 @@ from app.models.user_profile import (
     UserProfile,
 )
 from app.services.color_analysis import ColorAnalysisService
+from app.services.image_input import normalize_photo, MAX_PHOTO_BYTES, MAX_PIXELS
 
 MAX_PHOTOS = 4
-MAX_PHOTO_BYTES = 10 * 1024 * 1024
-MAX_PIXELS = 20_000_000
 MIN_CONFIDENCE = 0.7
 StageName = Literal["color", "fit"]
 
@@ -48,24 +45,7 @@ class StyleEvidence(BaseModel):
 
 def prepare_photo(raw: bytes) -> bytes:
     """Validate decoded content, orient it, resize, and strip metadata."""
-    if not raw or len(raw) > MAX_PHOTO_BYTES:
-        raise ValueError("Each photo must be non-empty and no larger than 10 MB.")
-    try:
-        with Image.open(BytesIO(raw)) as source:
-            if source.format not in {"JPEG", "PNG", "WEBP"}:
-                raise ValueError("Use JPEG, PNG, or WebP photos.")
-            if source.width * source.height > MAX_PIXELS:
-                raise ValueError("Each photo must be no larger than 20 megapixels.")
-            if min(source.size) < 256:
-                raise ValueError("Use a photo at least 256 pixels wide and tall.")
-            source.load()
-            photo = ImageOps.exif_transpose(source).convert("RGB")
-            photo.thumbnail((1536, 1536))
-            output = BytesIO()
-            photo.save(output, format="JPEG", quality=90)
-            return output.getvalue()
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
-        raise ValueError("This photo could not be read. Use a valid JPEG, PNG, or WebP image.") from exc
+    return normalize_photo(raw, min_edge=256, max_edge=1536, quality=90)
 
 
 def requested_photo(stage: StageName, issues=()) -> PhotoRequest:
