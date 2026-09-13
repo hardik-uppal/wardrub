@@ -123,9 +123,8 @@ export default function OutfitPanel({ outfit, onSwap, compact = false }) {
                       unknown: 'Readiness unknown',
                     }[readiness[outfit.garment_ids[i]] || 'unknown']
                   }{' '}
-                  ·{' '}
-                  {library?.locations?.[outfit.garment_ids[i]] ||
-                    'Location not set'}
+                  {library?.locations?.[outfit.garment_ids[i]] &&
+                    ` · ${library.locations[outfit.garment_ids[i]]}`}
                 </small>
               </span>
               {onSwap && g && (

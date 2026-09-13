@@ -37,3 +37,8 @@ Last updated: 2026-09-11. Scope: style analysis guidance.
 - `Dialog` uses native modal/focus/escape behavior. Home owns versioned single/batch readiness and detail/location/delete actions. The older ClosetReadiness remains for legacy unmounted Magazine UI.
 - Global OnboardingWidget is unmounted; capture success and relevant optional avatar/style entries replace its persistent checklist. GalleryUpload preserves bounded retries and adds a completion callback.
 - LookPreview labels image export Download; Save outfit is the separate persistence action.
+
+## One-photo follow-up — 2026-09-13
+
+- GalleryUpload now owns gallery and camera input, optional webcam dialog and native fallback. Both call processUploadedClothes with one file; no category/back fields. Stream teardown handles cancel/unmount and late permission.
+- Queue remains bounded/sequential; partial success preserves added pieces and cannot blindly retry the same photo. Added pieces show automatic labels; Done returns to origin. Unit and one-photo browser tests cover input/persistence and partial outcomes.

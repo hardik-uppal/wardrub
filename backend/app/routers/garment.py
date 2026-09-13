@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from app.services.image_input import read_photo
+from app.services.clothing_detection import normalize_detections
 from typing import Optional, List, Dict, Any
 import uuid
 
@@ -154,6 +155,17 @@ async def get_wardrobe(
     user_id = user["uid"]
     try:
         garments = await storage.list_garments(user_id=user_id, category=category)
+        if garments:
+            try:
+                metadata = await firestore.list_garments_metadata(user_id=user_id, category=category, limit=None, strict=True)
+                by_id = {g.garment_id: g for g in metadata if g.user_id == user_id}
+                for garment in garments:
+                    saved = by_id.get(garment.get("id"))
+                    if saved:
+                        garment["description"] = saved.description.model_dump() if saved.description else None
+                        garment["fit_observation"] = saved.fit_observation.model_dump() if saved.fit_observation else None
+            except Exception:
+                logger.warning("Clothing labels unavailable; keeping wardrobe images", exc_info=True)
         return {
             "garments": [
                 garment
@@ -272,7 +284,7 @@ async def process_uploaded_clothes(
     try:
         # Step 1: Analyze image with Gemini to detect clothes
         logger.info("🔍 Step 1: Analyzing image for clothing items...")
-        detected_items = await vertex_ai.detect_clothes_in_image(image_bytes)
+        detected_items = normalize_detections(await vertex_ai.detect_clothes_in_image(image_bytes))
         
         if not detected_items:
             logger.warning("No clothing items detected in image")
@@ -286,90 +298,97 @@ async def process_uploaded_clothes(
             logger.debug(f"  Item {i+1}: {item.get('category')} - {item.get('description', '')[:50]}...")
         
         processed_garments = []
-        
-        # Step 2: Create ghost mannequin for each detected item
-        logger.info("🎨 Step 2: Creating ghost mannequins...")
-        for i, item in enumerate(detected_items):
-            garment_id = str(uuid.uuid4())
-            category = item.get('category', 'top')
-            description_text = item.get('description', '')
-            
-            logger.info(f"  Processing item {i+1}/{len(detected_items)}: {category}")
-            
-            # Generate ghost mannequin using Gemini
-            mannequin_bytes = await vertex_ai.create_ghost_mannequin_from_description(
-                image_bytes=image_bytes,
-                description=description_text,
-                category=category
-            )
-            
-            logger.info(f"  Mannequin generated: {len(mannequin_bytes)} bytes")
-            
-            # Upload source image (original user upload)
-            source_url = await storage.upload_source_image(
-                image_bytes=image_bytes,
-                user_id=user_id,
-                garment_id=garment_id,
-                view="original",
-                content_type="image/jpeg"
-            )
-            logger.info(f"  Source image saved: {source_url[:50]}...")
-            
-            # Upload processed garment image
-            front_url = await storage.upload_garment(
-                image_bytes=mannequin_bytes,
-                garment_id=f"{garment_id}_front",
-                category=category,
-                user_id=user_id
-            )
-            
-            logger.info(f"  Uploaded to storage: {front_url[:50]}...")
-            
-            # Create and save garment metadata to Firestore
+        failed_count = 0
+        for item in detected_items:
             try:
+                garment_id = str(uuid.uuid4())
+                category = item.get('category', 'top')
+                description_text = item.get('description', '')
+            
+                logger.info(f"Processing detected category: {category}")
+            
+                # Generate ghost mannequin using Gemini
+                mannequin_bytes = await vertex_ai.create_ghost_mannequin_from_description(
+                    image_bytes=image_bytes,
+                    description=description_text,
+                    category=category
+                )
+            
+                logger.info(f"  Mannequin generated: {len(mannequin_bytes)} bytes")
+            
+                # Upload source image (original user upload)
+                source_url = await storage.upload_source_image(
+                    image_bytes=image_bytes,
+                    user_id=user_id,
+                    garment_id=garment_id,
+                    view="original",
+                    content_type="image/jpeg"
+                )
+                logger.info(f"  Source image saved: {source_url[:50]}...")
+            
+                # Upload processed garment image
+                front_url = await storage.upload_garment(
+                    image_bytes=mannequin_bytes,
+                    garment_id=f"{garment_id}_front",
+                    category=category,
+                    user_id=user_id
+                )
+            
+                logger.info(f"  Uploaded to storage: {front_url[:50]}...")
+            
+                # Category was validated before generation; never silently guess top.
                 category_enum = GarmentCategory(category)
-            except ValueError:
-                category_enum = GarmentCategory.TOP
             
-            metadata = GarmentMetadata(
-                garment_id=garment_id,
-                user_id=user_id,
-                category=category_enum,
-                source_images=[
-                    SourceImage(
-                        url=source_url,
-                        view="original",
-                        quality_score=0.8  # Default score for detected items
-                    )
-                ],
-                ghost_mannequin_url=front_url,
-                description=GarmentDescription(
-                    short=description_text[:100] if description_text else f"{category} garment",
-                    detailed=description_text,
-                    style_tags=[]
-                ),
-                weather_range=_get_weather_range(category)
-            )
+                metadata = GarmentMetadata(
+                    garment_id=garment_id,
+                    user_id=user_id,
+                    category=category_enum,
+                    source_images=[
+                        SourceImage(
+                            url=source_url,
+                            view="original",
+                            quality_score=0.0  # Unmeasured source quality
+                        )
+                    ],
+                    ghost_mannequin_url=front_url,
+                    description=GarmentDescription(
+                        short=item['name'],
+                        detailed=description_text,
+                        style_tags=item['style_tags']
+                    ),
+                    fit_observation=item["fit_observation"],
+                    weather_range=WeatherRange()
+                )
             
-            await firestore.save_garment_metadata(metadata)
-            logger.info(f"  ✅ Garment metadata saved to Firestore: {garment_id}")
+                if not await firestore.save_garment_metadata(metadata, strict=True):
+                    raise RuntimeError("Garment metadata was not confirmed")
+                logger.info(f"  ✅ Garment metadata saved to Firestore: {garment_id}")
             
-            processed_garments.append({
-                "id": garment_id,
-                "front_url": front_url,
-                "back_url": None,
-                "category": category,
-                "description": description_text,
-                "source_url": source_url,
-                "status": "processed"
-            })
+                processed_garments.append({
+                    "id": garment_id,
+                    "front_url": front_url,
+                    "back_url": None,
+                    "category": category,
+                    "name": item["name"],
+                    "description": description_text,
+                    "fit_observation": metadata.fit_observation.model_dump(),
+                    "source_url": source_url,
+                    "status": "processed"
+                })
         
+            except Exception:
+                failed_count += 1
+                logger.exception("Could not finish a detected clothing item")
+        if not processed_garments:
+            raise HTTPException(503, "Could not confirm these clothes were added. Check your wardrobe before retrying.")
+
         logger.info(f"✅ Successfully processed {len(processed_garments)} garments")
         
         return {
             "garments": processed_garments,
-            "total_detected": len(processed_garments),
-            "status": "processed"
+            "total_detected": len(detected_items),
+            "failed_count": failed_count,
+            "status": "partial" if failed_count else "processed"
         }
     
     except HTTPException:

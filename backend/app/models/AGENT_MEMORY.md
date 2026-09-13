@@ -27,3 +27,7 @@ Last updated: 2026-09-11. Scope: style analysis additions.
 ## Daily correction context — 2026-09-13
 
 - `MagazineFeed.skipped_for_day` is additive, default false: one or more explicit outfit corrections apply to the requested local day. It is not a learned preference signal. ClosetAction request bounds and literal action/reason/style values live in `routers/closet.py`.
+
+## Original-photo clothing fit — 2026-09-13
+
+- Additive GarmentMetadata.fit_observation is optional for legacy records. FitObservation stores source, apparent fit, length/drape/evidence, model confidence, visibility and original-photo basis. Its validator abstains for non-worn, non-clear, confidence<0.7 or no evidence. This is pictured-wearer observation, not user body/size/taste or fit_type. Confidence threshold is uncalibrated.

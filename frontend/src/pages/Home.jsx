@@ -7,9 +7,10 @@ import BottomNav from '../components/BottomNav'
 import ResilientImage from '../components/ResilientImage'
 import Dialog from '../components/Dialog'
 const name = (g) =>
-  typeof g.description === 'string'
+  g.name ||
+  (typeof g.description === 'string'
     ? g.description
-    : g.description?.short || g.name || `${g.category} item`
+    : g.description?.short || `${g.category} item`)
 export default function Home() {
   const { garments, fetchGarments, deleteGarment } = useWardrobe()
   const {
@@ -168,6 +169,17 @@ export default function Home() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </label>
+      </div>
+      <details
+        className="wardrobe-filters"
+        open={params.has('category') || undefined}
+      >
+        <summary>
+          Filters
+          {category !== 'all' || readiness !== 'all' || sort !== 'recent'
+            ? ' · Active'
+            : ''}
+        </summary>
         <label>
           <span className="sr-only">Sort wardrobe</span>
           <select value={sort} onChange={(e) => setSort(e.target.value)}>
@@ -176,45 +188,46 @@ export default function Home() {
             <option value="category">Category</option>
           </select>
         </label>
-      </div>
-      <div
-        className="filter-row category-filters"
-        aria-label="Clothing categories"
-      >
-        {['all', 'top', 'bottom', 'dress', 'outerwear', 'shoes'].map((c) => (
-          <button
-            key={c}
-            aria-pressed={category === c}
-            onClick={() => setCategory(c)}
-          >
-            {
+
+        <div
+          className="filter-row category-filters"
+          aria-label="Clothing categories"
+        >
+          {['all', 'top', 'bottom', 'dress', 'outerwear', 'shoes'].map((c) => (
+            <button
+              key={c}
+              aria-pressed={category === c}
+              onClick={() => setCategory(c)}
+            >
               {
-                all: 'All',
-                top: 'Tops',
-                bottom: 'Bottoms',
-                dress: 'Dresses',
-                outerwear: 'Outerwear',
-                shoes: 'Shoes',
-              }[c]
-            }
-          </button>
-        ))}
-      </div>
-      <div className="context-row">
-        <label>
-          Readiness{' '}
-          <select
-            value={readiness}
-            onChange={(e) => setReadiness(e.target.value)}
-          >
-            <option value="all">All pieces</option>
-            <option value="ready">Ready to wear</option>
-            <option value="laundry">In laundry</option>
-            <option value="unknown">Unknown</option>
-          </select>
-        </label>
-        <span className="muted">{visible.length} shown</span>
-      </div>
+                {
+                  all: 'All',
+                  top: 'Tops',
+                  bottom: 'Bottoms',
+                  dress: 'Dresses',
+                  outerwear: 'Outerwear',
+                  shoes: 'Shoes',
+                }[c]
+              }
+            </button>
+          ))}
+        </div>
+        <div className="context-row">
+          <label>
+            Readiness{' '}
+            <select
+              value={readiness}
+              onChange={(e) => setReadiness(e.target.value)}
+            >
+              <option value="all">All pieces</option>
+              <option value="ready">Ready to wear</option>
+              <option value="laundry">In laundry</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </label>
+          <span className="muted">{visible.length} shown</span>
+        </div>
+      </details>
       {undo && (
         <button
           className="text-action"
@@ -346,6 +359,24 @@ export default function Home() {
             alt={`${name(detail)} ${back ? 'back' : 'front'}`}
             className="detail-image"
           />
+          {detail.fit_observation?.fit &&
+            detail.fit_observation.fit !== 'unknown' && (
+              <details>
+                <summary>
+                  Fit in this photo · {detail.fit_observation.fit}
+                </summary>
+                <p className="muted">
+                  Observed on the person pictured; not a size or comfort
+                  guarantee.
+                </p>
+                <p>{detail.fit_observation.drape}</p>
+                <ul>
+                  {detail.fit_observation.evidence?.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
           {detail.back_url && (
             <button onClick={() => setBack(!back)}>
               Show {back ? 'front' : 'back'}

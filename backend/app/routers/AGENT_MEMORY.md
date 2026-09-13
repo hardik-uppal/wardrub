@@ -133,3 +133,8 @@ Client request -> auth dependency -> parse request model/form-data -> call servi
 - POST `/create-avatar` accepts additive form `activate=false` to create a candidate. POST `/avatar-candidates/{uuid}/activate` reads only the authenticated user's candidate. Legacy activation default stays true.
 - Multi-try-on persists garment IDs/categories and avatar-content revision; cache includes user and avatar revision and refreshes the stored result URL. GET history supports offset/limit and next_offset.
 - Regression coverage: `test_closet_library.py`, existing feed/readiness/security tests. No live image/model verification.
+
+## One-photo capture — 2026-09-13
+
+- POST process-uploaded-clothes accepts the same single file and auto-detects labels plus original-photo fit. Response retains description string and adds name/fit_observation, failed_count and status partial. Successful pieces survive other item failures; no confirmed pieces yields503/check-before-retry. Production metadata save is strict.
+- GET wardrobe joins user-scoped metadata labels/fit to storage results without replacing signed image URLs. Optional label read failure leaves images usable. No change to old front/back endpoints.

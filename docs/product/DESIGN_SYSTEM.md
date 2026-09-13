@@ -61,3 +61,7 @@ The branch uses the existing deployment and services. No automatic migration, ne
 ## Deferred work
 
 Shop, social imports, editable ingestion classification/duplicate review, autonomous clothing tracking, learned taste/exposure pipelines, durable background generation jobs and a full avatar-version gallery remain separate work. Candidate cleanup and scalable history storage also need lifecycle policies. This is the core Release A implementation, not evidence that the pilot or future milestones are complete.
+
+## Follow-up simplification
+
+One-photo capture replaces the front/back/category setup; wardrobe filters are collapsed by default. See `ONE_PHOTO_CAPTURE.md` for automatic labeling, original-photo fit and validation boundaries.

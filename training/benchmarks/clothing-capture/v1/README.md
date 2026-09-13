@@ -1,0 +1,7 @@
+# Clothing capture v1
+
+These 2 starter / 24 small cases measure parsed model-response and persistence contracts. They do not contain photos and do not measure Gemini's perception quality. The old upload pipeline discarded fit; the new pipeline retains supported original-photo observations while suppressing unsupported classifications. Unknown is a correct result for flat/hanging, occluded, weak-confidence or unsupported observations. Confidence 0.7 is an engineering gate, not calibration.
+
+Run `backend/benchmarks/evaluate_capture_contract.py MANIFEST --output runs/DATE/...json`. Results record the prompt hash and a before/after comparison. Ownership, decoding, source preservation, partial writes and user isolation are tested separately in backend/tests. UI input paths have browser fixtures.
+
+Before a production model-quality claim, curate a consented image benchmark: 2 starter and at least 24 small photos spanning flat/hanging, different worn silhouettes, layers, cropped/occluded clothes and multi-person ambiguity. Keep original garment-level labels and separate expert visible-fit/length/drape annotations, unknown/abstention and extraction-fidelity scores. Compare old/new prompt responses and mannequin fidelity on the same bytes/model settings; record model/config, latency and cost. Scale with consented capture examples and reviewed corrections. No external/private photos or paid model runs are included in this local validation.

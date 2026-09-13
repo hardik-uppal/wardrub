@@ -398,7 +398,7 @@ class FirestoreService:
                 return GarmentMetadata(**data)
             return None
     
-    async def save_garment_metadata(self, metadata: GarmentMetadata) -> bool:
+    async def save_garment_metadata(self, metadata: GarmentMetadata, strict: bool = False) -> bool:
         """
         Save or update garment metadata.
         
@@ -413,6 +413,8 @@ class FirestoreService:
             return False
 
         try:
+            if strict and (self._use_memory or self.client is None) and not settings.ALLOW_DEV_AUTH_BYPASS:
+                raise RuntimeError("Wardrobe storage is unavailable")
             metadata.updated_at = datetime.utcnow()
             # Analysis writes must not overwrite concurrent, user-confirmed closet state.
             data = metadata.model_dump(exclude={"readiness", "readiness_version", "ownership"})
@@ -428,6 +430,8 @@ class FirestoreService:
             logger.info(f"Saved garment metadata for {metadata.garment_id}")
             return True
         except Exception as e:
+            if strict:
+                raise
             logger.error(f"Failed to save garment metadata: {e}")
             # Fallback to in-memory
             _memory_garments[metadata.garment_id] = {**_memory_garments.get(metadata.garment_id, {}), **data}

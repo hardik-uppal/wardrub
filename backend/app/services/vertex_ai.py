@@ -779,23 +779,8 @@ Generate the complete outfit try-on result now."""
         client = self._get_gemini_client()
         
         # Use Flash model for analysis (text-only response)
-        prompt = """Analyze this image and identify all clothing items visible.
-
-For EACH distinct clothing item you can see, provide:
-1. category: one of "top", "bottom", "dress", "outerwear"
-2. description: detailed description including color, style, material, pattern, etc.
-
-Return a JSON array. Example format:
-[
-  {"category": "top", "description": "Navy blue cotton t-shirt with crew neck, short sleeves, plain solid color"},
-  {"category": "bottom", "description": "Light wash denim jeans, slim fit, five-pocket style with slight distressing"}
-]
-
-If the image shows a full outfit on a person, identify each garment separately.
-If it shows a single item (like a shirt on a hanger), return just that one item.
-Focus on the main clothing items - ignore accessories like watches, jewelry, etc.
-
-Return ONLY the JSON array, no other text."""
+        from app.services.clothing_detection import DETECTION_PROMPT, normalize_detections
+        prompt = DETECTION_PROMPT
 
         contents = [
             prompt,
@@ -831,7 +816,7 @@ Return ONLY the JSON array, no other text."""
                                 items = json.loads(text)
                                 if isinstance(items, list) and len(items) > 0:
                                     print(f"✅ Detected {len(items)} clothing items")
-                                    return items
+                                    return normalize_detections(items)
             
             print("⚠️ No items detected")
             return []

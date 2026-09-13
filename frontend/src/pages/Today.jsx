@@ -156,7 +156,7 @@ export default function Today() {
           : feed?.weather_status === 'no_location'
             ? 'Set a location to include weather in your suggestions.'
             : 'Weather unavailable.'}{' '}
-        <Link to="/profile?section=location">Change location</Link>
+        <Link to="/profile?section=location">Location</Link>
       </p>
       {error && (
         <div role="alert" className="notice">
@@ -176,12 +176,6 @@ export default function Today() {
       )}
       {outfit && (
         <>
-          <p className="readiness-note">
-            Confirm clothes are ready.{' '}
-            <Link to="/wardrobe?manage=readiness">
-              Update clothing readiness
-            </Link>
-          </p>
           <OutfitPanel
             key={outfit.id}
             outfit={outfit}
@@ -319,13 +313,6 @@ export default function Today() {
           <Link to="/profile?section=history">Review or undo corrections</Link>.
         </p>
       )}
-      <p className="muted end-note">
-        Want to guide future suggestions?{' '}
-        <Link to="/profile?section=preferences">
-          Edit your style preferences
-        </Link>
-        .
-      </p>
       <BottomNav />
     </div>
   )

@@ -1,0 +1,178 @@
+{
+  "kind": "parsed-response contract; not visual model accuracy",
+  "manifest": "training/benchmarks/clothing-capture/v1/small.jsonl",
+  "prompt_sha256": "98d597f42a1d32d32737538ad682e4b969ac2a9833530fbba09ee926cf67ed09",
+  "cases": 24,
+  "legacy_passed": 20,
+  "candidate_passed": 24,
+  "results": [
+    {
+      "id": "fitted-clear",
+      "legacy_pass": false,
+      "candidate_pass": true,
+      "expected": "fitted",
+      "actual": "fitted"
+    },
+    {
+      "id": "fitted-partial",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "fitted-low-confidence",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "fitted-no-evidence",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "fitted-hanging",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "fitted-flat",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "regular-clear",
+      "legacy_pass": false,
+      "candidate_pass": true,
+      "expected": "regular",
+      "actual": "regular"
+    },
+    {
+      "id": "regular-partial",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "regular-low-confidence",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "regular-no-evidence",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "regular-hanging",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "regular-flat",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "loose-clear",
+      "legacy_pass": false,
+      "candidate_pass": true,
+      "expected": "loose",
+      "actual": "loose"
+    },
+    {
+      "id": "loose-partial",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "loose-low-confidence",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "loose-no-evidence",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "loose-hanging",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "loose-flat",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "oversized-clear",
+      "legacy_pass": false,
+      "candidate_pass": true,
+      "expected": "oversized",
+      "actual": "oversized"
+    },
+    {
+      "id": "oversized-partial",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "oversized-low-confidence",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "oversized-no-evidence",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "oversized-hanging",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    },
+    {
+      "id": "oversized-flat",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    }
+  ]
+}
