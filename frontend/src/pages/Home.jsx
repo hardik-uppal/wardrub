@@ -7,9 +7,10 @@ import BottomNav from '../components/BottomNav'
 import ResilientImage from '../components/ResilientImage'
 import Dialog from '../components/Dialog'
 const name = (g) =>
-  typeof g.description === 'string'
+  g.name ||
+  (typeof g.description === 'string'
     ? g.description
-    : g.description?.short || g.name || `${g.category} item`
+    : g.description?.short || `${g.category} item`)
 export default function Home() {
   const { garments, fetchGarments, deleteGarment } = useWardrobe()
   const {
@@ -25,11 +26,13 @@ export default function Home() {
   const [query, setQuery] = useState(''),
     [category, setCategory] = useState(params.get('category') || 'all'),
     [readiness, setReadiness] = useState('all'),
-    [sort, setSort] = useState('recent')
+    [sort, setSort] = useState('recent'),
+    [manage, setManage] = useState(params.has('manage'))
   const [states, setStates] = useState({}),
     [selected, setSelected] = useState([]),
     [detail, setDetail] = useState(null),
-    [back, setBack] = useState(false)
+    [back, setBack] = useState(false),
+    [manageDetail, setManageDetail] = useState(false)
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
@@ -168,6 +171,16 @@ export default function Home() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </label>
+      <details
+        className="wardrobe-filters"
+        open={params.has('category') || params.has('manage') || undefined}
+      >
+        <summary>
+          Filters
+          {category !== 'all' || readiness !== 'all' || sort !== 'recent'
+            ? ' · Active'
+            : ''}
+        </summary>
         <label>
           <span className="sr-only">Sort wardrobe</span>
           <select value={sort} onChange={(e) => setSort(e.target.value)}>
@@ -176,44 +189,50 @@ export default function Home() {
             <option value="category">Category</option>
           </select>
         </label>
-      </div>
-      <div
-        className="filter-row category-filters"
-        aria-label="Clothing categories"
-      >
-        {['all', 'top', 'bottom', 'dress', 'outerwear', 'shoes'].map((c) => (
-          <button
-            key={c}
-            aria-pressed={category === c}
-            onClick={() => setCategory(c)}
-          >
-            {
+
+        <div
+          className="filter-row category-filters"
+          aria-label="Clothing categories"
+        >
+          {['all', 'top', 'bottom', 'dress', 'outerwear', 'shoes'].map((c) => (
+            <button
+              key={c}
+              aria-pressed={category === c}
+              onClick={() => setCategory(c)}
+            >
               {
-                all: 'All',
-                top: 'Tops',
-                bottom: 'Bottoms',
-                dress: 'Dresses',
-                outerwear: 'Outerwear',
-                shoes: 'Shoes',
-              }[c]
-            }
-          </button>
-        ))}
-      </div>
-      <div className="context-row">
-        <label>
-          Readiness{' '}
-          <select
-            value={readiness}
-            onChange={(e) => setReadiness(e.target.value)}
-          >
-            <option value="all">All pieces</option>
-            <option value="ready">Ready to wear</option>
-            <option value="laundry">In laundry</option>
-            <option value="unknown">Unknown</option>
-          </select>
+                {
+                  all: 'All',
+                  top: 'Tops',
+                  bottom: 'Bottoms',
+                  dress: 'Dresses',
+                  outerwear: 'Outerwear',
+                  shoes: 'Shoes',
+                }[c]
+              }
+            </button>
+          ))}
+        </div>
+        <div className="context-row">
+          <label>
+            Readiness{' '}
+            <select
+              value={readiness}
+              onChange={(e) => setReadiness(e.target.value)}
+            >
+              <option value="all">All pieces</option>
+              <option value="ready">Ready to wear</option>
+              <option value="laundry">In laundry</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </label>
+          <span className="muted">{visible.length} shown</span>
+        </div>
+        <label className="context-row">
+          <input type="checkbox" checked={manage} onChange={(e) => { setManage(e.target.checked); setSelected([]) }} />
+          Manage clothes
         </label>
-        <span className="muted">{visible.length} shown</span>
+      </details>
       </div>
       {undo && (
         <button
@@ -266,6 +285,7 @@ export default function Home() {
               aria-label={`View ${name(g)}`}
               onClick={() => {
                 setDetail(g)
+                setManageDetail(false)
                 setBack(false)
                 setPendingDelete(false)
                 setLocation(library?.locations?.[g.id] || '')
@@ -278,16 +298,7 @@ export default function Home() {
               />
               <span className="garment-name">{name(g)}</span>
             </button>
-            <div className="context-row">
-              <small>
-                {
-                  {
-                    ready: 'Ready',
-                    laundry: 'In laundry',
-                    unknown: 'Readiness unknown',
-                  }[states[g.id]?.readiness || 'unknown']
-                }
-              </small>
+            {manage && <div className="context-row">
               <label>
                 <span className="sr-only">Select {name(g)}</span>
                 <input
@@ -303,10 +314,7 @@ export default function Home() {
                   }
                 />
               </label>
-            </div>
-            {library?.locations?.[g.id] && (
-              <small className="muted">{library.locations[g.id]}</small>
-            )}
+            </div>}
           </article>
         ))}
       </div>
@@ -346,11 +354,31 @@ export default function Home() {
             alt={`${name(detail)} ${back ? 'back' : 'front'}`}
             className="detail-image"
           />
+          {detail.fit_observation?.fit &&
+            detail.fit_observation.fit !== 'unknown' && (
+              <details>
+                <summary>
+                  Fit in this photo · {detail.fit_observation.fit}
+                </summary>
+                <p className="muted">
+                  Observed on the person pictured; not a size or comfort
+                  guarantee.
+                </p>
+                <p>{detail.fit_observation.drape}</p>
+                <ul>
+                  {detail.fit_observation.evidence?.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
           {detail.back_url && (
             <button onClick={() => setBack(!back)}>
               Show {back ? 'front' : 'back'}
             </button>
           )}
+          <button aria-expanded={manageDetail} onClick={() => setManageDetail(!manageDetail)}>Manage this piece</button>
+          {manageDetail && <section aria-label="Manage this piece">
           <label>
             Clothing readiness
             <select
@@ -377,6 +405,7 @@ export default function Home() {
           >
             Save location
           </button>
+          </section>}
           {['top', 'bottom', 'dress', 'outerwear'].includes(
             detail.category,
           ) && (

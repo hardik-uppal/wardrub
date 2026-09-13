@@ -3,7 +3,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import Optional, List, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class GarmentCategory(str, Enum):
@@ -87,6 +87,25 @@ class RecommendationScores(BaseModel):
     overall: float = Field(0.0, ge=0.0, le=1.0)
 
 
+class FitObservation(BaseModel):
+    """Visible fit on the pictured wearer, never a size or user-fit prediction."""
+    source: Literal["worn", "hanging", "flat", "unknown"] = "unknown"
+    fit: Literal["fitted", "regular", "loose", "oversized", "unknown"] = "unknown"
+    length: str = Field(default="", max_length=100)
+    drape: str = Field(default="", max_length=240)
+    evidence: List[str] = Field(default_factory=list, max_length=3)
+    confidence: float = Field(default=0, ge=0, le=1, allow_inf_nan=False)
+    visibility: Literal["clear", "partial", "unclear"] = "unclear"
+    basis: Literal["original_photo"] = "original_photo"
+
+    @model_validator(mode="after")
+    def preserve_uncertainty(self):
+        self.evidence = [e.strip()[:200] for e in self.evidence if e.strip()]
+        if self.source != "worn" or self.visibility != "clear" or self.confidence < 0.7 or not self.evidence:
+            self.fit = "unknown"
+        return self
+
+
 class GarmentMetadata(BaseModel):
     """Complete garment metadata for recommendations."""
     garment_id: str = Field(..., description="Unique garment identifier")
@@ -109,6 +128,7 @@ class GarmentMetadata(BaseModel):
     colors: Optional[GarmentColors] = None
     description: Optional[GarmentDescription] = None
     fit_type: Optional[FitType] = None
+    fit_observation: Optional[FitObservation] = None
     
     # Weather/season
     season_suitability: List[str] = Field(default_factory=list)

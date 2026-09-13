@@ -13,3 +13,10 @@ Last updated: 2026-09-13. Scope: Release A daily wardrobe design.
 - Profile owns avatar/location/preferences/history/account navigation; StyleProfile is a focused optional analysis or recovery subpage. Analysis retains independent stages and selected files after errors; no generated-avatar evidence. Recovery runs only after explicit import.
 - WardrobeProvider caches bootstrap profile reads; explicit successful edits supersede older reads. Analysis retry tests await the button enabled state, not the shared Retry available label (important async regression).
 - Verify `npm test`, lint/build/static-route checks and mobile/desktop Playwright journeys, including light/dark nine-view accessibility checks. Browser fixtures are synthetic; real cloud/camera/share/generation and task-completion pilot remain unverified.
+
+## One-photo follow-up — 2026-09-13
+
+- Capture now contains shared chrome and GalleryUpload only: one original photo, automatic labels, Done returns to origin. No category/front/back/cleanup flow. Old multi-view endpoints and existing garment back images remain compatible.
+- Home puts sort/category/readiness and optional Manage clothes mode in a compact Filters disclosure. Search stays visible; selection appears only in management mode. Readiness/storage badges are hidden, with editing under Manage this piece in detail. Backend eligibility and laundry/undo remain unchanged.
+- Today has no routine refresh/location controls; Profile owns them. Daily device location is account/browser opt-in, runs only with granted permission on Today entry/focus/day change, attempts at most once per local day, and preserves saved city on failure. Choosing a city disables automatic location. No server background tracking or weather-cache change.
+- Garment detail exposes original-photo fit only when known. See docs/progress/quiet-controls-PROGRESS.md for verification.

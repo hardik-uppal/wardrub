@@ -724,3 +724,19 @@ p {
  .outfit-collage > div { min-height:0; display:flex; align-items:center; }
  .outfit-image { height:100%; max-height:150px; }
 }
+
+/* One-photo intake and progressive wardrobe tools. */
+.capture-page { max-width:720px; }
+.photo-intake { margin-top:28px; }.photo-start { margin:28px 0; }
+.photo-queue { list-style:none; padding:0; display:grid; gap:24px; }
+.photo-queue > li { border-bottom:1px solid var(--glass-border); padding-bottom:16px; }
+.photo-intake > .actions { margin-top:20px; }.photo-intake video { background:#151815; }
+.added-pieces { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:16px; margin:16px 0; }
+.added-piece-image { width:100%; height:180px; object-fit:contain; background:var(--bg-secondary); border-radius:12px; }
+.added-pieces span { display:block; margin-top:8px; font-size:14px; }
+.wardrobe-controls { flex-wrap:wrap; align-items:flex-start; margin-bottom:20px; }
+.wardrobe-filters { margin:0; min-width:0; max-width:100%; }
+.wardrobe-filters[open] { flex-basis:100%; width:100%; }
+.wardrobe-filters summary { width:fit-content; padding:10px 12px; min-height:44px; border:1px solid var(--glass-border); border-radius:8px; cursor:pointer; color:var(--accent); }
+.wardrobe-filters[open] summary { margin-bottom:12px; }
+.wardrobe-filters select { min-height:44px; border:1px solid var(--glass-border); border-radius:8px; padding:8px; }

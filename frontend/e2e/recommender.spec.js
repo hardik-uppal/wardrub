@@ -48,6 +48,8 @@ test('saved outfit, plan, wear, swap and laundry loop survives reload', async ({
     page.getByRole('heading', { name: 'A little blue' }),
   ).toBeVisible()
   await page.goto('/wardrobe')
+  await page.locator('summary').filter({ hasText: 'Filters' }).click()
+  await page.getByRole('checkbox', { name: 'Manage clothes' }).check()
   await page.getByRole('checkbox', { name: 'Select Linen shirt' }).check()
   await page.getByRole('checkbox', { name: 'Select Everyday trousers' }).check()
   await page.getByRole('button', { name: 'Send to laundry' }).click()
@@ -57,6 +59,7 @@ test('saved outfit, plan, wear, swap and laundry loop survives reload', async ({
   await expect(page.getByText('Readiness change undone.')).toBeVisible()
   expect(items.filter((g) => g.readiness === 'laundry')).toHaveLength(0)
   await page.getByRole('button', { name: 'View Linen shirt' }).click()
+  await page.getByText('Manage this piece', { exact: true }).click()
   await page
     .getByRole('dialog')
     .getByLabel('Storage location (optional)')

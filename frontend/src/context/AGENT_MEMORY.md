@@ -34,3 +34,7 @@ Last updated: 2026-09-11. Scope: style analysis state and onboarding.
 - `createAvatar(files, mode, activate=false)` returns a review candidate without changing avatarUrl. `fetchAvatar(true)` follows successful activation. Legacy default activate=true remains compatible.
 - `WardrobeContext` exposes nextLookOffset/loadMoreLooks with deduplicated history appends. Try-on sends garment IDs and refreshes history after success. Existing garment/avatar/profile read cache remains.
 - `checkLegacyData` now propagates failed/non-boolean responses; recovery distinguishes unknown/error from empty.
+
+## One-photo follow-up — 2026-09-13
+
+- processUploadedClothes stores additive name/fit_observation. Uses one truthful pending message, with no timed synthetic progress stages for this endpoint. Other avatar/try-on contracts unchanged.

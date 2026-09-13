@@ -9,9 +9,9 @@ Take the effort out of choosing, finding and caring for clothes. A useful outfit
 ## Navigation and hierarchy
 
 - Today (`/`, legacy `/daily-outfit`): a current suggestion or explicit daily plan, weather context, primary plan/wear action, save, piece swaps and optional try-on. Explanations and corrections expand on demand.
-- Wardrobe Items (`/wardrobe`): one Add action, search/sort/category/readiness filters, garment grid, details and batch management.
+- Wardrobe Items (`/wardrobe`): Add clothes, search and a compact Filters disclosure. Sort/category/readiness filtering and optional management mode live inside Filters. The default grid has no selection checkboxes or readiness/storage badges; garment detail puts editing behind Manage this piece.
 - Wardrobe Outfits (`/looks`): saved combinations and generated try-ons, with labeled views. Create a try-on retains the manual dressing room (`/dressing-room`).
-- Profile (`/profile`): avatar, location, explicit preferences, history, optional style guidance, recovery and sign-out. Color/fit guidance and recovery have focused subpages.
+- Profile (`/profile`): avatar, location, manual refresh, explicit preferences, history, optional style guidance, recovery and sign-out. Routine Location/Refresh controls are not on Today; error-specific retries remain. Color/fit guidance and recovery have focused subpages.
 - Add clothes (`/capture`) and avatar creation (`/create-avatar`) retain old URLs and camera/gallery capabilities. Login restores a valid internal destination.
 
 ## Visual roles
@@ -61,3 +61,13 @@ The branch uses the existing deployment and services. No automatic migration, ne
 ## Deferred work
 
 Shop, social imports, editable ingestion classification/duplicate review, autonomous clothing tracking, learned taste/exposure pipelines, durable background generation jobs and a full avatar-version gallery remain separate work. Candidate cleanup and scalable history storage also need lifecycle policies. This is the core Release A implementation, not evidence that the pilot or future milestones are complete.
+
+## Follow-up simplification
+
+One-photo capture replaces the front/back/category setup; wardrobe filters are collapsed by default. See `ONE_PHOTO_CAPTURE.md` for automatic labeling, original-photo fit and validation boundaries.
+
+Readiness remains backend state used for eligibility, not persistent decoration on outfit/item cards. Laundry/return/undo remain explicit optional actions; wear does not infer laundry or cleanliness.
+
+Profile's Use current location opts the current account/browser into one device-location attempt per local day when Today opens, regains focus or rolls over to a new day. Automatic attempts require already-granted permission and never prompt. Failed attempts preserve the saved location; choosing a manual city or stopping daily updates disables the opt-in. Daily scheduling is browser-local, not a cross-device quota or server background job. Weather caching is unchanged. Try-on retains the existing Nano Banana configuration.
+
+Implementation and verification: `../progress/quiet-controls-PROGRESS.md`. These follow-ups are in draft PR #28, not deployed.

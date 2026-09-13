@@ -7,6 +7,8 @@ import { useWardrobe } from '../context/WardrobeContext'
 import { useAuth } from '../context/AuthContext'
 import ResilientImage from '../components/ResilientImage'
 import StyleProfile from './StyleProfile'
+import { localDay } from '../utils/localDay'
+import { locationPreference, setLocationPreference } from '../utils/dailyLocation'
 const styles = [
   'casual',
   'minimalist',
@@ -69,12 +71,16 @@ function Preferences() {
 }
 function Location() {
   const { userProfile, updateLocation } = useWardrobe()
+  const { user } = useAuth()
+  const [automatic, setAutomatic] = useState(!!locationPreference(user?.uid)?.enabled)
   const [message, setMessage] = useState(''),
     [busy, setBusy] = useState(false)
-  const save = async (place) => {
+  const save = async (place, daily = false) => {
     setBusy(true)
     try {
       await updateLocation(place.lat, place.lon, place.city)
+      setLocationPreference(user?.uid, daily, daily ? localDay() : null)
+      setAutomatic(daily)
       setMessage('Location saved. Today will refresh your suggestions.')
     } catch (e) {
       setMessage(e.message)
@@ -94,13 +100,14 @@ function Location() {
           lat: p.coords.latitude,
           lon: p.coords.longitude,
           city: 'Current location',
-        }),
+        }, true),
       () => {
         setBusy(false)
         setMessage(
           'Location permission was unavailable. Choose a city instead.',
         )
       },
+      { timeout: 10000, maximumAge: 0 },
     )
   }
   return (
@@ -108,7 +115,7 @@ function Location() {
       <h2>Your location</h2>
       <p className="muted">
         {userProfile?.location?.city || 'No location saved'}. Used for weather
-        when you open Today.
+        for suggestions. With permission, device location updates once a day on this browser when you open Today.
       </p>
       <div className="filter-row">
         {cities.map((c) => (
@@ -120,9 +127,35 @@ function Location() {
       <button className="btn-primary" disabled={busy} onClick={locate}>
         Use current location
       </button>
+      {automatic && <button className="text-action" onClick={() => {
+        setLocationPreference(user?.uid, false)
+        setAutomatic(false)
+      }}>Stop daily location updates</button>}
       <p role="status">{message}</p>
     </section>
   )
+}
+function Refresh() {
+  const { fetchGarments } = useWardrobe()
+  const { reload, request } = useCloset()
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+  return <section className="profile-section">
+    <h2>Refresh wardrobe</h2>
+    <p className="muted">Suggestions update automatically. Refresh manually if something looks out of date.</p>
+    <button disabled={busy} onClick={async () => {
+      setBusy(true)
+      setMessage('')
+      try {
+        await fetchGarments(null, true)
+        await reload()
+        const data = await request(`/magazine-feed?local_day=${localDay()}`)
+        if (data.status !== 'success' || !data.feed) throw new Error('Could not refresh suggestions.')
+        setMessage('Wardrobe refreshed.')
+      } catch (e) { setMessage(e.message) } finally { setBusy(false) }
+    }}>{busy ? 'Refreshing…' : 'Refresh'}</button>
+    <p role="status">{message}</p>
+  </section>
 }
 function History() {
   const { library, action, busy } = useCloset()
@@ -231,6 +264,7 @@ export default function Profile() {
       <nav className="profile-links" aria-label="Profile sections">
         {[
           ['location', 'Location', 'Weather for your day'],
+          ['refresh', 'Refresh', 'Reload wardrobe and suggestions'],
           ['preferences', 'Style preferences', 'Guide your suggestions'],
           ['history', 'Plans and wear history', 'Your confirmed daily choices'],
           ['style', 'Optional style guidance', 'Your colors and fit'],
@@ -253,6 +287,7 @@ export default function Profile() {
         <Preferences key={library.version} />
       )}
       {section === 'location' && <Location />}
+      {section === 'refresh' && <Refresh />}
       {section === 'history' && <History />}
       <button
         className="text-action sign-out"

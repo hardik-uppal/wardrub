@@ -199,16 +199,12 @@ function WardrobeSession({ children }) {
   // Process uploaded image - AI detects and creates garments from clothes in image
   const processUploadedClothes = async (file) => {
     setIsLoading(true)
-    setLoadingMessage('Analyzing image...')
+    setLoadingMessage('Adding your clothes…')
     setError(null)
 
     try {
       const formData = new FormData()
       formData.append('file', file)
-
-      setTimeout(() => setLoadingMessage('Detecting clothes...'), 2000)
-      setTimeout(() => setLoadingMessage('Creating mannequins...'), 5000)
-      setTimeout(() => setLoadingMessage('Almost done...'), 10000)
 
       const response = await authFetch(`${API_URL}/api/process-uploaded-clothes`, {
         method: 'POST',
@@ -231,7 +227,9 @@ function WardrobeSession({ children }) {
           front_url: g.front_url,
           back_url: g.back_url,
           category: g.category,
-          description: g.description
+          description: g.description,
+          name: g.name,
+          fit_observation: g.fit_observation
         }))])
         void trackActivationEvent(
           'first_garment_added',

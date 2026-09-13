@@ -73,3 +73,9 @@ Last updated: 2026-09-12. Scope: progressive style analysis and storage listing.
 - Storage candidate paths: `users/{uid}/avatar-candidates/{uuid}.png`; active avatar unchanged until accepted. Candidate retained for retry, cleanup/history policy deferred. Generated results keep avatar_revision without modifying old images.
 - Cache reuse refreshes an existing user-scoped result URL; changing avatar bytes invalidates multi-try-on cache. History pagination still lists storage objects and is not a scalable cursor store.
 - Verify `test_closet_library.py`; synthetic benchmark run `runs/2026-09-13-design` remains 24/24 vs legacy14/24. Cloud and real generation need a pilot.
+
+## One-photo capture — 2026-09-13
+
+- clothing_detection.py owns bounded original-photo JSON prompt and response normalization; vertex_ai.detect_clothes_in_image uses it before ghost generation. At most8 garments, validated categories/names/tags; invalid optional fit becomes unknown. No extra inference call.
+- save_garment_metadata adds strict=False compatibility option. New capture passes strict=True: no production memory fallback, failed writes propagate. Existing readiness/ownership fields remain excluded from analysis saves.
+- Benchmarks under clothing-capture/v1 validate response/persistence contracts only. A real-photo visual quality benchmark remains required; see ONE_PHOTO_CAPTURE.md.

@@ -1,0 +1,2 @@
+{"id": "fitted-clear", "detected": {"category": "top", "description": "Blue shirt", "fit_observation": {"source": "worn", "fit": "fitted", "visibility": "clear", "confidence": 0.9, "evidence": ["Visible relationship of garment and torso"]}}, "expected_fit": "fitted"}
+{"id": "fitted-partial", "detected": {"category": "top", "description": "Blue shirt", "fit_observation": {"source": "worn", "fit": "fitted", "visibility": "partial", "confidence": 0.9, "evidence": ["Visible relationship of garment and torso"]}}, "expected_fit": "unknown"}

@@ -1,0 +1,24 @@
+{
+  "kind": "parsed-response contract; not visual model accuracy",
+  "manifest": "training/benchmarks/clothing-capture/v1/starter.jsonl",
+  "prompt_sha256": "98d597f42a1d32d32737538ad682e4b969ac2a9833530fbba09ee926cf67ed09",
+  "cases": 2,
+  "legacy_passed": 1,
+  "candidate_passed": 2,
+  "results": [
+    {
+      "id": "fitted-clear",
+      "legacy_pass": false,
+      "candidate_pass": true,
+      "expected": "fitted",
+      "actual": "fitted"
+    },
+    {
+      "id": "fitted-partial",
+      "legacy_pass": true,
+      "candidate_pass": true,
+      "expected": "unknown",
+      "actual": "unknown"
+    }
+  ]
+}

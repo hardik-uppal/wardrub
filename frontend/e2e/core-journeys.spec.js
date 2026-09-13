@@ -97,7 +97,7 @@ test('core wardrobe journeys remain usable', async ({ page }) => {
 
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Plan for today' })).toBeVisible()
   await expect(page.getByText('SEP 12, 2026 · UTC')).toBeVisible()
   await expect(page.getByText('ISSUE NO. 01')).toHaveCount(0)
