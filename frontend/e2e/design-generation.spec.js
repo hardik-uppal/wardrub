@@ -39,7 +39,7 @@ test('unconfirmed save and stale feed never report success', async ({
   await expect(page.getByText('Save was not confirmed.').first()).toBeVisible()
   expect(Object.keys(state.outfits)).toHaveLength(0)
   failures.feed = true
-  await page.getByRole('button', { name: 'Refresh', exact: true }).click()
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
   await expect(page.getByText('Suggestions unavailable.')).toBeVisible()
   await expect(
     page.getByRole('heading', { name: 'An easy start' }),

@@ -6,7 +6,7 @@ import { useWardrobe } from '../context/WardrobeContext'
 import ResilientImage from './ResilientImage'
 export default function OutfitPanel({ outfit, onSwap, compact = false }) {
   const { garments } = useWardrobe()
-  const { library, action, busy, setDraft, readiness } = useCloset()
+  const { library, action, busy, setDraft } = useCloset()
   const navigate = useNavigate()
   const location = useLocation()
   const [message, setMessage] = useState('')
@@ -115,17 +115,7 @@ export default function OutfitPanel({ outfit, onSwap, compact = false }) {
                     g?.name ||
                     g?.category ||
                     'Missing piece'}
-                <small>
-                  {
-                    {
-                      ready: 'Ready',
-                      laundry: 'In laundry',
-                      unknown: 'Readiness unknown',
-                    }[readiness[outfit.garment_ids[i]] || 'unknown']
-                  }{' '}
-                  {library?.locations?.[outfit.garment_ids[i]] &&
-                    ` · ${library.locations[outfit.garment_ids[i]]}`}
-                </small>
+
               </span>
               {onSwap && g && (
                 <button className="text-action" onClick={() => onSwap(g.id)}>

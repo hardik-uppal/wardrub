@@ -8,10 +8,15 @@ import OutfitPanel from '../components/OutfitPanel'
 import { localDay } from '../utils/localDay'
 import ResilientImage from '../components/ResilientImage'
 import { editionLabel } from '../utils/magazineEdition'
+import { useAuth } from '../context/AuthContext'
+import { refreshDailyLocation } from '../utils/dailyLocation'
 export default function Today() {
   const location = useLocation()
   const returnOutfit = useRef(location.state?.outfit)
-  const { garments, fetchGarments } = useWardrobe()
+  const { garments, fetchGarments, updateLocation } = useWardrobe()
+  const { user } = useAuth()
+  const locationSave = useRef({ uid: user?.uid, save: updateLocation })
+  useEffect(() => { locationSave.current = { uid: user?.uid, save: updateLocation } }, [updateLocation, user?.uid])
   const {
     request,
     library,
@@ -37,6 +42,9 @@ export default function Today() {
     setError('')
     setSwapId(null)
     try {
+      await refreshDailyLocation(user?.uid, (...args) => {
+        if (locationSave.current.uid === user?.uid) return locationSave.current.save(...args)
+      })
       await fetchGarments(null, true)
       const data = await request(`/magazine-feed?local_day=${localDay()}`)
       if (data.status !== 'success' || !data.feed)
@@ -55,7 +63,7 @@ export default function Today() {
       pending.current = false
       setBusy(false)
     }
-  }, [request, fetchGarments])
+  }, [request, fetchGarments, user?.uid])
   useEffect(() => {
     refresh()
     const focus = () => {
@@ -146,18 +154,13 @@ export default function Today() {
       <PageHeader title="Today" subtitle="Get dressed. Get on with your day." />
       <div className="context-row">
         <span>{feed ? editionLabel(feed.date) : 'Your daily wardrobe'}</span>
-        <button className="text-action" disabled={busy} onClick={refresh}>
-          {busy ? 'Refreshing…' : 'Refresh'}
-        </button>
+
       </div>
-      <p className="muted weather-line">
-        {feed?.weather_status === 'available'
-          ? `${feed.weather.feels_like ?? feed.weather.temperature}°C feels like · ${feed.weather.description} · ${feed.weather.city || 'Saved location'}`
-          : feed?.weather_status === 'no_location'
-            ? 'Set a location to include weather in your suggestions.'
-            : 'Weather unavailable.'}{' '}
-        <Link to="/profile?section=location">Location</Link>
-      </p>
+      {feed?.weather_status === 'available' && (
+        <p className="muted weather-line">
+          {`${feed.weather.feels_like ?? feed.weather.temperature}°C · ${feed.weather.description}`}
+        </p>
+      )}
       {error && (
         <div role="alert" className="notice">
           {error} <button onClick={refresh}>Retry suggestion</button>
@@ -203,7 +206,7 @@ export default function Today() {
           <Link className="btn-primary" to="/capture?from=today">
             Add clothes
           </Link>
-          <Link to="/wardrobe?manage=readiness">Check pieces in laundry</Link>
+
         </section>
       )}
       {message && (

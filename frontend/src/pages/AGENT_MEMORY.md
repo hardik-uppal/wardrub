@@ -17,4 +17,6 @@ Last updated: 2026-09-13. Scope: Release A daily wardrobe design.
 ## One-photo follow-up — 2026-09-13
 
 - Capture now contains shared chrome and GalleryUpload only: one original photo, automatic labels, Done returns to origin. No category/front/back/cleanup flow. Old multi-view endpoints and existing garment back images remain compatible.
-- Home puts sort/category/readiness in Filters, with search persistent and URL category opening the disclosure. Garment detail exposes original-photo fit only when known. Today omits repeated guidance/unknown location text.
+- Home puts sort/category/readiness and optional Manage clothes mode in a compact Filters disclosure. Search stays visible; selection appears only in management mode. Readiness/storage badges are hidden, with editing under Manage this piece in detail. Backend eligibility and laundry/undo remain unchanged.
+- Today has no routine refresh/location controls; Profile owns them. Daily device location is account/browser opt-in, runs only with granted permission on Today entry/focus/day change, attempts at most once per local day, and preserves saved city on failure. Choosing a city disables automatic location. No server background tracking or weather-cache change.
+- Garment detail exposes original-photo fit only when known. See docs/progress/quiet-controls-PROGRESS.md for verification.

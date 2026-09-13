@@ -24,7 +24,7 @@ test('light and dark screens remain accessible at the current viewport', async (
       await expect(page.locator('h1').first()).toBeVisible()
       if (name === 'today')
         await expect(
-          page.getByRole('button', { name: 'Refresh', exact: true }),
+          page.getByRole('button', { name: 'Save outfit', exact: true }),
         ).toBeEnabled()
       const audit = await new AxeBuilder({ page }).analyze()
       expect(

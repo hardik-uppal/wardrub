@@ -26,11 +26,13 @@ export default function Home() {
   const [query, setQuery] = useState(''),
     [category, setCategory] = useState(params.get('category') || 'all'),
     [readiness, setReadiness] = useState('all'),
-    [sort, setSort] = useState('recent')
+    [sort, setSort] = useState('recent'),
+    [manage, setManage] = useState(params.has('manage'))
   const [states, setStates] = useState({}),
     [selected, setSelected] = useState([]),
     [detail, setDetail] = useState(null),
-    [back, setBack] = useState(false)
+    [back, setBack] = useState(false),
+    [manageDetail, setManageDetail] = useState(false)
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
@@ -169,10 +171,9 @@ export default function Home() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </label>
-      </div>
       <details
         className="wardrobe-filters"
-        open={params.has('category') || undefined}
+        open={params.has('category') || params.has('manage') || undefined}
       >
         <summary>
           Filters
@@ -227,7 +228,12 @@ export default function Home() {
           </label>
           <span className="muted">{visible.length} shown</span>
         </div>
+        <label className="context-row">
+          <input type="checkbox" checked={manage} onChange={(e) => { setManage(e.target.checked); setSelected([]) }} />
+          Manage clothes
+        </label>
       </details>
+      </div>
       {undo && (
         <button
           className="text-action"
@@ -279,6 +285,7 @@ export default function Home() {
               aria-label={`View ${name(g)}`}
               onClick={() => {
                 setDetail(g)
+                setManageDetail(false)
                 setBack(false)
                 setPendingDelete(false)
                 setLocation(library?.locations?.[g.id] || '')
@@ -291,16 +298,7 @@ export default function Home() {
               />
               <span className="garment-name">{name(g)}</span>
             </button>
-            <div className="context-row">
-              <small>
-                {
-                  {
-                    ready: 'Ready',
-                    laundry: 'In laundry',
-                    unknown: 'Readiness unknown',
-                  }[states[g.id]?.readiness || 'unknown']
-                }
-              </small>
+            {manage && <div className="context-row">
               <label>
                 <span className="sr-only">Select {name(g)}</span>
                 <input
@@ -316,10 +314,7 @@ export default function Home() {
                   }
                 />
               </label>
-            </div>
-            {library?.locations?.[g.id] && (
-              <small className="muted">{library.locations[g.id]}</small>
-            )}
+            </div>}
           </article>
         ))}
       </div>
@@ -382,6 +377,8 @@ export default function Home() {
               Show {back ? 'front' : 'back'}
             </button>
           )}
+          <button aria-expanded={manageDetail} onClick={() => setManageDetail(!manageDetail)}>Manage this piece</button>
+          {manageDetail && <section aria-label="Manage this piece">
           <label>
             Clothing readiness
             <select
@@ -408,6 +405,7 @@ export default function Home() {
           >
             Save location
           </button>
+          </section>}
           {['top', 'bottom', 'dress', 'outerwear'].includes(
             detail.category,
           ) && (
