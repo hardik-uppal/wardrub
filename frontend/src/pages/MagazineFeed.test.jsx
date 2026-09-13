@@ -124,6 +124,18 @@ describe('MagazineFeed onboarding', () => {
     await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/magazine-feed/generate', expect.objectContaining({ method: 'POST' })))
   })
 
+  it('discloses failed refreshes instead of silently displaying stale suggestions', async () => {
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'success', feed: { date: '2026-09-12' } }) })
+    await act(async () => { render(<MagazineFeed />) })
+    fetch.mockResolvedValueOnce({ ok: false, json: async () => ({ detail: 'Storage unavailable' }) })
+    fireEvent.click(screen.getByRole('button', { name: 'REFRESH ISSUE' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('may be out of date')
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'success', feed: { date: '2026-09-13' } }) })
+    fireEvent.click(screen.getByRole('button', { name: 'Retry outfits' }))
+    await screen.findByText('SEP 13, 2026 · UTC')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('offers only the real wardrobe flow and never requests demo data', async () => {
     render(<MagazineFeed />)
 

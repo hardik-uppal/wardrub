@@ -36,6 +36,8 @@ Last updated: 2026-09-11. Scope: Profile style analysis.
 - Readiness mutation refresh clears current suggestions but retains the panel so
   its versioned Undo remains reachable. Refresh/swap and readiness writes cannot
   overlap through the UI. Feedback failures now display instead of only logging.
+- Release review adds an explicit stale-suggestions warning and retry when a
+  feed refresh fails after data has already loaded; failure cannot remain silent.
 - Existing try-on routes/history retained. Shoes remain outfit items but are
   explicitly excluded from the unsupported renderer; current generated previews
   survive same-outfit feed refresh in component memory.
