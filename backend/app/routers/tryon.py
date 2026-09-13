@@ -2,7 +2,7 @@
 
 import hashlib
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 
 from app.services.storage import StorageService
@@ -155,20 +155,14 @@ async def try_on_multiple(
         garment_urls.append(garment.url)
     
     try:
-        # Check cache first
-        cache_key = calculate_tryon_cache_key(request.avatar_url, garment_urls)
+        avatar_bytes = await storage.download_image(request.avatar_url)
+        avatar_revision = hashlib.sha256(avatar_bytes).hexdigest()
+        cache_key = calculate_tryon_cache_key(user_id + ":" + avatar_revision, garment_urls)
         cached_url = await firestore.get_cached_tryon(cache_key)
         if cached_url:
-            return {
-                "result_url": cached_url,
-                "status": "success",
-                "garment_count": len(request.garments),
-                "cached": True
-            }
-
-        # Download avatar image
-        avatar_bytes = await storage.download_image(request.avatar_url)
-        
+            fresh_url = storage.refresh_tryon_url(cached_url, user_id)
+            if fresh_url:
+                return {"result_url": fresh_url, "status": "success", "garment_count": len(request.garments), "cached": True}
         # Download all garment images
         garments_data = []
         for garment in request.garments:
@@ -190,6 +184,7 @@ async def try_on_multiple(
             user_id=user_id,
             garment_ids=[garment.id for garment in request.garments if garment.id],
             garment_categories=[garment.category for garment in request.garments],
+            avatar_revision=avatar_revision,
         )
         
         # Save to cache
@@ -213,7 +208,7 @@ async def try_on_multiple(
 
 
 @router.get("/try-on/history")
-async def get_tryon_history(user: Dict[str, Any] = Depends(get_current_user)):
+async def get_tryon_history(user: Dict[str, Any] = Depends(get_current_user), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=100)):
     """
     Get recent try-on results for the current user.
     
@@ -225,8 +220,8 @@ async def get_tryon_history(user: Dict[str, Any] = Depends(get_current_user)):
     """
     try:
         user_id = user["uid"]
-        results = await storage.list_tryon_results(user_id=user_id, limit=50)
-        return {"results": results}
+        results = await storage.list_tryon_results(user_id=user_id, limit=offset + limit + 1)
+        return {"results": results[offset:offset + limit], "next_offset": offset + limit if len(results) > offset + limit else None}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")
 

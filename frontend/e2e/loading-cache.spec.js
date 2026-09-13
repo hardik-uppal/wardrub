@@ -14,6 +14,8 @@ test('empty wardrobe navigation reuses a single successful read', async ({ page 
     const fixtures = {
       '/api/avatar': { avatar_url: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="20" height="20"/%3E' },
       '/api/profile': { profile: null },
+      '/api/closet-library': {version:0,outfits:{},days:{},locations:{},styles:[]},
+      '/api/closet-state': {garments:[]},
       '/api/wardrobe': { garments: [] },
       '/api/try-on/history': { results: [] },
       '/api/check-legacy-data': { has_legacy_data: false },
@@ -27,14 +29,15 @@ test('empty wardrobe navigation reuses a single successful read', async ({ page 
     await route.fulfill({ status: 200, json: fixtures[path] })
   })
   await page.goto('/wardrobe')
-  await expect(page.getByRole('heading', { name: 'My Wardrobe', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Wardrobe', exact: true })).toBeVisible()
   await expect.poll(() => counts['/api/wardrobe']).toBeGreaterThan(0)
   await page.waitForTimeout(200) // Let the simulated first response settle before navigating.
-  await page.getByRole('button', { name: 'Try On', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Dressing Room', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Outfits', exact: true }).click()
+  await page.getByRole('link', { name: 'Create a try-on', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Create a try-on', exact: true })).toBeVisible()
   await page.waitForTimeout(200)
-  await page.getByRole('button', { name: 'Wardrobe', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'My Wardrobe', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Wardrobe', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Wardrobe', exact: true })).toBeVisible()
   await page.waitForTimeout(200)
   await testInfo.attach('request-counts', { body: JSON.stringify({ counts, unexpected }, null, 2), contentType: 'application/json' })
   console.log('LOADING_REQUEST_COUNTS', testInfo.project.name, JSON.stringify(counts))

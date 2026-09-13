@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Camera, X, Check, RotateCcw, Plus, Sparkles, Upload } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Camera, X, Check, Upload } from 'lucide-react'
 import { useWardrobe } from '../context/WardrobeContext'
 import LoadingOverlay from '../components/LoadingOverlay'
 import BottomNav from '../components/BottomNav'
@@ -89,8 +89,11 @@ const categoryLabels = {
 
 export default function Capture() {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const returnTo = params.get('from') === 'wardrobe' ? '/wardrobe' : '/'
+  const [added, setAdded] = useState(false)
   const { processGarment, isLoading, loadingMessage, error, clearError } = useWardrobe()
-  
+
   const [inputMode, setInputMode] = useState(INPUT_MODES.SELECT) // 'select', 'upload', 'capture'
   const [frontImage, setFrontImage] = useState(null)
   const [frontFile, setFrontFile] = useState(null)
@@ -99,7 +102,7 @@ export default function Capture() {
   const [selectedCategory, setSelectedCategory] = useState('top')
   const [captureMode, setCaptureMode] = useState('front') // 'front', 'back', 'preview'
   const [useGhostMannequin, setUseGhostMannequin] = useState(true)
-  
+
   const fileInputRef = useRef(null)
 
   // Webcam capture states/refs
@@ -150,12 +153,12 @@ export default function Capture() {
       const ctx = canvas.getContext('2d')
       if (ctx) {
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height)
-        
+
         canvas.toBlob((blob) => {
           if (blob) {
             const file = new File([blob], 'captured_garment.jpg', { type: 'image/jpeg' })
             const dataUrl = canvas.toDataURL('image/jpeg')
-            
+
             if (captureMode === 'front') {
               setFrontImage(dataUrl)
               setFrontFile(file)
@@ -221,7 +224,7 @@ export default function Capture() {
 
     try {
       await processGarment(frontFile, backFile, selectedCategory, useGhostMannequin)
-      navigate('/')
+      setAdded(true)
     } catch (err) {
       console.error('Failed to process:', err)
     }
@@ -230,16 +233,16 @@ export default function Capture() {
   const triggerCapture = () => {
     startWebcam()
   }
-  
+
   const startCaptureMode = () => {
     setInputMode(INPUT_MODES.CAPTURE)
     setCaptureMode('front')
   }
-  
+
   const startUploadMode = () => {
     setInputMode(INPUT_MODES.UPLOAD)
   }
-  
+
   const goBackToSelect = () => {
     setInputMode(INPUT_MODES.SELECT)
     // Reset states
@@ -252,126 +255,19 @@ export default function Capture() {
 
   // Mode selection screen
   const renderModeSelect = () => (
-    <div className="flex-1 flex flex-col items-center justify-center px-6">
-      <div className="text-center mb-10">
-        <h2 className="text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>How would you like to add clothes?</h2>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Choose the best option for your situation</p>
-      </div>
-      
-      <div className="flex flex-col sm:flex-row gap-5">
-        {/* Upload from Gallery */}
-        <button
-          onClick={startUploadMode}
-          className="w-40 h-52 rounded-2xl flex flex-col items-center justify-center gap-4 shadow-lg transition-transform hover:scale-[1.03] active:scale-95"
-          style={{ background: 'var(--accent)', color: 'white' }}
-        >
-          <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.1)' }}>
-            <Upload className="w-8 h-8 text-white" />
-          </div>
-          <span className="text-base font-medium">Upload Photo</span>
-          <span className="text-xs text-white/70 text-center px-4">
-            AI detects clothes in image
-          </span>
-        </button>
-        
-        {/* Take Photo */}
-        <button
-          onClick={startCaptureMode}
-          className="w-40 h-52 rounded-2xl flex flex-col items-center justify-center gap-4 transition-transform hover:scale-[1.03] active:scale-95"
-          style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
-        >
-          <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'var(--bg-secondary)' }}>
-            <Camera className="w-8 h-8" style={{ color: 'var(--accent)' }} />
-          </div>
-          <span className="text-base font-medium">Take Photo</span>
-          <span className="text-xs text-center px-4" style={{ color: 'var(--text-secondary)' }}>
-            Select category & capture
-          </span>
-        </button>
-      </div>
-    </div>
+    <section className="capture-methods">
+      <h2>Start with what you wear</h2>
+      <p className="muted">Add a few pieces now. Build your wardrobe as you go.</p>
+      <button className="capture-method" onClick={startUploadMode}><Upload size={24} /><span>Upload Photo<small>Choose existing photos from your gallery</small></span><span aria-hidden="true">→</span></button>
+      <button className="capture-method" onClick={startCaptureMode}><Camera size={24} /><span>Take Photo<small>Capture a piece in front of you</small></span><span aria-hidden="true">→</span></button>
+    </section>
   )
-  
+
   const renderCaptureView = () => {
-    if (captureMode === 'preview' && frontImage) {
-      return (
-        <div className="flex-1 flex flex-col">
-          {/* Preview images */}
-          <div className="flex-1 flex gap-3 p-3">
-            {/* Front preview */}
-            <div className="flex-1 relative rounded-xl overflow-hidden bg-[var(--bg-primary)]">
-              <UploadPreview
-                src={frontImage}
-                alt="Front view"
-                className="w-full h-full object-contain"
-              />
-              <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 rounded-lg">
-                <span className="text-xs text-white font-medium">FRONT</span>
-              </div>
-              <button
-                onClick={handleRetakeFront}
-                className="absolute bottom-2 right-2 p-1.5 bg-[var(--glass-bg)]/90 rounded-full"
-              >
-                <RotateCcw className="w-3 h-3 text-[var(--text-primary)]" />
-              </button>
-            </div>
-            
-            {/* Back preview or add button */}
-            {backImage ? (
-              <div className="flex-1 relative rounded-xl overflow-hidden bg-[var(--bg-primary)]">
-                <UploadPreview
-                  src={backImage}
-                  alt="Back view"
-                  className="w-full h-full object-contain"
-                />
-                <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 rounded-lg">
-                  <span className="text-xs text-white font-medium">BACK</span>
-                </div>
-                <button
-                  onClick={handleRetakeBack}
-                  className="absolute bottom-2 right-2 p-1.5 bg-[var(--glass-bg)]/90 rounded-full"
-                >
-                  <RotateCcw className="w-3 h-3 text-[var(--text-primary)]" />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={handleAddBack}
-                className="flex-1 rounded-xl border-2 border-dashed border-white/30 flex flex-col items-center justify-center gap-2 hover:border-white/50 transition-colors"
-              >
-                <Plus className="w-8 h-8 text-white/50" />
-                <span className="text-xs text-white/50">Add Back</span>
-                <span className="text-xs text-white/30">(Optional)</span>
-              </button>
-            )}
-          </div>
-          
-          {/* Ghost mannequin toggle */}
-          <div className="px-4 py-2">
-            <button
-              onClick={() => setUseGhostMannequin(!useGhostMannequin)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-colors ${
-                useGhostMannequin ? 'bg-[var(--accent)]/20' : 'bg-[var(--glass-bg)]/10'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Sparkles className={`w-4 h-4 ${useGhostMannequin ? 'text-[var(--accent)]' : 'text-white/50'}`} />
-                <span className="text-xs text-white">AI Ghost Mannequin</span>
-              </div>
-              <div className={`w-8 h-5 rounded-full transition-colors ${useGhostMannequin ? 'bg-[var(--accent)]' : 'bg-[var(--glass-bg)]/30'}`}>
-                <div className={`w-4 h-4 rounded-full bg-[var(--glass-bg)] mt-0.5 transition-transform ${useGhostMannequin ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
-              </div>
-            </button>
-            {useGhostMannequin && (
-              <p className="text-xs text-white/40 mt-1 text-center">
-                AI will create a 3D mannequin effect using Gemini
-              </p>
-            )}
-          </div>
-        </div>
-      )
+    if (frontImage && captureMode === 'preview') {
+      return <section className="capture-review"><UploadPreview src={frontImage} alt="Front view" className="capture-main-image" /><button className="text-action" onClick={handleRetakeFront}>Retake front photo</button><details><summary>More photo options</summary>{backImage ? <><UploadPreview src={backImage} alt="Back view" className="capture-back-image" /><button onClick={handleRetakeBack}>Retake back photo</button></> : <button onClick={handleAddBack}>Add back photo (optional)</button>}<label><input type="checkbox" checked={useGhostMannequin} onChange={e => setUseGhostMannequin(e.target.checked)} /> Clean up garment image</label><p className="muted">Create a clean clothing image for your wardrobe.</p></details></section>
     }
-    
+
     // Camera capture view
     return (
       <div className="flex-1 relative rounded-2xl overflow-hidden bg-black mx-4 my-2 max-h-[70vh]">
@@ -382,7 +278,7 @@ export default function Capture() {
               {captureMode === 'back' ? 'Now capture the BACK view' : `Position your ${categoryLabels[selectedCategory]}`}
             </p>
           </div>
-          
+
           <button
             onClick={triggerCapture}
             className="absolute inset-0 flex items-end justify-center pb-6"
@@ -392,7 +288,7 @@ export default function Capture() {
             </span>
           </button>
         </div>
-        
+
         {/* Mode indicator */}
         <div className="absolute top-3 left-3 px-2 py-1 bg-[var(--accent)] rounded-lg">
           <span className="text-xs text-white font-medium uppercase">{captureMode}</span>
@@ -400,6 +296,8 @@ export default function Capture() {
       </div>
     )
   }
+
+  if (added) return <div className="quiet-page"><h1>Your wardrobe is growing</h1><p className="muted">Your successful additions are saved. Ready to see how they work together?</p><div className="actions"><button className="btn-primary" onClick={() => navigate('/')}>See my outfit</button><button className="btn-secondary" onClick={() => { setAdded(false); goBackToSelect() }}>Add more clothes</button><button onClick={() => navigate(returnTo)}>Done</button></div><BottomNav /></div>
 
   return (
     <div className="min-h-screen flex flex-col safe-top safe-bottom overflow-y-auto" style={{ background: 'var(--bg-primary)' }}>
@@ -419,18 +317,19 @@ export default function Capture() {
         {/* Header */}
         <header className="flex items-center justify-between px-4 py-3">
           <button
-            onClick={inputMode === INPUT_MODES.SELECT ? () => navigate('/') : goBackToSelect}
+            onClick={inputMode === INPUT_MODES.SELECT ? () => navigate(returnTo) : goBackToSelect}
+            aria-label="Back"
             className="w-9 h-9 rounded-full flex items-center justify-center"
             style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          
+
           <h1 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-            {inputMode === INPUT_MODES.SELECT ? 'Add to Wardrobe' : 
+            {inputMode === INPUT_MODES.SELECT ? 'Add to Wardrobe' :
              inputMode === INPUT_MODES.UPLOAD ? 'Upload Clothes' : 'Capture Clothes'}
           </h1>
-          
+
           <div className="w-9" />
         </header>
 
@@ -448,7 +347,7 @@ export default function Capture() {
 
         {/* Mode Selection / Camera / Upload View */}
         {inputMode === INPUT_MODES.SELECT && renderModeSelect()}
-        {inputMode === INPUT_MODES.UPLOAD && <GalleryUpload />}
+        {inputMode === INPUT_MODES.UPLOAD && <GalleryUpload onDone={() => setAdded(true)} />}
         {inputMode === INPUT_MODES.CAPTURE && renderCaptureView()}
 
         {/* Category Selection - only for capture mode */}
@@ -529,7 +428,7 @@ export default function Capture() {
           )}
         </div>
       </div>
-      
+
       {showWebcam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
           <div className="bg-[var(--bg-primary)] border border-[var(--glass-border)] rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl p-6 flex flex-col items-center">
@@ -537,21 +436,21 @@ export default function Capture() {
               <h3 className="text-base font-bold text-[var(--text-primary)]">
                 {captureMode === 'front' ? 'Capture Front Photo' : 'Capture Back Photo'}
               </h3>
-              <button 
-                onClick={stopWebcam} 
+              <button
+                onClick={stopWebcam} aria-label="Close camera"
                 className="w-8 h-8 rounded-full border border-[var(--glass-border)] flex items-center justify-center hover:bg-[var(--bg-secondary)] text-[var(--text-primary)] transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            
+
             {/* Webcam Video (smaller window) */}
             <div className="relative w-56 h-56 rounded-2xl overflow-hidden border-2 border-[var(--accent)] bg-black mb-6 shadow-inner">
-              <video 
-                ref={videoRef} 
+              <video
+                ref={videoRef}
                 className="w-full h-full object-cover"
-                playsInline 
-                muted 
+                playsInline
+                muted
               />
               {/* Optional silhouette overlay for guidance */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
@@ -570,7 +469,7 @@ export default function Capture() {
           </div>
         </div>
       )}
-      
+
       {/* Bottom Navigation */}
       <BottomNav />
     </div>

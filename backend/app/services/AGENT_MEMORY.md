@@ -63,3 +63,13 @@ Last updated: 2026-09-12. Scope: progressive style analysis and storage listing.
 - Verify backend tests and `backend/benchmarks/evaluate_recommender.py` with the
   versioned `training/benchmarks/recommender/v1` fixtures. See progress ledger for
   scope and measured results; synthetic correctness is not taste validation.
+
+## Release A design persistence — 2026-09-13
+
+- `closet_library.py`: Firestore `closet_libraries/{sha256(uid)}` aggregate, versioned reducer, bounded operation receipts and transactionally rechecked garment ownership/readiness. Local atomic JSON files only when explicit dev bypass is enabled. Production failures cannot use local fallback.
+- Caps: 200 saved outfits, 365 daily entries, 100 corrections, 2000 location labels, last 30 replay receipts. No automatic history eviction. Scaling requires split collections.
+- Save identity uses the canonical ranker key. Plans and wear are separate from readiness. Corrections set aside an owned combination for one local day, not taste training. Explicit `styles_set` overrides profile style tags, including an empty clear.
+- `FirestoreService.set_readiness_batch` validates all items before committing, supports exact replay and CAS conflict.
+- Storage candidate paths: `users/{uid}/avatar-candidates/{uuid}.png`; active avatar unchanged until accepted. Candidate retained for retry, cleanup/history policy deferred. Generated results keep avatar_revision without modifying old images.
+- Cache reuse refreshes an existing user-scoped result URL; changing avatar bytes invalidates multi-try-on cache. History pagination still lists storage objects and is not a scalable cursor store.
+- Verify `test_closet_library.py`; synthetic benchmark run `runs/2026-09-13-design` remains 24/24 vs legacy14/24. Cloud and real generation need a pilot.

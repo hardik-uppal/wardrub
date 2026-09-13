@@ -68,6 +68,7 @@ export default function LookPreview({
           
           <button
             onClick={onClose}
+            aria-label="Close look"
             className="w-10 h-10 flex items-center justify-center rounded-full transition-colors"
             style={{ background: 'var(--glass-bg)' }}
           >
@@ -124,7 +125,7 @@ export default function LookPreview({
                   className="btn-primary flex-1 py-3.5"
                 >
                   <Download className="w-4 h-4" />
-                  Save
+                  Download
                 </button>
                 <button
                   onClick={handleShare}

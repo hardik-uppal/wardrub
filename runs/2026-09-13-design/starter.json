@@ -1,0 +1,33 @@
+{
+  "manifest": "training/benchmarks/recommender/v1/starter.jsonl",
+  "cases": 2,
+  "results": [
+    {
+      "id": "empty",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.01
+    },
+    {
+      "id": "small-pair",
+      "legacy_scorer": {
+        "violations": 0,
+        "passes": true
+      },
+      "closet_rules_v1": {
+        "violations": 0,
+        "passes": true
+      },
+      "ranking_ms": 0.18
+    }
+  ],
+  "legacy_passed": 2,
+  "candidate_passed": 2,
+  "max_ranking_ms": 0.18
+}

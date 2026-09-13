@@ -76,6 +76,7 @@ class RankerTests(unittest.TestCase):
         self.assertIn('light', {g.garment_id for g in first})
 
 
+@patch("app.services.closet_library.ClosetLibrary.read", new=AsyncMock(return_value={}))
 class FoundationServiceTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.service = MagazineFeedService()

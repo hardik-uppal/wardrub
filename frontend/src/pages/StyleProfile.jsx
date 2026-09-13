@@ -1,0 +1,806 @@
+import { useEffect, useState, useCallback } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Sparkles } from 'lucide-react'
+import { useWardrobe } from '../context/WardrobeContext'
+import { useAuth } from '../context/AuthContext'
+import LoadingOverlay from '../components/LoadingOverlay'
+import BottomNav from '../components/BottomNav'
+import { PageHeader } from '../components/AppChrome'
+import StyleAnalysisProgress from '../components/StyleAnalysisProgress'
+import { validateStylePhotos } from '../utils/styleAnalysis'
+
+const API_URL = import.meta.env.VITE_API_URL || ''
+
+// Color name to hex mapping
+const colorNameToHex = {
+  coral: '#FF7F50',
+  peach: '#FFCBA4',
+  salmon: '#FA8072',
+  rose: '#FF007F',
+  blush: '#DE5D83',
+  burgundy: '#800020',
+  maroon: '#800000',
+  cherry: '#DE3163',
+  orange: '#FFA500',
+  tangerine: '#FF9966',
+  apricot: '#FBCEB1',
+  amber: '#FFBF00',
+  gold: '#FFD700',
+  'golden yellow': '#FFDF00',
+  mustard: '#FFDB58',
+  lemon: '#FFF44F',
+  yellow: '#FFFF00',
+  cream: '#FFFDD0',
+  ivory: '#FFFFF0',
+  champagne: '#F7E7CE',
+  olive: '#808000',
+  sage: '#BCB88A',
+  mint: '#98FF98',
+  seafoam: '#93E9BE',
+  teal: '#008080',
+  emerald: '#50C878',
+  forest: '#228B22',
+  lime: '#32CD32',
+  green: '#008000',
+  'warm green': '#76B041',
+  jade: '#00A86B',
+  navy: '#000080',
+  cobalt: '#0047AB',
+  'royal blue': '#4169E1',
+  'sky blue': '#87CEEB',
+  'powder blue': '#B0E0E6',
+  turquoise: '#40E0D0',
+  aqua: '#00FFFF',
+  blue: '#0000FF',
+  lavender: '#E6E6FA',
+  lilac: '#C8A2C8',
+  violet: '#EE82EE',
+  purple: '#800080',
+  plum: '#DDA0DD',
+  mauve: '#E0B0FF',
+  orchid: '#DA70D6',
+  brown: '#A52A2A',
+  chocolate: '#D2691E',
+  caramel: '#FFD59A',
+  tan: '#D2B48C',
+  beige: '#F5F5DC',
+  taupe: '#483C32',
+  khaki: '#C3B091',
+  camel: '#C19A6B',
+  black: '#000000',
+  charcoal: '#36454F',
+  gray: '#808080',
+  grey: '#808080',
+  silver: '#C0C0C0',
+  'dark gray': '#A9A9A9',
+  'light gray': '#D3D3D3',
+  white: '#FFFFFF',
+  'off-white': '#FAF9F6',
+  'muted colors': '#A9A9A9',
+  muted: '#A9A9A9',
+  rust: '#B7410E',
+  'burnt orange': '#CC5500',
+  'rose pink': '#FF66CC',
+  'soft white': '#F5F5F0',
+  'soft navy': '#3A4B66',
+  'pure white': '#FFFFFF',
+  fuchsia: '#FF00FF',
+  'warm red': '#D94F3D',
+  periwinkle: '#CCCCFF',
+  'moss green': '#8A9A5B',
+  terracotta: '#E2725B',
+  'ice pink': '#F8E7EA',
+  'tomato red': '#FF6347',
+  'pastel pink': '#FFD1DC',
+  'icy blue': '#D6ECEF',
+  'muted earth tones': '#9B8B75',
+}
+
+const getColorHex = (colorName) => {
+  const normalized = colorName.toLowerCase().trim()
+  return colorNameToHex[normalized] || '#CCCCCC'
+}
+
+const bodyTypeDescriptions = {
+  hourglass: 'Balanced shoulders and hips with defined waist',
+  pear: 'Hips wider than shoulders, defined waist',
+  apple: 'Shoulders wider than hips, less defined waist',
+  rectangle: 'Shoulders, waist, and hips similar width',
+  inverted_triangle: 'Shoulders notably wider than hips',
+}
+
+// Minimal SVG line sketches for clothing
+const TopSketch = () => (
+  <svg
+    viewBox="0 0 48 48"
+    className="w-12 h-12"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+  >
+    <path
+      d="M14 12 L24 8 L34 12 L36 20 L32 20 L32 40 L16 40 L16 20 L12 20 Z"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M20 8 L20 16 L28 16 L28 8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
+
+const BottomSketch = () => (
+  <svg
+    viewBox="0 0 48 48"
+    className="w-12 h-12"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+  >
+    <path
+      d="M14 8 L34 8 L36 12 L32 44 L26 44 L24 24 L22 44 L16 44 L12 12 Z"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
+
+// Body type silhouettes as minimal line art
+const BodyTypeSilhouette = ({ type }) => {
+  const paths = {
+    hourglass:
+      'M20 8 Q24 8 28 8 Q32 16 28 24 Q24 28 24 28 Q24 28 20 24 Q16 16 20 8 M20 24 Q16 32 18 44 L30 44 Q32 32 28 24',
+    pear: 'M22 8 Q24 8 26 8 Q28 14 26 20 Q24 22 24 22 Q24 22 22 20 Q20 14 22 8 M22 20 Q16 30 16 44 L32 44 Q32 30 26 20',
+    apple:
+      'M18 8 Q24 8 30 8 Q34 16 30 24 Q24 26 24 26 Q24 26 18 24 Q14 16 18 8 M18 24 Q20 32 22 44 L26 44 Q28 32 30 24',
+    rectangle:
+      'M20 8 Q24 8 28 8 Q30 14 28 24 Q26 30 26 44 L22 44 Q22 30 20 24 Q18 14 20 8',
+    inverted_triangle:
+      'M16 8 Q24 8 32 8 Q34 16 30 24 Q26 28 26 44 L22 44 Q22 28 18 24 Q14 16 16 8',
+  }
+
+  return (
+    <svg
+      viewBox="0 0 48 52"
+      className="w-16 h-20 mx-auto"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    >
+      <path
+        d={paths[type] || paths.rectangle}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+export default function StyleProfile({ recoveryOnly = false }) {
+  const navigate = useNavigate()
+  const {
+    userProfile,
+    checkLegacyData,
+    migrateLegacyData,
+    analyzeProfile,
+    fetchProfile: loadSharedProfile,
+  } = useWardrobe()
+  const { getIdToken } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const analysisStage = ['color', 'fit'].includes(searchParams.get('analysis'))
+    ? searchParams.get('analysis')
+    : 'auto'
+
+  const profile = userProfile
+  const [colorRecs, setColorRecs] = useState(null)
+  const [fitRecs, setFitRecs] = useState(null)
+  const [error, setError] = useState(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState([])
+  const [hasLegacyData, setHasLegacyData] = useState(false)
+  const [legacyStatus, setLegacyStatus] = useState('loading')
+  const [isMigrating, setIsMigrating] = useState(false)
+  const [migrationSuccess, setMigrationSuccess] = useState(false)
+
+  // Helper to make authenticated fetch requests
+  const authFetch = useCallback(
+    async (url, options = {}) => {
+      const token = await getIdToken()
+      if (!token) throw new Error('Not authenticated')
+
+      const headers = {
+        ...options.headers,
+        Authorization: `Bearer ${token}`,
+      }
+      return fetch(url, { ...options, headers })
+    },
+    [getIdToken],
+  )
+
+  const fetchProfile = useCallback(
+    async (force = false) => {
+      try {
+        const data = await loadSharedProfile(force)
+        if (data?.error) setError(data.error)
+      } catch (err) {
+        console.error('Failed to fetch profile:', err)
+        setError('Failed to load profile')
+      }
+    },
+    [loadSharedProfile],
+  )
+
+  // Also refresh results when an upload completes after navigating away and back.
+  useEffect(() => {
+    let active = true
+    const loadRecommendations = async () => {
+      const load = async (available, kind) => {
+        if (!available) return null
+        const response = await authFetch(
+          `${API_URL}/api/profile/${kind}-recommendations`,
+        )
+        if (!response.ok)
+          throw new Error(
+            'Could not load your recommendations. Please reload to retry.',
+          )
+        return (await response.json()).recommendations
+      }
+      try {
+        const [colors, fits] = await Promise.allSettled([
+          load(profile?.skin_tone, 'color'),
+          load(profile?.body_type, 'fit'),
+        ])
+        if (active) {
+          if (colors.status === 'fulfilled') setColorRecs(colors.value)
+          if (fits.status === 'fulfilled') setFitRecs(fits.value)
+          const failure = [colors, fits].find(
+            (result) => result.status === 'rejected',
+          )
+          if (failure) setError(failure.reason.message)
+        }
+      } catch (err) {
+        if (active) setError(err.message)
+      }
+    }
+    loadRecommendations()
+    return () => {
+      active = false
+    }
+  }, [authFetch, profile?.skin_tone, profile?.body_type])
+
+  useEffect(() => {
+    fetchProfile()
+
+    // Check for legacy data
+    if (recoveryOnly && checkLegacyData) {
+      checkLegacyData()
+        .then((hasLegacy) => {
+          setHasLegacyData(hasLegacy)
+          setLegacyStatus('ready')
+        })
+        .catch((err) => {
+          setLegacyStatus('failed')
+          setError(err.message || 'Could not check previous-session data.')
+        })
+    }
+  }, [fetchProfile, checkLegacyData, recoveryOnly])
+
+  const handleMigrateData = async () => {
+    if (!migrateLegacyData) return
+    setIsMigrating(true)
+    setError(null)
+    try {
+      await migrateLegacyData()
+      setMigrationSuccess(true)
+      setHasLegacyData(false)
+      await fetchProfile(true)
+    } catch (err) {
+      console.error('Migration failed:', err)
+      setError(err.message || 'Failed to migrate old data')
+    } finally {
+      setIsMigrating(false)
+    }
+  }
+
+  const handleFileChange = (e) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files)
+      const message = validateStylePhotos(files)
+      setError(message)
+      setSelectedFiles(message ? [] : files)
+      e.target.value = ''
+    }
+  }
+
+  const handleAnalyzeProfile = async () => {
+    if (selectedFiles.length === 0) return
+
+    setIsAnalyzing(true)
+    setError(null)
+
+    try {
+      const data = await analyzeProfile(selectedFiles, analysisStage)
+      setColorRecs(data.color_recommendations)
+      setFitRecs(data.fit_recommendations)
+      if (data.status === 'failed') {
+        setError(
+          'Analysis is temporarily unavailable. Your photos are still selected so you can retry.',
+        )
+      } else {
+        setSelectedFiles([])
+      }
+    } catch (err) {
+      console.error('Profile analysis failed:', err)
+      setError(err.message || 'Failed to analyze profile')
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const skinTone = profile?.skin_tone
+  const bodyType = profile?.body_type
+
+  return (
+    <div
+      className="min-h-screen safe-top safe-bottom"
+      style={{ background: 'var(--bg-primary)' }}
+    >
+      {isMigrating && (
+        <LoadingOverlay message="Migrating your previous data..." />
+      )}
+
+      {/* Error Toast */}
+      {error && (
+        <button
+          type="button"
+          className="fixed top-4 left-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg max-w-md mx-auto cursor-pointer"
+          style={{ background: 'var(--error)', color: 'white' }}
+          onClick={() => setError(null)}
+          aria-label="Dismiss error"
+        >
+          <p className="text-sm">{error}</p>
+        </button>
+      )}
+
+      <div className="quiet-page profile-back">
+        <PageHeader
+          title={recoveryOnly ? 'Account recovery' : 'Style guidance'}
+          back="/profile"
+          subtitle={
+            recoveryOnly
+              ? 'Bring your previous-session data into this account.'
+              : 'Optional colors and fit guidance, at your pace.'
+          }
+        />
+      </div>
+
+      {/* Legacy Data Migration Banner */}
+      {recoveryOnly && hasLegacyData && (
+        <div className="page-container mt-4 px-4">
+          <div
+            className="glass-card-elevated p-5 flex flex-col md:flex-row items-center justify-between gap-4 border border-amber-500/20"
+            style={{
+              background: 'rgba(245, 158, 11, 0.05)',
+              borderRadius: '16px',
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-6 h-6 text-amber-400 shrink-0 animate-pulse" />
+              <div className="text-left">
+                <h3
+                  className="font-bold text-sm"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Previous Session Data Found
+                </h3>
+                <p
+                  className="text-xs mt-1"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  We found wardrobe items and analysis from a previous session.
+                  Would you like to import them to your account?
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleMigrateData}
+              disabled={isMigrating}
+              className="btn-primary py-2.5 px-5 whitespace-nowrap shrink-0"
+              style={{ background: 'var(--accent)' }}
+            >
+              Import Data
+            </button>
+          </div>
+        </div>
+      )}
+
+      {migrationSuccess && (
+        <div className="page-container mt-4 px-4">
+          <div
+            className="glass-card-elevated p-4 flex items-center gap-3 border border-green-500/20"
+            style={{
+              background: 'rgba(16, 185, 129, 0.05)',
+              borderRadius: '16px',
+            }}
+          >
+            <Sparkles className="w-5 h-5 text-green-400 shrink-0" />
+            <div className="text-left flex-1">
+              <p className="text-xs font-semibold" style={{ color: '#34d399' }}>
+                Successfully imported previous wardrobe items and profile
+                settings!
+              </p>
+            </div>
+            <button
+              className="text-xs"
+              style={{ color: 'var(--text-secondary)' }}
+              onClick={() => setMigrationSuccess(false)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {recoveryOnly && legacyStatus === 'loading' && (
+        <p className="quiet-page" role="status">
+          Checking previous-session data…
+        </p>
+      )}
+      {recoveryOnly && legacyStatus === 'failed' && (
+        <div className="quiet-page">
+          <button
+            className="btn-secondary"
+            onClick={() => window.location.reload()}
+          >
+            Retry recovery check
+          </button>
+        </div>
+      )}
+      {recoveryOnly &&
+        legacyStatus === 'ready' &&
+        !hasLegacyData &&
+        !migrationSuccess && (
+          <p className="quiet-page">No previous-session data found.</p>
+        )}
+      {!recoveryOnly && (
+        <div className="nav-bottom-spacing page-container mt-5 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+            {/* Optional analysis input and progress */}
+            <div className="md:col-span-5 lg:col-span-4 flex flex-col gap-5">
+              <div className="mx-4 md:mx-0 glass-card-elevated p-6 text-center">
+                {/* Profile Info */}
+                {skinTone ? (
+                  <div className="mb-5">
+                    <h2
+                      className="text-lg font-bold capitalize"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {skinTone.season} Season
+                    </h2>
+                    <p
+                      className="text-sm"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      {skinTone.undertone} • {skinTone.depth}
+                      {bodyType && ` • ${bodyType.replace('_', ' ')}`}
+                    </p>
+                    <p
+                      className="text-xs mt-2"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      Based on your uploaded photos. Re-analyze whenever your
+                      lighting or appearance changes.
+                    </p>
+                  </div>
+                ) : (
+                  <p
+                    className="text-sm mb-5"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    Analyze your style to get personalized recommendations
+                  </p>
+                )}
+
+                {/* Action Buttons — stacked to avoid truncation */}
+                <div className="flex flex-col gap-3">
+                  <label
+                    className="text-sm text-left"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    Analysis focus
+                    <select
+                      className="w-full mt-1 rounded-lg p-2"
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--text-primary)',
+                      }}
+                      value={analysisStage}
+                      disabled={isAnalyzing}
+                      onChange={(event) =>
+                        setSearchParams(
+                          { analysis: event.target.value },
+                          { replace: true },
+                        )
+                      }
+                    >
+                      <option value="auto">Continue my analysis</option>
+                      <option value="color">Refine my colors</option>
+                      <option value="fit">Analyze my fit</option>
+                    </select>
+                  </label>
+                  <label className="cursor-pointer">
+                    <div className="btn-primary w-full">
+                      <Sparkles className="w-4 h-4" />
+                      <span>
+                        {selectedFiles.length > 0
+                          ? `${selectedFiles.length} selected`
+                          : 'Analyze Style'}
+                      </span>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+                      multiple
+                      onChange={handleFileChange}
+                      className="hidden"
+                      aria-label="Choose style analysis photos"
+                      disabled={isAnalyzing}
+                    />
+                  </label>
+                  <p
+                    className="text-xs text-left"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    Start with a face photo in natural light. Add a full-length
+                    photo for better fit guidance. Choose up to 4 JPEG, PNG,
+                    WebP, HEIC, or HEIF photos, 10 MB each (up to 20
+                    megapixels).
+                  </p>
+                  <p
+                    className="text-xs text-left"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    These photos are sent for AI analysis. Wardrub saves your
+                    results, not these uploads. You can continue using your
+                    wardrobe and come back later.
+                  </p>
+                  {isAnalyzing && (
+                    <p
+                      role="status"
+                      className="text-sm text-left"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      Checking your photos. This can take up to a minute; your
+                      saved recommendations remain available below.
+                    </p>
+                  )}
+                </div>
+
+                {/* Analyze Button - Only when files selected */}
+                {selectedFiles.length > 0 && (
+                  <button
+                    onClick={handleAnalyzeProfile}
+                    disabled={isAnalyzing}
+                    className="w-full mt-3 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2"
+                    style={{
+                      background: 'var(--accent)',
+                      color: 'var(--bg-primary)',
+                    }}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Analyze My Style</span>
+                  </button>
+                )}
+
+                <StyleAnalysisProgress profile={profile} />
+              </div>
+            </div>
+
+            {/* Right Column - Styling Recommendations */}
+            <div className="md:col-span-7 lg:col-span-8 flex flex-col gap-5">
+              {/* Best Colors */}
+              {colorRecs?.best && colorRecs.best.length > 0 && (
+                <div className="mx-4 md:mx-0 glass-card-elevated p-6">
+                  <h2
+                    className="font-bold text-base mb-5 text-center"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    Best Colors
+                  </h2>
+                  <div className="flex gap-4 justify-center flex-wrap">
+                    {colorRecs.best.slice(0, 6).map((color, i) => (
+                      <div key={i} className="flex flex-col items-center gap-2">
+                        <div
+                          className="color-swatch"
+                          style={{ backgroundColor: getColorHex(color) }}
+                        />
+                        <span
+                          className="text-xs capitalize"
+                          style={{ color: 'var(--text-secondary)' }}
+                        >
+                          {color}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Colors to Avoid */}
+              {colorRecs?.avoid && colorRecs.avoid.length > 0 && (
+                <div className="mx-4 md:mx-0 glass-card-elevated p-6">
+                  <h2
+                    className="font-bold text-base mb-5 text-center"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    Colors to Avoid
+                  </h2>
+                  <div className="flex gap-4 justify-center flex-wrap">
+                    {colorRecs.avoid.slice(0, 6).map((color, i) => (
+                      <div key={i} className="flex flex-col items-center gap-2">
+                        <div
+                          className="color-swatch relative overflow-hidden"
+                          style={{ backgroundColor: getColorHex(color) }}
+                        >
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div
+                              className="w-full h-0.5 rotate-45"
+                              style={{ background: 'rgba(248, 113, 113, 0.7)' }}
+                            />
+                          </div>
+                        </div>
+                        <span
+                          className="text-xs capitalize"
+                          style={{ color: 'var(--text-secondary)' }}
+                        >
+                          {color}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Body Type & Fit */}
+              {bodyType && (
+                <div className="mx-4 md:mx-0 glass-card-elevated p-6 text-center">
+                  <h2
+                    className="font-bold text-base mb-2 capitalize"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    {bodyType.replace('_', ' ')} Body Type
+                  </h2>
+
+                  <div
+                    className="mb-3 flex justify-center"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    <BodyTypeSilhouette type={bodyType} />
+                  </div>
+
+                  <p
+                    className="text-sm mb-5"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    {bodyTypeDescriptions[bodyType]}
+                  </p>
+
+                  {fitRecs && (
+                    <div className="grid grid-cols-2 gap-4 md:gap-5">
+                      {/* Tops */}
+                      {fitRecs.tops && fitRecs.tops.length > 0 && (
+                        <div
+                          className="p-4 rounded-2xl"
+                          style={{
+                            background: 'var(--glass-bg)',
+                            border: '1px solid var(--glass-border)',
+                          }}
+                        >
+                          <div
+                            className="mb-2 flex justify-center"
+                            style={{ color: 'var(--accent)' }}
+                          >
+                            <TopSketch />
+                          </div>
+                          <h4
+                            className="text-sm font-semibold mb-2"
+                            style={{ color: 'var(--text-primary)' }}
+                          >
+                            Tops
+                          </h4>
+                          <div className="space-y-1.5">
+                            {fitRecs.tops.slice(0, 3).map((item, i) => (
+                              <p
+                                key={i}
+                                className="text-xs"
+                                style={{ color: 'var(--text-secondary)' }}
+                              >
+                                {item}
+                              </p>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            className="mt-4 text-xs font-semibold underline"
+                            onClick={() => navigate('/wardrobe?category=top')}
+                          >
+                            Find recommended tops
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Bottoms */}
+                      {fitRecs.bottoms && fitRecs.bottoms.length > 0 && (
+                        <div
+                          className="p-4 rounded-2xl"
+                          style={{
+                            background: 'var(--glass-bg)',
+                            border: '1px solid var(--glass-border)',
+                          }}
+                        >
+                          <div
+                            className="mb-2 flex justify-center"
+                            style={{ color: 'var(--accent)' }}
+                          >
+                            <BottomSketch />
+                          </div>
+                          <h4
+                            className="text-sm font-semibold mb-2"
+                            style={{ color: 'var(--text-primary)' }}
+                          >
+                            Bottoms
+                          </h4>
+                          <div className="space-y-1.5">
+                            {fitRecs.bottoms.slice(0, 3).map((item, i) => (
+                              <p
+                                key={i}
+                                className="text-xs"
+                                style={{ color: 'var(--text-secondary)' }}
+                              >
+                                {item}
+                              </p>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            className="mt-4 text-xs font-semibold underline"
+                            onClick={() =>
+                              navigate('/wardrobe?category=bottom')
+                            }
+                          >
+                            Find recommended bottoms
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {fitRecs?.notes && (
+                    <p
+                      className="mt-4 text-sm italic"
+                      style={{ color: 'var(--accent-light)' }}
+                    >
+                      {fitRecs.notes}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-primary mt-5"
+                    onClick={() => navigate('/dressing-room')}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Build an outfit
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <BottomNav />
+    </div>
+  )
+}

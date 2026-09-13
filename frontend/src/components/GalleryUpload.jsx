@@ -6,7 +6,7 @@ import UploadPreview from './UploadPreview'
 const MAX_PHOTOS = 5
 const MAX_BYTES = 10 * 1024 * 1024
 
-export default function GalleryUpload() {
+export default function GalleryUpload({ onDone }) {
   const { processUploadedClothes, isLoading } = useWardrobe()
   const [items, setItems] = useState([])
   const [error, setError] = useState('')
@@ -100,6 +100,7 @@ export default function GalleryUpload() {
       </li>)}
     </ul>
     {pending.length > 0 && <button className="btn-primary" disabled={busy || isLoading} onClick={() => process(pending)}>Detect &amp; Add {pending.length} photo(s)</button>}
+    {!busy && items.some(item => item.status === 'success') && onDone && <button className="btn-secondary" onClick={onDone}>Continue with added clothes</button>}
     {failed.length > 0 && <p>Only retry failed photos; successful photos will not be processed again. A network failure may occur after saving—check your wardrobe before retrying.</p>}
   </section>
 }

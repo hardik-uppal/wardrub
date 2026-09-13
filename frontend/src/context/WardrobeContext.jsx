@@ -25,6 +25,7 @@ function WardrobeSession({ children }) {
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [garments, setGarments] = useState([])
   const [looks, setLooks] = useState([])
+  const [nextLookOffset, setNextLookOffset] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState('')
   const [error, setError] = useState(null)
@@ -121,11 +122,18 @@ function WardrobeSession({ children }) {
         if (!Array.isArray(data.results)) throw new Error('Invalid history response')
         return data
       }, force)
-      if (result.isCurrent()) setLooks(result.value.results)
+      if (result.isCurrent()) { setLooks(result.value.results); setNextLookOffset(result.value.next_offset ?? null) }
     } catch (err) {
       console.error('Failed to fetch looks:', err)
     }
   }, [readJson, user])
+
+  const loadMoreLooks = async () => {
+    if (nextLookOffset === null) return
+    const data = await readJson(`${API_URL}/api/try-on/history?offset=${nextLookOffset}`)
+    setLooks(previous => [...previous, ...data.results.filter(look => !previous.some(p => p.id === look.id))])
+    setNextLookOffset(data.next_offset ?? null)
+  }
 
   const processGarment = async (frontFile, backFile, category, ghostMannequin = true) => {
     setIsLoading(true)
@@ -245,7 +253,7 @@ function WardrobeSession({ children }) {
     }
   }
 
-  const createAvatar = async (files, mode = 'upload') => {
+  const createAvatar = async (files, mode = 'upload', activate = true) => {
     setIsLoading(true)
     setLoadingMessage(mode === 'selfie' ? 'Applying your face...' : 'Processing your photo...')
     setError(null)
@@ -253,7 +261,8 @@ function WardrobeSession({ children }) {
     try {
       const formData = new FormData()
       files.forEach(file => formData.append('files', file))
-      formData.append('mode', mode) // 'upload' or 'selfie'
+      formData.append('mode', mode)
+      formData.append('activate', String(activate))
 
       if (mode === 'selfie') {
         setTimeout(() => setLoadingMessage('Creating face swap...'), 3000)
@@ -274,7 +283,7 @@ function WardrobeSession({ children }) {
       }
 
       const data = await response.json()
-      setAvatarUrl(data.avatar_url)
+      if (activate) setAvatarUrl(data.avatar_url)
       invalidateCache('avatar') // Invalidate cache after creating new avatar
       void trackActivationEvent('avatar_created', getIdToken, { mode })
 
@@ -735,14 +744,11 @@ function WardrobeSession({ children }) {
   }
   
   const checkLegacyData = useCallback(async () => {
-    try {
-      const response = await authFetch(`${API_URL}/api/check-legacy-data`)
-      const data = await response.json()
-      return data.has_legacy_data
-    } catch (err) {
-      console.error('Failed to check legacy data:', err)
-      return false
-    }
+    const response = await authFetch(`${API_URL}/api/check-legacy-data`)
+    if (!response.ok) throw new Error('Could not check previous-session data. Please retry.')
+    const data = await response.json()
+    if (typeof data.has_legacy_data !== 'boolean') throw new Error('Could not read previous-session data.')
+    return data.has_legacy_data
   }, [authFetch])
 
   const value = {
@@ -755,10 +761,13 @@ function WardrobeSession({ children }) {
     userProfile,
     fetchGarments,
     fetchLooks,
+    nextLookOffset,
+    loadMoreLooks,
     processGarment,
     processUploadedClothes,
     processGarmentFull,
     createAvatar,
+    fetchAvatar,
     createAvatarFull,
     tryOn,
     tryOnMultiple,

@@ -123,4 +123,13 @@ Client request -> auth dependency -> parse request model/form-data -> call servi
   All new routes require Firebase auth. No automatic mutation retry.
 - Daily outfit no longer requires analysis; its displayed weather is the same
   observation used by its recommendation. Existing feedback API remains separate;
-  this phase does not implement preference learning or durable saved outfits.
+  the foundation did not implement preference learning or durable saved outfits; the additive Release A contracts below now provide saved outfits and explicit corrections.
+
+## Release A design contracts — 2026-09-13
+
+- New `closet.py`: GET `/closet-library`, POST `/closet-library/actions` with operation_id/expected_version; saved outfit, daily plan/wear/undo, locations, explicit styles and local-day corrections/undo. Public reads hide internal replay receipts. Ownership404, conflict409, invalid shape422, storage503.
+- POST `/closet-state/batch`: 1–50 unique owned clothes, readiness + expected version; atomic cloud transaction. Undo is a new versioned write.
+- GET `/magazine-feed?local_day=YYYY-MM-DD` scopes reversible temporary corrections. UTC edition date remains separate. POST generate retains default UTC behavior for legacy callers.
+- POST `/create-avatar` accepts additive form `activate=false` to create a candidate. POST `/avatar-candidates/{uuid}/activate` reads only the authenticated user's candidate. Legacy activation default stays true.
+- Multi-try-on persists garment IDs/categories and avatar-content revision; cache includes user and avatar revision and refreshes the stored result URL. GET history supports offset/limit and next_offset.
+- Regression coverage: `test_closet_library.py`, existing feed/readiness/security tests. No live image/model verification.

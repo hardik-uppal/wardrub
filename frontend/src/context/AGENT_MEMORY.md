@@ -26,3 +26,11 @@ Last updated: 2026-09-11. Scope: style analysis state and onboarding.
   of ten arbitrary garments. Avatar/style milestones remain optional setup tools;
   the recommendation API/page do not gate on them. Current laundry eligibility is
   server-owned and distinct from having enough categories indexed.
+
+## Release A session state — 2026-09-13
+
+- `ClosetContext` is mounted inside the protected layout and keyed by UID. Library + readiness reads have revision guards; mutation confirmation updates library/version. Failures trigger a read, never blind replay.
+- `draft` persists selected garment IDs and origin in `sessionStorage` keyed by UID. Auth sign-out clears draft keys; account switches remount the private context. These are navigation drafts, not background generation jobs.
+- `createAvatar(files, mode, activate=false)` returns a review candidate without changing avatarUrl. `fetchAvatar(true)` follows successful activation. Legacy default activate=true remains compatible.
+- `WardrobeContext` exposes nextLookOffset/loadMoreLooks with deduplicated history appends. Try-on sends garment IDs and refreshes history after success. Existing garment/avatar/profile read cache remains.
+- `checkLegacyData` now propagates failed/non-boolean responses; recovery distinguishes unknown/error from empty.

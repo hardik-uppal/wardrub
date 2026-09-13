@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Sparkles, X, Download, Share2, ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { useWardrobe } from '../context/WardrobeContext'
+import { useCloset } from '../context/ClosetContext'
+import { PageHeader } from '../components/AppChrome'
 import LoadingOverlay from '../components/LoadingOverlay'
 import BottomNav from '../components/BottomNav'
 import { getTryOnResultUrl } from '../utils/tryOn'
@@ -18,6 +20,7 @@ const CATEGORIES = [
 export default function DressingRoom() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { draft, setDraft } = useCloset()
   const { 
     avatarUrl, 
     garments, 
@@ -42,12 +45,12 @@ export default function DressingRoom() {
   // Preselect garments if coming from Daily Looks with preselected IDs (only once)
   const hasAppliedPreselection = useRef(false)
   useEffect(() => {
-    const preselectedIds = location.state?.preselectedGarmentIds
+    const preselectedIds = draft?.garment_ids || location.state?.preselectedGarmentIds
     if (preselectedIds && preselectedIds.length > 0 && garments.length > 0 && !hasAppliedPreselection.current) {
       const newSelection = {}
       preselectedIds.forEach(id => {
         const garment = garments.find(g => g.id === id)
-        if (garment) {
+        if (garment && CATEGORIES.some(c => c.id === garment.category)) {
           newSelection[garment.category] = garment
         }
       })
@@ -59,7 +62,7 @@ export default function DressingRoom() {
         return () => clearTimeout(timer)
       }
     }
-  }, [location.state, garments])
+  }, [location.state, garments, draft])
 
   // Group garments by category
   const garmentsByCategory = useMemo(() => {
@@ -79,33 +82,16 @@ export default function DressingRoom() {
 
   // Handle garment selection with category-based logic
   const handleSelectGarment = (garment) => {
-    setSelectedGarments(prev => {
-      const category = garment.category
-      const currentlySelected = prev[category]
-      
-      if (currentlySelected?.id === garment.id) {
-        // Deselect
-        const next = { ...prev }
-        delete next[category]
-        return next
-      }
-      
-      // Dress and top/bottom are mutually exclusive
-      if (category === 'dress') {
-        const next = { ...prev, dress: garment }
-        delete next.top
-        delete next.bottom
-        return next
-      }
-      
-      if (category === 'top' || category === 'bottom') {
-        const next = { ...prev, [category]: garment }
-        delete next.dress
-        return next
-      }
-      
-      return { ...prev, [category]: garment }
-    })
+    const next = { ...selectedGarments }
+    const category = garment.category
+    if (next[category]?.id === garment.id) delete next[category]
+    else {
+      next[category] = garment
+      if (category === 'dress') { delete next.top; delete next.bottom }
+      if (category === 'top' || category === 'bottom') delete next.dress
+    }
+    setSelectedGarments(next)
+    setDraft({ ...draft, garment_ids: Object.values(next).map(g => g.id), title: draft?.title || 'My outfit' })
   }
 
   const isGarmentSelected = (garment) => {
@@ -184,6 +170,7 @@ export default function DressingRoom() {
 
   const clearSelection = () => {
     setSelectedGarments({})
+    setDraft(null)
   }
 
   if (!avatarUrl) {
@@ -202,7 +189,7 @@ export default function DressingRoom() {
           <p className="text-sm text-center mb-6 max-w-xs" style={{ color: 'var(--text-secondary)' }}>
             You need an avatar to try on clothes virtually
           </p>
-          <button onClick={() => navigate('/create-avatar')} className="btn-primary">
+          <button onClick={() => navigate('/create-avatar?from=tryon')} className="btn-primary">
             Create Avatar
           </button>
         </div>
@@ -217,23 +204,10 @@ export default function DressingRoom() {
 
       <div className="flex-1 flex flex-col page-container">
         {/* Header */}
-        <header className="mx-4 mt-4 glass-card-static flex items-center justify-between p-5 flex-shrink-0">
-          <div className="w-10" />
-          <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-            Dressing Room
-          </h1>
-          {selectedCount > 0 ? (
-            <button
-              onClick={clearSelection}
-              className="px-3 py-1.5 text-sm font-medium rounded-full"
-              style={{ color: 'var(--accent)', background: 'var(--accent-glow)' }}
-            >
-              Clear
-            </button>
-          ) : (
-            <div className="w-10" />
-          )}
-        </header>
+        <PageHeader title="Create a try-on" subtitle="Preview a combination on your avatar." back="/looks" />
+        <div className="actions px-5"><button className="text-action" onClick={() => { setDraft({ ...draft, garment_ids: selectedGarmentsArray.map(g => g.id), title: draft?.title || 'My outfit' }); navigate('/create-avatar?from=tryon') }}>Change avatar</button>{selectedCount > 0 && <button className="text-action" onClick={clearSelection}>Clear selection</button>}</div>
+        {draft?.garment_ids.some(id => garments.find(g => g.id === id)?.category === 'shoes') && <p className="notice">Shoes stay in your outfit but are not included in this preview.</p>}
+
 
         {/* Error Toast */}
         {error && (
@@ -470,6 +444,7 @@ export default function DressingRoom() {
             <header className="flex items-center justify-between page-padding py-4 flex-shrink-0">
               <button
                 onClick={handleCloseResult}
+                aria-label="Close result"
                 className="w-10 h-10 rounded-full flex items-center justify-center"
                 style={{ background: 'var(--glass-bg)' }}
               >
@@ -492,7 +467,7 @@ export default function DressingRoom() {
 
             <div className="page-padding pb-6 flex-shrink-0">
               <p className="text-center text-sm mb-3 text-white/80">
-                Saved automatically to Looks
+                Saved automatically to Wardrobe → Outfits → Try-ons
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -513,6 +488,7 @@ export default function DressingRoom() {
                 </button>
               </div>
               
+              <button className="btn-secondary w-full mt-3" onClick={() => navigate('/looks')}>View my try-ons</button>
               <button onClick={handleCloseResult} className="btn-primary btn-lg w-full mt-4">
                 Try Another Look
               </button>

@@ -27,6 +27,7 @@ def make_garment(garment_id: str, user_id: str = "user-1") -> GarmentMetadata:
     )
 
 
+@patch("app.services.closet_library.ClosetLibrary.read", new=AsyncMock(return_value={}))
 class DemoGarmentRemovalTests(unittest.IsolatedAsyncioTestCase):
     async def test_wardrobe_returns_only_uploaded_garments(self):
         uploaded = {

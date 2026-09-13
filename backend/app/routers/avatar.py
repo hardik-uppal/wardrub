@@ -28,6 +28,7 @@ logger = get_logger("avatar")
 @router.post("/create-avatar")
 async def create_avatar(
     files: List[UploadFile] = File(...),
+    activate: bool = Form(True),
     mode: str = Form("upload"),  # 'upload' (full body) or 'selfie' (face swap)
     user: Dict[str, Any] = Depends(get_current_user)
 ):
@@ -84,11 +85,17 @@ async def create_avatar(
         logger.info(f"✅ Avatar generated: {len(avatar_bytes)} bytes")
         
         # Upload avatar to storage
-        avatar_url = await storage.upload_avatar(avatar_bytes, user_id=user_id)
+        candidate_id = None
+        if activate:
+            avatar_url = await storage.upload_avatar(avatar_bytes, user_id=user_id)
+        else:
+            candidate_id, avatar_url = await storage.upload_avatar_candidate(avatar_bytes, user_id)
+
         logger.info(f"📤 Avatar uploaded to storage: {avatar_url[:50]}...")
         
         return {
             "avatar_url": avatar_url,
+            "candidate_id": candidate_id,
             "source_url": source_url,
             "mode": mode,
             "status": "created"
@@ -272,3 +279,19 @@ async def create_avatar_full(
     except Exception as e:
         logger.error(f"❌ Full avatar creation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create avatar: {str(e)}")
+
+
+@router.post("/avatar-candidates/{candidate_id}/activate")
+async def activate_avatar(candidate_id: str, user=Depends(get_current_user)):
+    from uuid import UUID
+    try:
+        candidate_id = str(UUID(candidate_id))
+    except ValueError:
+        raise HTTPException(400, "Invalid avatar candidate")
+    try:
+        url = await storage.activate_avatar_candidate(user['uid'], candidate_id)
+        return {"avatar_url": url, "status": "active"}
+    except FileNotFoundError:
+        raise HTTPException(404, "Avatar candidate was not found. Create a new preview.")
+    except Exception:
+        raise HTTPException(503, "Avatar replacement was not confirmed. Check your current avatar before retrying.")

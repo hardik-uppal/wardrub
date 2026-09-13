@@ -1,5 +1,8 @@
 # Wardrub: current user flows → proposed experience
 
+> Implementation update (2026-09-13): the before/after inventory below remains the historical audit of `40961a8`. The new Release A branch now implements the core navigation, screens and durable actions against main `fd453ce`. See `DESIGN_SYSTEM.md` and `../progress/design-migration-PROGRESS.md` for actual status, tests and deferred capabilities. It is not yet a deployed production redesign.
+
+
 Recorded 13 September 2026. This is the migration inventory, not a claim that the redesign has shipped.
 
 The central change is to organize Wardrub around choosing and managing clothes each day. Today answers “What should I wear?” Wardrobe answers “What do I own, where is it, and is it ready?” Avatar creation and virtual try-on remain complete, accessible flows.

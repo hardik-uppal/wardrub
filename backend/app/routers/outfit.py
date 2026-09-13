@@ -504,9 +504,9 @@ class FeedbackRequest(BaseModel):
 
 
 @router.get("/magazine-feed")
-async def get_magazine_feed_endpoint(user: Dict[str, Any] = Depends(get_current_user)):
+async def get_magazine_feed_endpoint(user: Dict[str, Any] = Depends(get_current_user), local_day: Optional[date] = None):
     try:
-        feed = await magazine_service.generate_magazine_feed(user["uid"])
+        feed = await magazine_service.generate_magazine_feed(user["uid"], local_day=local_day.isoformat()) if local_day else await magazine_service.generate_magazine_feed(user["uid"])
         return {"status": "success", "feed": feed.model_dump()}
     except Exception:
         logger.exception("Failed to load grounded outfits")
