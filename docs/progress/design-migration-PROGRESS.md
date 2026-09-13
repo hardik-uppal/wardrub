@@ -8,7 +8,7 @@ Last updated: 2026-09-13.
 - Branch: `codex/minimalist-design`; base `origin/main` at `fd453ce` (merged recommender PR #26 and its release fixes).
 - Source plans: task deliverable `wardrub-design-migration-plan.md` and `docs/product/USER_FLOWS_CURRENT_AND_PROPOSED.md`.
 - Implemented component/state reference: `docs/product/DESIGN_SYSTEM.md`.
-- Publication is pending. Last inspected GitHub permission was read-only (`push: false`). No new redesign deployment or merge has been performed.
+- Publication is blocked: CLI push returned HTTP403 for `hardik-aftershoot` (`push: false`); the GitHub connector also returned HTTP403, Resource not accessible by integration. No remote redesign branch or PR was created. No new redesign deployment or merge has been performed.
 
 ## Task ledger
 
