@@ -1,10 +1,13 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Shirt, Sparkles } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const candidate = location.state?.from
+  const destination = typeof candidate === 'string' && /^\/(?!\/)/.test(candidate) && !candidate.includes('\\') && !candidate.startsWith('/login') ? candidate : '/'
   const {
     user,
     loading,
@@ -20,14 +23,14 @@ export default function Login() {
   // Redirect if already authenticated
   useEffect(() => {
     if (user && !loading) {
-      navigate('/', { replace: true })
+      navigate(destination, { replace: true })
     }
-  }, [user, loading, navigate])
+  }, [user, loading, navigate, destination])
 
   const handleGoogleSignIn = async () => {
     try {
       await signInWithGoogle()
-      navigate('/', { replace: true })
+      navigate(destination, { replace: true })
     } catch (err) {
       // Error is handled by context
       console.error('Sign in failed:', err)
@@ -37,7 +40,7 @@ export default function Login() {
   const handleDevBypassSignIn = async () => {
     try {
       await signInWithDevBypass()
-      navigate('/', { replace: true })
+      navigate(destination, { replace: true })
     } catch (err) {
       console.error('Bypass sign in failed:', err)
     }
@@ -54,7 +57,7 @@ export default function Login() {
   }
 
   return (
-    <div 
+    <div
       className="min-h-screen flex flex-col items-center justify-center px-6"
       style={{ background: 'var(--bg-primary)' }}
     >
@@ -62,20 +65,20 @@ export default function Login() {
       <div className="relative z-10 w-full max-w-sm animate-fade-in" style={{ padding: '1rem 0' }}>
         {/* Logo/Brand */}
         <div className="text-center" style={{ marginBottom: '2.5rem' }}>
-          <div 
+          <div
             className="inline-flex items-center justify-center w-20 h-20 rounded-lg"
             style={{ background: 'var(--accent)', marginBottom: '1.5rem' }}
           >
             <Shirt className="w-10 h-10 text-white" />
           </div>
-          <h1 
+          <h1
             className="text-3xl font-bold"
             style={{ color: 'var(--text-primary)', fontFamily: "'Playfair Display', Georgia, serif", marginBottom: '0.5rem' }}
           >
             Wardrub
           </h1>
           <p style={{ color: 'var(--text-secondary)' }}>
-            Your AI-powered wardrobe assistant
+            Know your clothes. Enjoy getting dressed.
           </p>
         </div>
 
@@ -114,9 +117,9 @@ export default function Login() {
 
           {/* Error message */}
           {error && (
-            <div 
+            <div
               className="text-sm"
-              style={{ 
+              style={{
                 background: 'rgba(235, 87, 87, 0.05)',
                 color: 'var(--error)',
                 border: '1px solid rgba(235, 87, 87, 0.15)',
@@ -175,7 +178,7 @@ export default function Login() {
             </button>
           )}
 
-          <p 
+          <p
             className="text-sm"
             style={{ color: 'var(--text-tertiary)', marginTop: '1.5rem', textAlign: 'center' }}
           >
@@ -190,15 +193,15 @@ export default function Login() {
             'Get AI-powered outfit suggestions',
             'Try on clothes virtually'
           ].map((feature, index) => (
-            <div 
+            <div
               key={index}
               className="flex items-center gap-3 text-sm animate-fade-in"
-              style={{ 
+              style={{
                 color: 'var(--text-secondary)',
                 animationDelay: `${(index + 1) * 0.1}s`
               }}
             >
-              <div 
+              <div
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ background: 'var(--accent)' }}
               />

@@ -43,6 +43,7 @@ class MagazineFeed(BaseModel):
     weather_status: str = "unknown"
     policy_version: Optional[str] = None
     wardrobe_version: Optional[str] = None
+    skipped_for_day: bool = False
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:

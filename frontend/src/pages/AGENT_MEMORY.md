@@ -1,45 +1,15 @@
 # Agent Memory — frontend/src/pages
 
-Last updated: 2026-09-11. Scope: Profile style analysis.
+Last updated: 2026-09-13. Scope: Release A daily wardrobe design.
 
-- `Profile.jsx` consumes shared `userProfile`; pending analysis completed after
-  navigation updates the page and its recommendation requests.
-- Explicit uploads support automatic pending-stage analysis and focused color/fit
-  retries. Files stay selected on provider failure; saved results remain visible.
-- Original analysis photos are sent to AI but not retained by this upload endpoint.
-- Recommendation fetch effects cancel stale UI updates when profile data changes.
-- `analysis` query parameter is the focus used by onboarding widget links.
-- Profile mount uses the shared cached bootstrap read; successful location edits or
-  legacy migration request an explicit fresh read that supersedes older requests.
-- Profile retry tests must await the button becoming enabled, not just the shared
-  “Retry available” label: shared state can update before the request promise and
-  caller's finally complete. A deferred mock covers pending/settled states and
-  confirms the retained file can actually be resubmitted (post-merge CI race).
-- Verify `Profile.test.jsx` plus mobile/desktop `e2e/style-analysis.spec.js`.
-- Magazine masthead uses returned `feed.date`, labelled as a UTC daily edition;
-  no permanent issue number or browser-current-date substitution. Missing/invalid
-  dates are explicit. Forced same-day refresh remains the same calendar edition.
-- Visible Magazine tabs check UTC rollover every minute and on focus/visibility;
-  at most one automatic GET per new day, no forced generation or automatic failure
-  retry. In-flight reads/refreshes are guarded; listeners/timer cleaned up on unmount.
-  Tests: `MagazineFeed.test.jsx`, `magazineEdition.test.js`, core browser journey.
-
-## Recommender foundation — 2026-09-13
-
-- Magazine keeps its routes/layout and UTC edition handling. Foundation feeds may
-  have no cover; show an actionable no-outfit state and keep readiness controls.
-  Weather unavailable/no-location is explicit. Scores say Suggested combination,
-  never calibrated match labels. Returning to a foundation tab refreshes context.
-- Cover suggestions and modal Swap buttons call authenticated `/outfits/swap`.
-  Replace only the selected outfit on success; keep it on no-alternative/conflict.
-  A new ID separates prior try-on output from the changed garment set.
-- Readiness mutation refresh clears current suggestions but retains the panel so
-  its versioned Undo remains reachable. Refresh/swap and readiness writes cannot
-  overlap through the UI. Feedback failures now display instead of only logging.
-- Release review adds an explicit stale-suggestions warning and retry when a
-  feed refresh fails after data has already loaded; failure cannot remain silent.
-- Existing try-on routes/history retained. Shoes remain outfit items but are
-  explicitly excluded from the unsupported renderer; current generated previews
-  survive same-outfit feed refresh in component memory.
-- Browser: `e2e/recommender.spec.js` covers swap/laundry/undo/empty state at mobile
-  and desktop sizes with API fixtures, accessibility and overflow checks.
+- App routes: Today at `/` and `/daily-outfit`; Items at `/wardrobe`; Outfits at `/looks`; Profile, Capture, CreateAvatar and DressingRoom retain old paths. Login restores a valid internal destination. Legacy MagazineFeed/DailyOutfit sources are unmounted.
+- Today freshly reads grounded suggestions on entry/focus/visibility and day rollover. Weather unknown is explicit; failed refresh clears stale suggestions. Explicit local-day plan remains distinct. Stable IDs are combinations, not exposures. Swaps keep other pieces fixed and remain server-validated.
+- OutfitPanel owns real save/plan/wear/undo and optional try-on entry. Daily reason choices set aside a combination only for the local day; Profile history can undo. Only explicit style choices provide lasting boosts. No implicit taste learning.
+- Home retains search/sort/category and image detail/deletion, adds Shoes/readiness filters, batch laundry/return/undo and optional storage labels. Missing saved-outfit pieces remain disclosed; generated history is independent.
+- Outfits separates Saved outfits/Try-ons and retains history favorites/occasion/sort/download/share/delete and load-older. Manual Create a try-on clears the old draft.
+- Capture retains bounded gallery queue and camera fallback, moves back-image/cleanup to secondary details, and offers first-outfit/add-more/origin completion choices. It does not implement detected-item confirmation or resumable jobs.
+- CreateAvatar generates a candidate with activate=false, shows Use/Keep current, accepts before refreshing avatar and returning to the exact draft. Cancel returns to origin. Full-body and selfie routes remain. Candidates are not a full avatar gallery.
+- DressingRoom restores user-keyed session draft, preserves selection through avatar detour/reload and failure, supports single-item or compatible multiple-piece previews, and refreshes generated history after success. Shoes remain explicitly unsupported by the renderer.
+- Profile owns avatar/location/preferences/history/account navigation; StyleProfile is a focused optional analysis or recovery subpage. Analysis retains independent stages and selected files after errors; no generated-avatar evidence. Recovery runs only after explicit import.
+- WardrobeProvider caches bootstrap profile reads; explicit successful edits supersede older reads. Analysis retry tests await the button enabled state, not the shared Retry available label (important async regression).
+- Verify `npm test`, lint/build/static-route checks and mobile/desktop Playwright journeys, including light/dark nine-view accessibility checks. Browser fixtures are synthetic; real cloud/camera/share/generation and task-completion pilot remain unverified.

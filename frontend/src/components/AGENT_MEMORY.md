@@ -29,3 +29,11 @@ Last updated: 2026-09-11. Scope: style analysis guidance.
 - The component remains mounted during parent outfit refresh so undo survives.
   An expanded panel is optional; initial capture and avatar access are unchanged.
 - Tests: `ClosetReadiness.test.jsx` and `e2e/recommender.spec.js`.
+
+## Release A shared UI — 2026-09-13
+
+- `AppChrome`: PageHeader + WardrobeTabs. Two primary destinations via BottomNav/SideNav, Profile in header/footer. Profile links always open Profile.
+- `OutfitPanel` renders garment identity/readiness/locations, confirmed save/plan/wear/undo and optional try-on. Missing garments disable invalid actions and link to a fresh suggestion.
+- `Dialog` uses native modal/focus/escape behavior. Home owns versioned single/batch readiness and detail/location/delete actions. The older ClosetReadiness remains for legacy unmounted Magazine UI.
+- Global OnboardingWidget is unmounted; capture success and relevant optional avatar/style entries replace its persistent checklist. GalleryUpload preserves bounded retries and adds a completion callback.
+- LookPreview labels image export Download; Save outfit is the separate persistence action.

@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ getIdToken: mocks.getIdToken }) }))
 vi.mock('../context/WardrobeContext', () => ({ useWardrobe: () => mocks }))
 vi.mock('../components/BottomNav', () => ({ default: () => null }))
-import Profile from './Profile'
+import Profile from './StyleProfile'
 
 const colors = { best: ['Coral'], good: ['Ivory'], avoid: [] }
 const profile = {

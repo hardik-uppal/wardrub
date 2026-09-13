@@ -1,16 +1,34 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Camera, User, X, Sparkles, Upload, Image } from 'lucide-react'
 import { useWardrobe } from '../context/WardrobeContext'
 import LoadingOverlay from '../components/LoadingOverlay'
+import { useCloset } from '../context/ClosetContext'
+import ResilientImage from '../components/ResilientImage'
 import BottomNav from '../components/BottomNav'
 import UploadPreview from '../components/UploadPreview'
 import { PHOTO_ACCEPT } from '../utils/imageUploads'
 
 export default function CreateAvatar() {
   const navigate = useNavigate()
-  const { avatarUrl, createAvatar, isLoading, loadingMessage, error, clearError } = useWardrobe()
-  
+  const { avatarUrl, createAvatar, fetchAvatar, isLoading, loadingMessage, error, clearError } = useWardrobe()
+
+  const { request, draft } = useCloset()
+  const [params] = useSearchParams()
+  const returnTo = params.get('from') === 'tryon' ? '/dressing-room' : '/profile'
+  const cancelTo = params.get('from') === 'tryon' ? (draft?.origin || '/dressing-room') : '/profile'
+  const cancel = () => navigate(cancelTo, { state: { outfit: draft } })
+  const [candidate, setCandidate] = useState(null)
+  const [activating, setActivating] = useState(false)
+  const [activationError, setActivationError] = useState('')
+  const acceptCandidate = async () => {
+    setActivating(true); setActivationError('')
+    try {
+      await request(`/avatar-candidates/${candidate.candidate_id}/activate`, { method:'POST' })
+      await fetchAvatar(true)
+      navigate(returnTo)
+    } catch (e) { setActivationError(e.message) } finally { setActivating(false) }
+  }
   const [mode, setMode] = useState(null) // 'upload' or 'selfie'
   const [image, setImage] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
@@ -68,7 +86,7 @@ export default function CreateAvatar() {
         ctx.translate(canvas.width, 0)
         ctx.scale(-1, 1)
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height)
-        
+
         canvas.toBlob((blob) => {
           if (blob) {
             const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' })
@@ -87,7 +105,7 @@ export default function CreateAvatar() {
     if (file) {
       setMode(selectedMode)
       setImage(file)
-      
+
       const reader = new FileReader()
       reader.onload = (event) => {
         setPreviewUrl(event.target?.result)
@@ -110,8 +128,9 @@ export default function CreateAvatar() {
 
     try {
       // Pass mode to backend so it knows how to process
-      await createAvatar([image], mode)
-      navigate('/')
+      const result = await createAvatar([image], mode, false)
+      if (!result.candidate_id) throw new Error('Avatar preview could not be saved.')
+      setCandidate(result)
     } catch (err) {
       console.error('Failed to create avatar:', err)
     }
@@ -120,10 +139,12 @@ export default function CreateAvatar() {
   const triggerUpload = () => {
     uploadInputRef.current?.click()
   }
-  
+
   const triggerSelfie = () => {
     startWebcam()
   }
+
+  if (candidate) return <div className="quiet-page"><h1>Review your avatar</h1><p className="muted">Use this preview when it feels right. Your current avatar stays active until you accept.</p><ResilientImage src={candidate.avatar_url} alt="New avatar preview" className="avatar-candidate" />{activationError && <p role="alert">{activationError}</p>}<div className="actions"><button className="btn-primary" disabled={activating} onClick={acceptCandidate}>{activating ? 'Activating…' : 'Use this avatar'}</button><button className="btn-secondary" disabled={activating} onClick={cancel}>{avatarUrl ? 'Keep current avatar' : 'Cancel'}</button><button disabled={activating} onClick={() => setCandidate(null)}>Choose another photo</button></div><BottomNav /></div>
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-primary)] safe-top safe-bottom overflow-y-auto">
@@ -150,16 +171,17 @@ export default function CreateAvatar() {
         {/* Header */}
         <header className="flex items-center justify-between px-4 py-3">
           <button
-            onClick={() => navigate('/')}
+            onClick={cancel}
+            aria-label="Back"
             className="w-9 h-9 rounded-full border border-[var(--glass-border)] flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-colors"
           >
             <ArrowLeft className="w-4 h-4 text-[var(--text-primary)]" />
           </button>
-          
+
           <h1 className="text-base font-semibold text-[var(--text-primary)]">
             Create Avatar
           </h1>
-          
+
           <div className="w-9" />
         </header>
 
@@ -214,6 +236,7 @@ export default function CreateAvatar() {
                 />
                 <button
                   onClick={handleRemoveImage}
+                  aria-label="Remove selected photo"
                   className="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/80 hover:bg-black flex items-center justify-center transition-colors"
                 >
                   <X className="w-5 h-5 text-white" />
@@ -240,7 +263,7 @@ export default function CreateAvatar() {
                   Full body visible
                 </span>
               </button>
-              
+
               {/* Take Selfie Option */}
               <button
                 onClick={triggerSelfie}
@@ -292,7 +315,7 @@ export default function CreateAvatar() {
             <Sparkles className="w-5 h-5" />
             {mode === 'selfie' ? 'Create with Selfie' : 'Create Avatar'}
           </button>
-          
+
           {image && (
             <p className="text-center text-xs text-[var(--text-secondary)] mt-3">
               {mode === 'selfie' ? 'Will apply your face to default avatar' : 'Processing your photo'}
@@ -300,27 +323,27 @@ export default function CreateAvatar() {
           )}
         </div>
       </div>
-      
+
       {showWebcam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
           <div className="bg-[var(--bg-primary)] border border-[var(--glass-border)] rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl p-6 flex flex-col items-center">
             <div className="flex justify-between items-center w-full mb-5">
               <h3 className="text-base font-bold text-[var(--text-primary)]">Take a Selfie</h3>
-              <button 
-                onClick={stopWebcam} 
+              <button
+                onClick={stopWebcam} aria-label="Close camera"
                 className="w-8 h-8 rounded-full border border-[var(--glass-border)] flex items-center justify-center hover:bg-[var(--bg-secondary)] text-[var(--text-primary)] transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            
+
             {/* Webcam Video (smaller circular window) */}
             <div className="relative w-56 h-56 rounded-full overflow-hidden border-2 border-[var(--accent)] bg-black mb-6 shadow-inner">
-              <video 
-                ref={videoRef} 
+              <video
+                ref={videoRef}
                 className="w-full h-full object-cover scale-x-[-1]"
-                playsInline 
-                muted 
+                playsInline
+                muted
               />
             </div>
 
@@ -335,7 +358,7 @@ export default function CreateAvatar() {
           </div>
         </div>
       )}
-      
+
       {/* Bottom Navigation */}
       <BottomNav />
     </div>

@@ -46,15 +46,14 @@ test('color-first analysis guides fit uploads, survives retries and resumes afte
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
   })
 
-  await page.goto('/profile')
+  await page.goto('/profile?section=style')
   await page.getByLabel('Choose style analysis photos').setInputFiles(upload)
   await page.getByRole('button', { name: 'Analyze My Style' }).click()
   await expect(page.getByText('Coral', { exact: true })).toBeVisible()
   await expect(page.getByText('Your colors · Ready')).toBeVisible()
   await expect(page.getByText('Your fit · Photo needed')).toBeVisible()
 
-  await page.getByRole('button', { name: 'Open onboarding progress' }).click()
-  await page.getByRole('button', { name: 'Go to Add a full-length photo' }).click()
+  await page.getByLabel('Analysis focus').selectOption('fit')
   await expect(page).toHaveURL(/analysis=fit/)
   await expect(page.getByLabel('Analysis focus')).toHaveValue('fit')
   await page.getByLabel('Choose style analysis photos').setInputFiles(upload)

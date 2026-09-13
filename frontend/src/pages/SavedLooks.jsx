@@ -20,7 +20,7 @@ function formatLookDate(value) {
   }).format(date)
 }
 
-export default function SavedLooks() {
+export default function SavedLooks({ embedded = false }) {
   const navigate = useNavigate()
   const { 
     avatarUrl, 
@@ -29,6 +29,8 @@ export default function SavedLooks() {
     loadingMessage,
     error,
     fetchLooks,
+    nextLookOffset,
+    loadMoreLooks,
     deleteLook,
     updateLook,
     clearError 
@@ -40,6 +42,8 @@ export default function SavedLooks() {
   const [sortMode, setSortMode] = useState('newest')
   const [pendingDelete, setPendingDelete] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [moreBusy, setMoreBusy] = useState(false)
+  const [moreError, setMoreError] = useState('')
 
   useEffect(() => {
     fetchLooks()
@@ -119,7 +123,7 @@ export default function SavedLooks() {
 
       <div className="flex-1 flex flex-col page-container space-y-5">
         {/* Header */}
-        <header className="mx-4 mt-4 glass-card-static flex items-center justify-between p-5 flex-shrink-0">
+        {!embedded && <header className="mx-4 mt-4 glass-card-static flex items-center justify-between p-5 flex-shrink-0">
           <div className="w-11" />
           <div className="text-center">
             <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -130,7 +134,7 @@ export default function SavedLooks() {
             </p>
           </div>
           <button
-            onClick={() => avatarUrl ? navigate('/profile') : navigate('/create-avatar')}
+            onClick={() => navigate('/profile')}
             className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 transition-transform hover:scale-105 active:scale-95"
             style={{
               border: '1px solid var(--accent)',
@@ -150,7 +154,7 @@ export default function SavedLooks() {
               </div>
             )}
           </button>
-        </header>
+        </header>}
 
         <div className="mx-4 flex items-center gap-2">
           <div className="flex p-1 rounded-md flex-1" style={{ background: 'var(--bg-secondary)' }}>
@@ -376,8 +380,10 @@ export default function SavedLooks() {
         </div>
       )}
       
+      {moreError && <p role="alert">{moreError}</p>}
+      {nextLookOffset != null && <button disabled={moreBusy} className="btn-secondary" onClick={async () => { setMoreBusy(true); try { await loadMoreLooks();setMoreError('') } catch(e) { setMoreError(e.message) } finally { setMoreBusy(false) } }}>Load older try-ons</button>}
       {/* Bottom Navigation */}
-      <BottomNav />
+      {!embedded && <BottomNav />}
     </div>
   )
 }

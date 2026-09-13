@@ -7,6 +7,7 @@ from app.models.user_profile import UserProfile
 from app.services.magazine_feed_service import MagazineFeedService
 
 
+@patch("app.services.closet_library.ClosetLibrary.read", new=AsyncMock(return_value={}))
 class MagazineFreshnessTests(unittest.IsolatedAsyncioTestCase):
     async def test_daily_edition_refresh_keeps_logical_identity_and_user_isolation(self):
         service = MagazineFeedService()

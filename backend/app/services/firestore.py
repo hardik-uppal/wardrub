@@ -614,6 +614,44 @@ class FirestoreService:
 
         return await asyncio.to_thread(persist)
 
+    async def set_readiness_batch(self, user_id, changes):
+        """Atomic batch CAS; validates every piece before writing any."""
+        if len({c.id for c in changes}) != len(changes):
+            raise ValueError("Choose each garment once")
+        def apply(records):
+            results = []
+            for change, data in zip(changes, records):
+                if not data or data.get("user_id") != user_id or data.get("ownership", "owned") != "owned" or is_legacy_demo_garment_id(change.id):
+                    raise LookupError("Garment not found")
+                current = GarmentMetadata(**data)
+                replay = current.readiness_version == change.expected_version + 1 and current.readiness == change.readiness
+                if current.readiness_version != change.expected_version and not replay:
+                    raise ValueError("Clothing readiness changed. Refresh before updating this batch.")
+                results.append(GarmentMetadata(**{**data, "readiness": change.readiness,
+                    "readiness_version": current.readiness_version if replay else current.readiness_version + 1,
+                    "updated_at": datetime.utcnow()}))
+            return results
+        def persist():
+            if self._use_memory or self.client is None:
+                if not settings.ALLOW_DEV_AUTH_BYPASS:
+                    raise RuntimeError("Wardrobe storage is unavailable")
+                with _style_profile_lock:
+                    results = apply([_memory_garments.get(c.id) for c in changes])
+                    for item in results:
+                        _memory_garments[item.garment_id] = item.model_dump()
+                    return results
+            from google.cloud import firestore
+            refs = [self.client.collection(self.GARMENTS_COLLECTION).document(c.id) for c in changes]
+            @firestore.transactional
+            def update(transaction):
+                records = [ref.get(transaction=transaction).to_dict() for ref in refs]
+                results = apply(records)
+                for ref, item in zip(refs, results):
+                    transaction.update(ref, {"readiness": item.readiness, "readiness_version": item.readiness_version, "updated_at": item.updated_at})
+                return results
+            return update(self.client.transaction())
+        return await asyncio.to_thread(persist)
+
     async def get_garments_with_scores(
         self,
         user_id: str,

@@ -23,3 +23,7 @@ Last updated: 2026-09-11. Scope: style analysis additions.
   and unknown_readiness_ids; score is a heuristic, not a match probability.
 - `WeatherInfo` preserves actual/feels-like temperature, optional observation/fetch
   timestamps and source. Non-finite temperatures are invalid.
+
+## Daily correction context — 2026-09-13
+
+- `MagazineFeed.skipped_for_day` is additive, default false: one or more explicit outfit corrections apply to the requested local day. It is not a learned preference signal. ClosetAction request bounds and literal action/reason/style values live in `routers/closet.py`.

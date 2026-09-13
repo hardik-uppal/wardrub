@@ -1,402 +1,418 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { MoreVertical, Plus, Search, Shirt, Trash2, User } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useWardrobe } from '../context/WardrobeContext'
-import LoadingOverlay from '../components/LoadingOverlay'
-import GarmentPreview from '../components/GarmentPreview'
+import { useCloset } from '../context/ClosetContext'
+import { PageHeader, WardrobeTabs } from '../components/AppChrome'
 import BottomNav from '../components/BottomNav'
 import ResilientImage from '../components/ResilientImage'
-
-const categories = [
-  { id: 'all', label: 'All' },
-  { id: 'top', label: 'Tops' },
-  { id: 'bottom', label: 'Bottoms' },
-  { id: 'dress', label: 'Dresses' },
-  { id: 'outerwear', label: 'Outerwear' },
-]
-
-function getGarmentName(garment) {
-  if (typeof garment.description === 'string' && garment.description.trim()) {
-    return garment.description
-  }
-
-  const description = garment.description || {}
-  return description.short || description.name || `${garment.category || 'Wardrobe'} item`
-}
-
+import Dialog from '../components/Dialog'
+const name = (g) =>
+  typeof g.description === 'string'
+    ? g.description
+    : g.description?.short || g.name || `${g.category} item`
 export default function Home() {
+  const { garments, fetchGarments, deleteGarment } = useWardrobe()
+  const {
+    request,
+    setDraft,
+    library,
+    action,
+    busy: libraryBusy,
+    error: libraryError,
+  } = useCloset()
+  const [params] = useSearchParams()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const { 
-    avatarUrl, 
-    garments,
-    isLoading, 
-    loadingMessage,
-    error,
-    fetchGarments,
-    deleteGarment,
-    clearError 
-  } = useWardrobe()
-  
-  const requestedCategory = searchParams.get('category')
-  const [activeCategory, setActiveCategory] = useState(
-    categories.some(category => category.id === requestedCategory)
-      ? requestedCategory
-      : 'all',
-  )
-  const [query, setQuery] = useState('')
-  const [sortMode, setSortMode] = useState('recent')
-  const [openMenuId, setOpenMenuId] = useState(null)
-  const [selectedGarment, setSelectedGarment] = useState(null)
-  const [pendingDelete, setPendingDelete] = useState(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-
+  const [query, setQuery] = useState(''),
+    [category, setCategory] = useState(params.get('category') || 'all'),
+    [readiness, setReadiness] = useState('all'),
+    [sort, setSort] = useState('recent')
+  const [states, setStates] = useState({}),
+    [selected, setSelected] = useState([]),
+    [detail, setDetail] = useState(null),
+    [back, setBack] = useState(false)
+  const [error, setError] = useState(''),
+    [busy, setBusy] = useState(false),
+    [message, setMessage] = useState(''),
+    [undo, setUndo] = useState(null),
+    [pendingDelete, setPendingDelete] = useState(false),
+    [location, setLocation] = useState('')
+  const load = useCallback(async () => {
+    try {
+      const data = await request('/closet-state')
+      if (!Array.isArray(data.garments))
+        throw new Error('Could not read clothing readiness.')
+      setStates(Object.fromEntries(data.garments.map((g) => [g.id, g])))
+      setError('')
+    } catch (e) {
+      setError(e.message)
+    }
+  }, [request])
   useEffect(() => {
     fetchGarments()
-  }, [fetchGarments])
-
-  const handleCategoryChange = (categoryId) => {
-    setActiveCategory(categoryId)
-    setOpenMenuId(null)
-  }
-
-  const handleDeleteGarment = async (garmentId) => {
-    setIsDeleting(true)
+    load()
+  }, [fetchGarments, load])
+  const visible = useMemo(() => {
+    const items = garments.filter(
+      (g) =>
+        (category === 'all' || g.category === category) &&
+        (readiness === 'all' ||
+          (states[g.id]?.readiness || 'unknown') === readiness) &&
+        `${name(g)} ${g.category}`.toLowerCase().includes(query.toLowerCase()),
+    )
+    return sort === 'recent'
+      ? items
+      : items.sort((a, b) =>
+          (sort === 'name' ? name(a) : a.category).localeCompare(
+            sort === 'name' ? name(b) : b.category,
+          ),
+        )
+  }, [garments, states, query, category, readiness, sort])
+  const changeReadiness = async (ids, value, undoChanges = null) => {
+    if (busy) return
+    setBusy(true)
+    setMessage('')
+    setError('')
+    const changes =
+      undoChanges ||
+      ids.map((id) => ({
+        id,
+        readiness: value,
+        expected_version: states[id]?.version,
+      }))
+    const before = changes.map((c) => ({
+      id: c.id,
+      readiness: states[c.id]?.readiness || 'unknown',
+      expected_version: c.expected_version + 1,
+    }))
     try {
-      await deleteGarment(garmentId)
-      setPendingDelete(null)
-      setOpenMenuId(null)
-    } catch (err) {
-      console.error('Delete failed:', err)
+      if (changes.some((c) => c.expected_version === undefined))
+        throw new Error(
+          'Readiness is unknown. Refresh the wardrobe before changing it.',
+        )
+      await request('/closet-state/batch', {
+        method: 'POST',
+        body: JSON.stringify({ changes }),
+      })
+      setUndo(undoChanges ? null : before)
+      setSelected([])
+      setMessage(
+        undoChanges
+          ? 'Readiness change undone.'
+          : 'Clothing readiness updated.',
+      )
+      await load()
+    } catch (e) {
+      setUndo(null)
+      await load()
+      setError(e.message)
     } finally {
-      setIsDeleting(false)
+      setBusy(false)
     }
   }
-  
-  const categoryCounts = useMemo(() => Object.fromEntries(
-    categories.map(category => [
-      category.id,
-      category.id === 'all'
-        ? garments.length
-        : garments.filter(garment => garment.category === category.id).length,
-    ]),
-  ), [garments])
-
-  const filteredGarments = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
-    const filtered = garments.filter((garment) => {
-      const matchesCategory = activeCategory === 'all' || garment.category === activeCategory
-      const searchableText = `${getGarmentName(garment)} ${garment.category || ''}`.toLowerCase()
-      return matchesCategory && (!normalizedQuery || searchableText.includes(normalizedQuery))
-    })
-
-    if (sortMode === 'name') {
-      return [...filtered].sort((a, b) => getGarmentName(a).localeCompare(getGarmentName(b)))
+  const saveLocation = async (ids) => {
+    try {
+      await action({ action: 'location', garment_ids: ids, location })
+      setMessage('Storage location updated.')
+    } catch (e) {
+      setError(e.message)
     }
-    if (sortMode === 'category') {
-      return [...filtered].sort((a, b) => (a.category || '').localeCompare(b.category || ''))
+  }
+  const remove = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      await deleteGarment(detail.id)
+      setDetail(null)
+      setSelected((s) => s.filter((id) => id !== detail.id))
+      setMessage(
+        'Item removed. Existing generated images remain in your history.',
+      )
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setBusy(false)
     }
-    return filtered
-  }, [activeCategory, garments, query, sortMode])
-
+  }
   return (
-    <div className="min-h-screen safe-top safe-bottom" style={{ background: 'var(--bg-primary)' }}>
-      {isLoading && <LoadingOverlay message={loadingMessage} />}
-      
-      {/* Error Toast */}
-      {error && (
+    <div className="quiet-page">
+      <PageHeader
+        title="Wardrobe"
+        subtitle={`${garments.length} pieces. More possibilities.`}
+      >
+        <Link className="btn-primary" to="/capture?from=wardrobe">
+          Add clothes
+        </Link>
+      </PageHeader>
+      <WardrobeTabs active="items" />
+      {(error || libraryError) && (
+        <p role="alert" className="notice">
+          {error || libraryError}{' '}
+          <button
+            onClick={() => {
+              load()
+              fetchGarments(null, true)
+            }}
+          >
+            Refresh wardrobe
+          </button>
+        </p>
+      )}
+      {message && <p role="status">{message}</p>}
+      <div className="wardrobe-controls">
+        <label className="search-field">
+          <span className="sr-only">Search wardrobe</span>
+          <input
+            type="search"
+            placeholder="Find a piece…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </label>
+        <label>
+          <span className="sr-only">Sort wardrobe</span>
+          <select value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="recent">Recent</option>
+            <option value="name">Name</option>
+            <option value="category">Category</option>
+          </select>
+        </label>
+      </div>
+      <div
+        className="filter-row category-filters"
+        aria-label="Clothing categories"
+      >
+        {['all', 'top', 'bottom', 'dress', 'outerwear', 'shoes'].map((c) => (
+          <button
+            key={c}
+            aria-pressed={category === c}
+            onClick={() => setCategory(c)}
+          >
+            {
+              {
+                all: 'All',
+                top: 'Tops',
+                bottom: 'Bottoms',
+                dress: 'Dresses',
+                outerwear: 'Outerwear',
+                shoes: 'Shoes',
+              }[c]
+            }
+          </button>
+        ))}
+      </div>
+      <div className="context-row">
+        <label>
+          Readiness{' '}
+          <select
+            value={readiness}
+            onChange={(e) => setReadiness(e.target.value)}
+          >
+            <option value="all">All pieces</option>
+            <option value="ready">Ready to wear</option>
+            <option value="laundry">In laundry</option>
+            <option value="unknown">Unknown</option>
+          </select>
+        </label>
+        <span className="muted">{visible.length} shown</span>
+      </div>
+      {undo && (
         <button
-          type="button"
-          className="fixed top-4 left-4 right-4 z-50 px-5 py-4 rounded-2xl shadow-lg animate-fade-in cursor-pointer"
-          style={{ background: 'var(--error)', color: 'white' }}
-          onClick={clearError}
-          aria-label="Dismiss error"
+          className="text-action"
+          disabled={busy}
+          onClick={() => changeReadiness([], null, undo)}
         >
-          <p className="text-sm font-medium">{error}</p>
-          <p className="text-xs opacity-70 mt-1">Tap to dismiss</p>
+          Undo last readiness change
         </button>
       )}
-
-      {/* Main Content */}
-      <div className="page-container nav-bottom-spacing">
-        
-        {/* Header */}
-        <header className="glass-card-static mx-4 mt-4 flex items-center justify-between p-5">
-          <div className="w-10" />
-          <div className="text-center">
-            <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              My Wardrobe
-            </h1>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-              {garments.length} {garments.length === 1 ? 'item' : 'items'}
-            </p>
-          </div>
-          <button
-            onClick={() => avatarUrl ? navigate('/profile') : navigate('/create-avatar')}
-            className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 transition-transform hover:scale-105 active:scale-95"
-            style={{
-              border: '1px solid var(--accent)',
-            }}
-            aria-label="Open profile"
-          >
-            {avatarUrl ? (
-              <ResilientImage
-                src={avatarUrl} 
-                alt="Your avatar" 
-                className="w-full h-full object-cover"
-                style={{ objectPosition: 'top center' }}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--glass-bg)' }}>
-                <User className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-              </div>
-            )}
-          </button>
-        </header>
-
-        {/* Search, sort, and category filters */}
-        <div className="mx-4 mt-4 glass-card-static p-4 space-y-3">
-          <div className="grid grid-cols-[minmax(0,1fr)_44px] gap-2 sm:flex">
-            <label className="relative col-span-2 min-w-0 sm:col-span-1 sm:flex-1">
-              <span className="sr-only">Search wardrobe</span>
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
-                style={{ color: 'var(--text-tertiary)' }}
-                aria-hidden="true"
-              />
-              <input
-                type="search"
-                value={query}
-                onChange={event => setQuery(event.target.value)}
-                placeholder="Search your wardrobe"
-                className="w-full h-11 pl-10 pr-3 rounded-md text-sm"
-                style={{
-                  color: 'var(--text-primary)',
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--glass-border)',
-                }}
-              />
-            </label>
-            <label className="min-w-0">
-              <span className="sr-only">Sort wardrobe</span>
-              <select
-                value={sortMode}
-                onChange={event => setSortMode(event.target.value)}
-                className="w-full h-11 px-3 rounded-md text-sm sm:w-auto"
-                style={{
-                  color: 'var(--text-primary)',
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--glass-border)',
-                }}
-              >
-                <option value="recent">Recent</option>
-                <option value="name">Name</option>
-                <option value="category">Category</option>
-              </select>
-            </label>
+      {!!selected.length && (
+        <section className="selection-bar" aria-label="Manage selected clothes">
+          <strong>{selected.length} selected</strong>
+          <div className="actions">
             <button
-              type="button"
-              onClick={() => navigate('/capture')}
-              className="w-11 h-11 rounded-md flex items-center justify-center"
-              style={{ color: 'white', background: 'var(--accent)' }}
-              aria-label="Add clothes"
+              disabled={busy}
+              onClick={() => changeReadiness(selected, 'laundry')}
             >
-              <Plus className="w-5 h-5" />
+              Send to laundry
             </button>
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => handleCategoryChange(cat.id)}
-                className="px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap"
-                style={{
-                  background: activeCategory === cat.id ? 'var(--accent)' : 'var(--glass-bg)',
-                  color: activeCategory === cat.id ? 'white' : 'var(--text-secondary)',
-                  border: activeCategory === cat.id ? '1px solid var(--accent)' : '1px solid var(--glass-border)',
-                  boxShadow: 'none',
-                }}
-              >
-                {cat.label} <span className="opacity-70">{categoryCounts[cat.id]}</span>
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center justify-between text-xs" style={{ color: 'var(--text-secondary)' }}>
-            <span>{filteredGarments.length} shown</span>
-            {(query || activeCategory !== 'all') && (
-              <button
-                type="button"
-                className="underline"
-                onClick={() => {
-                  setQuery('')
-                  setActiveCategory('all')
-                }}
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Clothes Grid */}
-        <div className="mx-4 mt-4 glass-card-static p-4 md:p-5">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {/* Add Button */}
             <button
-              onClick={() => navigate('/capture')}
-              className="aspect-square rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95"
-              style={{
-                border: '2px dashed var(--accent)',
-                background: 'rgba(224, 120, 80, 0.05)',
+              disabled={busy}
+              onClick={() => changeReadiness(selected, 'ready')}
+            >
+              Mark ready
+            </button>
+            <button onClick={() => setSelected([])}>Clear selection</button>
+          </div>
+          <label>
+            Storage location (optional)
+            <input
+              value={location}
+              maxLength={80}
+              placeholder="e.g. Bedroom · top drawer"
+              onChange={(e) => setLocation(e.target.value)}
+            />
+          </label>
+          <button
+            disabled={libraryBusy || !library}
+            onClick={() => saveLocation(selected)}
+          >
+            Save location for selected pieces
+          </button>
+        </section>
+      )}
+      <div className="wardrobe-grid">
+        {visible.map((g) => (
+          <article key={g.id} className="garment-tile">
+            <button
+              aria-label={`View ${name(g)}`}
+              onClick={() => {
+                setDetail(g)
+                setBack(false)
+                setPendingDelete(false)
+                setLocation(library?.locations?.[g.id] || '')
               }}
             >
-              <Plus className="w-7 h-7" style={{ color: 'var(--accent)' }} />
-              <span className="text-xs font-semibold" style={{ color: 'var(--accent)' }}>Add</span>
+              <ResilientImage
+                src={g.thumbnail_url || g.front_url || g.url}
+                alt={name(g)}
+                className="garment-image"
+              />
+              <span className="garment-name">{name(g)}</span>
             </button>
-            
-            {/* Garment Items */}
-            {filteredGarments.map((garment, i) => (
-              <article
-                key={garment.id}
-                className="relative rounded-xl overflow-visible animate-fade-in"
-                style={{
-                  background: 'var(--glass-bg-elevated)',
-                  border: '1px solid var(--glass-border)',
-                  animationDelay: `${i * 0.03}s`,
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setSelectedGarment(garment)}
-                  className="block w-full aspect-square rounded-t-xl overflow-hidden transition-transform active:scale-[0.98]"
-                  aria-label={`View ${getGarmentName(garment)}`}
-                >
-                  <ResilientImage
-                    src={garment.thumbnail_url || garment.front_url || garment.url}
-                    alt={getGarmentName(garment)}
-                    className="w-full h-full object-contain p-3"
-                    loading="lazy"
-                  />
-                </button>
-                <div className="flex items-center gap-2 px-3 py-2 border-t" style={{ borderColor: 'var(--glass-border)' }}>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>
-                      {getGarmentName(garment)}
-                    </p>
-                    <p className="text-xs capitalize" style={{ color: 'var(--text-secondary)' }}>
-                      {garment.category}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setOpenMenuId(current => current === garment.id ? null : garment.id)}
-                    className="w-9 h-9 rounded-full flex items-center justify-center"
-                    style={{ background: 'var(--bg-secondary)' }}
-                    aria-label={`More options for ${getGarmentName(garment)}`}
-                    aria-expanded={openMenuId === garment.id}
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {openMenuId === garment.id && (
-                  <div
-                    className="absolute right-2 bottom-12 z-20 min-w-36 rounded-md overflow-hidden shadow-lg"
-                    style={{ background: 'var(--bg-primary)', border: '1px solid var(--glass-border)' }}
-                  >
-                    <button
-                      type="button"
-                      className="w-full px-4 py-3 text-left text-sm"
-                      onClick={() => {
-                        setSelectedGarment(garment)
-                        setOpenMenuId(null)
-                      }}
-                    >
-                      View details
-                    </button>
-                    <button
-                      type="button"
-                      className="w-full px-4 py-3 text-left text-sm flex items-center gap-2"
-                      style={{ color: 'var(--error)', borderTop: '1px solid var(--glass-border)' }}
-                      onClick={() => setPendingDelete(garment)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete…
-                    </button>
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
-          
-          {/* Empty State */}
-          {filteredGarments.length === 0 && (
-            <div className="flex flex-col items-center justify-center text-center py-20">
-              <div
-                className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
-                style={{ background: 'var(--glass-bg)' }}
-              >
-                <Shirt className="w-10 h-10" style={{ color: 'var(--text-tertiary)' }} />
-              </div>
-              <p className="text-lg font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                {garments.length === 0 ? 'Your wardrobe is empty' : 'No items match your filters'}
-              </p>
-              <p className="text-sm mt-2" style={{ color: 'var(--text-tertiary)' }}>
-                {garments.length === 0 ? 'Add your first item to get started' : 'Try another search or category'}
-              </p>
+            <div className="context-row">
+              <small>
+                {
+                  {
+                    ready: 'Ready',
+                    laundry: 'In laundry',
+                    unknown: 'Readiness unknown',
+                  }[states[g.id]?.readiness || 'unknown']
+                }
+              </small>
+              <label>
+                <span className="sr-only">Select {name(g)}</span>
+                <input
+                  type="checkbox"
+                  checked={selected.includes(g.id)}
+                  disabled={!selected.includes(g.id) && selected.length >= 50}
+                  onChange={(e) =>
+                    setSelected((previous) =>
+                      e.target.checked
+                        ? [...previous, g.id]
+                        : previous.filter((id) => id !== g.id),
+                    )
+                  }
+                />
+              </label>
             </div>
-          )}
-        </div>
+            {library?.locations?.[g.id] && (
+              <small className="muted">{library.locations[g.id]}</small>
+            )}
+          </article>
+        ))}
       </div>
-      
-      {/* Garment Preview Modal */}
-      {selectedGarment && (
-        <GarmentPreview
-          garment={selectedGarment}
-          onClose={() => setSelectedGarment(null)}
-          onDelete={handleDeleteGarment}
-          isDeleting={isDeleting}
-        />
+      {!visible.length && (
+        <section className="empty-state">
+          <h2>
+            {garments.length
+              ? 'No matching pieces'
+              : 'Your wardrobe starts here'}
+          </h2>
+          <p>
+            {garments.length
+              ? 'Try another search or filter.'
+              : 'Add a top and bottom, or a dress, to see your first outfit.'}
+          </p>
+          {garments.length ? (
+            <button
+              onClick={() => {
+                setQuery('')
+                setCategory('all')
+                setReadiness('all')
+              }}
+            >
+              Clear filters
+            </button>
+          ) : (
+            <Link className="btn-primary" to="/capture?from=wardrobe">
+              Add your first clothes
+            </Link>
+          )}
+        </section>
       )}
-
-      {pendingDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.72)' }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-garment-title"
-        >
-          <div className="w-full max-w-sm glass-card-elevated p-6">
-            <h2 id="delete-garment-title" className="text-lg font-bold">Delete this item?</h2>
-            <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
-              {getGarmentName(pendingDelete)} will be removed from your wardrobe.
+      {detail && (
+        <Dialog title={name(detail)} onClose={() => setDetail(null)}>
+          <ResilientImage
+            src={back ? detail.back_url : detail.front_url || detail.url}
+            alt={`${name(detail)} ${back ? 'back' : 'front'}`}
+            className="detail-image"
+          />
+          {detail.back_url && (
+            <button onClick={() => setBack(!back)}>
+              Show {back ? 'front' : 'back'}
+            </button>
+          )}
+          <label>
+            Clothing readiness
+            <select
+              disabled={busy || !states[detail.id]}
+              value={states[detail.id]?.readiness || 'unknown'}
+              onChange={(e) => changeReadiness([detail.id], e.target.value)}
+            >
+              <option value="unknown">Unknown</option>
+              <option value="ready">Ready to wear</option>
+              <option value="laundry">In laundry</option>
+            </select>
+          </label>
+          <label>
+            Storage location (optional)
+            <input
+              maxLength={80}
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            />
+          </label>
+          <button
+            disabled={libraryBusy || !library}
+            onClick={() => saveLocation([detail.id])}
+          >
+            Save location
+          </button>
+          {['top', 'bottom', 'dress', 'outerwear'].includes(
+            detail.category,
+          ) && (
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                setDraft({ garment_ids: [detail.id], origin: '/wardrobe' })
+                navigate('/dressing-room')
+              }}
+            >
+              Use in a try-on
+            </button>
+          )}
+          {message && <p role="status">{message}</p>}
+          {error && <p role="alert">{error}</p>}
+          <details>
+            <summary>Remove this piece</summary>
+            <p>
+              Removing a garment keeps generated images. Saved outfits will show
+              a missing piece.
             </p>
-            <div className="flex gap-3 mt-6">
-              <button
-                type="button"
-                className="btn-ghost flex-1"
-                onClick={() => setPendingDelete(null)}
-                disabled={isDeleting}
-              >
-                Cancel
+            {pendingDelete ? (
+              <div className="actions">
+                <button onClick={() => setPendingDelete(false)}>Cancel</button>
+                <button disabled={busy} onClick={remove}>
+                  Confirm delete
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setPendingDelete(true)}>
+                Delete item…
               </button>
-              <button
-                type="button"
-                className="flex-1 py-3 px-4 rounded-md font-medium"
-                style={{ color: 'white', background: 'var(--error)' }}
-                onClick={() => handleDeleteGarment(pendingDelete.id)}
-                disabled={isDeleting}
-              >
-                {isDeleting ? 'Deleting…' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
+            )}
+          </details>
+        </Dialog>
       )}
-      
-      {/* Bottom Navigation */}
       <BottomNav />
     </div>
   )

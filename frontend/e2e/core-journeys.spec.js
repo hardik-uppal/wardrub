@@ -22,7 +22,9 @@ test.beforeEach(async ({ page }) => {
     const url = new URL(route.request().url())
     let body
 
-    if (url.pathname === '/api/avatar') {
+    if (url.pathname === '/api/closet-library') { body = {version:0,outfits:{},days:{},locations:{},styles:[]}
+    } else if (url.pathname === '/api/closet-state') { body = {garments: garments.map(g => ({...g,readiness:'unknown',version:0}))}
+    } else if (url.pathname === '/api/avatar') {
       body = { avatar_url: image }
     } else if (url.pathname === '/api/wardrobe') {
       body = { garments }
@@ -76,27 +78,27 @@ test.beforeEach(async ({ page }) => {
 
 test('core wardrobe journeys remain usable', async ({ page }) => {
   await page.goto('/wardrobe')
-  await expect(page.getByRole('heading', { name: 'My Wardrobe', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Wardrobe', exact: true })).toBeVisible()
   await expect(page.getByRole('searchbox', { name: 'Search wardrobe' })).toBeVisible()
-  await expect(page.getByText('White tee')).toBeVisible()
+  await expect(page.getByText('White tee', { exact: true })).toBeVisible()
 
   await page.goto('/dressing-room')
-  await expect(page.getByRole('heading', { name: 'Dressing Room', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Create a try-on', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'top', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Try On 1 Item' })).toBeVisible()
 
   await page.goto('/looks')
-  await expect(page.getByRole('heading', { name: 'Saved Looks', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Wardrobe', exact: true })).toBeVisible()
   await expect(page.getByText('Work')).toBeVisible()
 
   await page.goto('/profile')
-  await expect(page.getByRole('heading', { name: 'My Profile', exact: true })).toBeVisible()
-  await expect(page.getByText('Style Analysis')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Profile', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Optional style guidance/ })).toBeVisible()
 
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'The Looker', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: /Refresh issue/i })).toBeVisible()
-  await expect(page.getByText('Suggested combination')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Plan for today' })).toBeVisible()
   await expect(page.getByText('SEP 12, 2026 · UTC')).toBeVisible()
   await expect(page.getByText('ISSUE NO. 01')).toHaveCount(0)
 })

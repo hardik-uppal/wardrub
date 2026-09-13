@@ -73,3 +73,7 @@ HTTP request -> middleware (CORS, auth, request logging) -> router endpoint -> s
 ## Open Questions
 
 - Should extension bootstrap eventually include profile readiness fields beyond avatar presence?
+
+## Daily wardrobe design — 2026-09-13
+
+- `main.py` now includes authenticated `routers/closet.py` under `/api`. Existing services and deployment are reused; no automatic data migration. See `docs/product/DESIGN_SYSTEM.md`.

@@ -252,12 +252,62 @@ class StorageService:
         blob.upload_from_string(image_bytes, content_type="image/png")
         return self._generate_signed_url(blob_name)
     
+    def refresh_tryon_url(self, url, user_id):
+        from urllib.parse import urlparse, unquote
+        path = unquote(urlparse(url).path)
+        prefix = f"users/{user_id}/tryon-results/"
+        if prefix not in path:
+            return None
+        name = prefix + path.split(prefix, 1)[1]
+        result_id = name[len(prefix):].removesuffix('.png')
+        try:
+            uuid.UUID(result_id)
+        except ValueError:
+            return None
+        if self.bucket is None:
+            return _memory_signed_urls.get(name) if name in _memory_files else None
+        return self._generate_signed_url(name) if self.bucket.blob(name).exists() else None
+
+    async def upload_avatar_candidate(self, image_bytes, user_id):
+        candidate_id = str(uuid.uuid4())
+        name = f"users/{user_id}/avatar-candidates/{candidate_id}.png"
+        if self.bucket is None:
+            if not settings.ALLOW_DEV_AUTH_BYPASS:
+                raise RuntimeError("Avatar storage unavailable")
+            _memory_files[name] = image_bytes
+            url = f"/api/mock-gcs/{name}"
+            _memory_signed_urls[name] = url
+        else:
+            blob = self.bucket.blob(name)
+            blob.metadata = {"user_id": user_id}
+            blob.upload_from_string(image_bytes, content_type="image/png")
+            url = self._generate_signed_url(name)
+        return candidate_id, url
+
+    async def activate_avatar_candidate(self, user_id, candidate_id):
+        name = f"users/{user_id}/avatar-candidates/{candidate_id}.png"
+        if self.bucket is None:
+            if not settings.ALLOW_DEV_AUTH_BYPASS:
+                raise RuntimeError("Avatar storage unavailable")
+            if name not in _memory_files:
+                raise FileNotFoundError(name)
+            data = _memory_files[name]
+        else:
+            blob = self.bucket.blob(name)
+            if not blob.exists():
+                raise FileNotFoundError(name)
+            data = blob.download_as_bytes()
+        # Candidate is retained to make activation retries possible. No mutation of
+        # the current avatar occurs until the candidate has been read successfully.
+        return await self.upload_avatar(data, user_id)
+
     async def upload_tryon_result(
         self,
         image_bytes: bytes,
         user_id: str,
         garment_ids: Optional[List[str]] = None,
         garment_categories: Optional[List[str]] = None,
+        avatar_revision: str = "",
     ) -> str:
         """
         Upload a try-on result image to GCS.
@@ -267,6 +317,7 @@ class StorageService:
         metadata = {
             "user_id": user_id,
             "result_id": result_id,
+            "avatar_revision": avatar_revision,
             "garment_ids": ",".join(garment_ids or []),
             "garment_categories": ",".join(garment_categories or []),
             "favorite": "false",
@@ -540,6 +591,7 @@ class StorageService:
     def _format_look_metadata(metadata: dict) -> dict:
         """Normalize persisted string metadata for API clients."""
         return {
+            "avatar_revision": metadata.get("avatar_revision") or None,
             "created_at": metadata.get("created_at") or None,
             "favorite": str(metadata.get("favorite", "false")).lower() == "true",
             "occasion": metadata.get("occasion") or None,

@@ -8,7 +8,7 @@ import time
 import uuid
 
 from app.config import get_settings
-from app.routers import analytics, garment, avatar, tryon, profile, outfit, extension
+from app.routers import analytics, garment, avatar, tryon, profile, outfit, extension, closet
 from app.logging_config import setup_logging, get_logger
 from app.middleware.auth import AuthMiddleware
 from app.services.auth import initialize_firebase
@@ -147,3 +147,5 @@ async def serve_mock_gcs(blob_name: str):
         media_type = "application/json"
         
     return Response(content=file_bytes, media_type=media_type)
+
+app.include_router(closet.router, prefix="/api", tags=["Closet"])
