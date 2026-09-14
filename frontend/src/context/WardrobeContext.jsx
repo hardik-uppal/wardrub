@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { useAuth } from './AuthContext'
 import { buildMultiTryOnGarments } from '../utils/tryOn'
 import { trackActivationEvent } from '../utils/analytics'
+import { prepareClothingPhoto } from '../utils/preparePhoto'
 import { validateStylePhotos } from '../utils/styleAnalysis'
 import { createReadCache } from '../utils/readCache'
 
@@ -199,12 +200,14 @@ function WardrobeSession({ children }) {
   // Process uploaded image - AI detects and creates garments from clothes in image
   const processUploadedClothes = async (file) => {
     setIsLoading(true)
-    setLoadingMessage('Adding your clothes…')
+    setLoadingMessage('Preparing your photo…')
     setError(null)
 
     try {
+      const prepared = await prepareClothingPhoto(file)
+      setLoadingMessage('Adding your clothes…')
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', prepared)
 
       const response = await authFetch(`${API_URL}/api/process-uploaded-clothes`, {
         method: 'POST',
