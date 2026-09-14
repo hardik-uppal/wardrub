@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useWardrobe } from '../context/WardrobeContext'
 import { isPhotoFile, PHOTO_ACCEPT } from '../utils/imageUploads'
+import { MAX_SOURCE_BYTES } from '../utils/preparePhoto'
 import UploadPreview from './UploadPreview'
 import Dialog from './Dialog'
 
 const MAX_PHOTOS = 5
-const MAX_BYTES = 10 * 1024 * 1024
 
 export default function GalleryUpload({ onDone }) {
   const { processUploadedClothes, isLoading } = useWardrobe()
@@ -99,11 +99,11 @@ export default function GalleryUpload({ onDone }) {
     if (
       files.some(
         (file) =>
-          file.size === 0 || file.size > MAX_BYTES || !isPhotoFile(file),
+          file.size === 0 || file.size > MAX_SOURCE_BYTES || !isPhotoFile(file),
       )
     ) {
       setError(
-        'Choose JPEG, PNG, WebP, HEIC, or HEIF files between 1 byte and 10 MB each.',
+        'Choose JPEG, PNG, WebP, HEIC, or HEIF files between 1 byte and 25 MB each.',
       )
       return
     }

@@ -37,4 +37,4 @@ Last updated: 2026-09-11. Scope: style analysis state and onboarding.
 
 ## One-photo follow-up — 2026-09-13
 
-- processUploadedClothes stores additive name/fit_observation. Uses one truthful pending message, with no timed synthetic progress stages for this endpoint. Other avatar/try-on contracts unchanged.
+- processUploadedClothes stores additive name/fit_observation. Uses real preparation/addition stages, with no timed synthetic progress. Before multipart submission it calls prepareClothingPhoto: browser-decodable large images resize to 2048px JPEG, source cap 25 MB, outgoing cap 10 MB. Undecodable originals <=10 MB retain bytes/MIME for server fallback; high-resolution unsupported HEIC can still hit server's 20 MP limit. Other avatar/style/try-on contracts unchanged. See docs/progress/client-photo-resize-PROGRESS.md for scope and unverified device behavior.
