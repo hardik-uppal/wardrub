@@ -50,6 +50,14 @@ Use module-memory before editing backend/app/services and update memory after th
 | `image-edit-service/AGENT_MEMORY.md` | Image edit microservice overview | planned |
 | `extension/AGENT_MEMORY.md` | Chrome extension architecture | planned after extension exists |
 
+## Product Direction
+
+- `docs/product/WARDRUB_MISSION.md`: Wardrub prioritizes effortless daily outfit
+  decisions and trustworthy closet management over generated fashion content.
+- `docs/product/RECOMMENDER_STRATEGY.md`: proposed cold-start, preference learning,
+  availability/laundry state, evaluation and staged recommender roadmap. This is
+  a design proposal; do not assume these state/learning capabilities already exist.
+
 ## Recommended Mapping Order
 
 1. `backend/AGENT_MEMORY.md`
